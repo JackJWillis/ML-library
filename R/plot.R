@@ -86,7 +86,7 @@ ROC.curve.1.kfold = function(kfold,cutoff,only_lines = FALSE,col="grey"){
 
 #####OLD
 #Scoring curve 1 assumes that the original threshold is stuck to when distributing funds
-scoring.curve.1 =function(Yreal,Ypred,){
+scoring.curve.1 =function(Yreal,Ypre){
   npred=ncol(Ypred)
   nobs=nrow(Ypred)
   y_min = min(Yreal)
