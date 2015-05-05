@@ -1,4 +1,4 @@
-Package: ML-library
+Package: MLlibrary
 Type: Package
 Title: What the package does (short line)
 Version: 1.0
@@ -9,21 +9,21 @@ Description: More about what it does (maybe more than one line)
 License: What license is it under?
 LazyLoad: yes
 Imports:
-    xlsx
-    reshape2
-    ggplot2
-    GGally
-    vcd
-    glmnet
-    devtools
-    leaps
-    gam
-    tree
-    randomForest
-    party
-    rgdal
-    scales
-    ggmap
-    dplyr
-    Cairo
-    maptools
+  xlsx,
+  reshape2,
+  ggplot2,
+  GGally,
+  vcd,
+  glmnet,
+  devtools,
+  leaps,
+  gam,
+  tree,
+  randomForest,
+  party,
+  rgdal,
+  scales,
+  ggmap,
+  dplyr,
+  Cairo,
+  maptools,
