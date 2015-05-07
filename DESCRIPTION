@@ -17,6 +17,7 @@ Imports:
   GGally,
   ggmap,
   ggplot2,
+  magrittr,
   maptools,
   party,
   randomForest,
