@@ -24,21 +24,18 @@ standardize_x  <-  function(yx) {
 
 ridge_predict <- function(x_train, y_train, x_test) {
   fit <- glmnet::cv.glmnet(x_train, y_train, alpha=0)
-  print(sum(coefficients(fit), na.rm=TRUE))
   predict(fit, x_test)
 }
 
 
 lasso_predict <- function(x_train, y_train, x_test) {
   fit <- glmnet::cv.glmnet(x_train, y_train, alpha=1)
-  print(sum(coefficients(fit), na.rm=TRUE))
   predict(fit, x_test)
 }
 
 
 least_squares_predict <- function(x_train, y_train, x_test) {
   fit <- glmnet::glmnet(x_train, y_train, lambda=0)
-  print(sum(coefficients(fit), na.rm=TRUE))
   predict(fit, x_test)
 }
 
