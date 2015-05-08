@@ -3,10 +3,6 @@
 ### designed to be harmonized
 #############
 
-library(glmnet)  
-library(magrittr)
-
-
 # Data processing ---------------------------
 
 #' Standardize a dataset so that predictor variables have unit variance.
@@ -27,20 +23,23 @@ standardize_x  <-  function(yx) {
 # Linear models ---------------------------
 
 ridge_predict <- function(x_train, y_train, x_test) {
-  glmnet::cv.glmnet(x_train, y_train, alpha=0) %>%
-    predict(x_test)
+  fit <- glmnet::cv.glmnet(x_train, y_train, alpha=0)
+  print(sum(coefficients(fit), na.rm=TRUE))
+  predict(fit, x_test)
 }
 
 
 lasso_predict <- function(x_train, y_train, x_test) {
-  glmnet::cv.glmnet(x_train, y_train, alpha=1) %>%
-    predict(x_test)
+  fit <- glmnet::cv.glmnet(x_train, y_train, alpha=1)
+  print(sum(coefficients(fit), na.rm=TRUE))
+  predict(fit, x_test)
 }
 
 
 least_squares_predict <- function(x_train, y_train, x_test) {
-  glmnet::glmnet(x_train, y_train, lambda=0) %>%
-    predict(x_test)
+  fit <- glmnet::glmnet(x_train, y_train, lambda=0)
+  print(sum(coefficients(fit), na.rm=TRUE))
+  predict(fit, x_test)
 }
 
 
