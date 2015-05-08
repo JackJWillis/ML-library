@@ -90,56 +90,13 @@ create_dataset <- function(year, remove_missing=TRUE) {
 
 # Run analysis ---------------------------
 
-# 08
-
-# tanzania_08_pc <- create_dataset(2008)
 tz08 <- create_dataset(2008)
-x <- tz08[, names(tz08) != "lconsPC"]
-y <- tz08[, names(tz08) == "lconsPC"]
+x <- model.matrix(lconsPC ~ ., tz08)
+y <- tz08[rownames(x), "lconsPC"]
 k <- 10
-ridge_mse <- kfold(k, ridge_predict, x, y)
-print(paste(c("Ridge MSE: ", ridge_mse)))
-lasso_mse <- kfold(k, ride_predict, x, y)
-print(paste(c("Lasso MSE: ", lasso_mse)))
-least_squares_mse <- kfold(k, ride_predict, x, y)
-print(paste(c("Least Squares MSE: ", least_squares_mse)))
-
-
-
-# # Normal version
-# yx.08 <- data.frame(y=tanzania_08_pc$lconsPC, x=tanzania_08_pc[,covariates.all])
-# 
-# #Model Matrix version
-# yx.MM.08 <- data.frame(y=tanzania_08_pc$lconsPC, x=model.matrix(lconsPC~.,tanzania_08_pc))
-# 
-# set.seed(1)      
-# train <- sample(1:nrow(yx.08), nrow(yx.08) / 2)
-# test <- (-train)
-# # standardizing x-variables - only needed for MM version, which goes to Lasso and Ridge
-# yx.MM.08 <- standardize.x(yx.MM.08)
-# 
-# yx.train.08 <- yx.08[train,]
-# yx.test.08 <- yx.08[test,]
-# 
-# yx.MM.train.08 <- yx.MM.08[train,]
-# yx.MM.test.08 <- yx.MM.08[test,]
-# 
-# ridge.08.08 <-ridge.predict.kfold(yx.MM.08,10,1)
-# lasso.08.08 <-lasso.predict.kfold(yx.MM.08,10,1)
-# 
-# temp <- reg.predict(yx.train.08,yx.test.08,c("x.wall_mat","x.toilet","x.children"))
-# reg.08.08 <- reg.predict.kfold(yx.08,10,1,c("x.wall_mat","x.toilet","x.children"))
-# 
-# temp <-tree.predict(yx.train.08,yx.test.08)
-# tree.08.08 <-tree.predict.kfold(yx.08,10,1)
-# 
-# temp <-regfit.predict(yx.train.08,yx.test.08,20)
-# regfit.08.08 <- regfit.predict.kfold(yx.MM.08,10,1,20)
-# 
-# scoring.curve.1.kfold(ridge.08.08)
-# 
-# par( mfrow = c( 2, 2 ) )
-# ROC.curve.1.kfold(ridge.08.08,12.5)
-# ROC.curve.1.kfold(lasso.08.08,12.5)
-# ROC.curve.1.kfold(regfit.08.08,12.5)
-# ROC.curve.1.kfold(tree.08.08,12.5)
+ridge_mses <- kfold(k, ridge_predict, y, x)
+print(paste("Ridge MSE:", mean(ridge_mses), var(ridge_mses)))
+lasso_mses <- kfold(k, lasso_predict, y, x)
+print(paste("Lasso MSE: ", mean(lasso_mses), ', ', var(lasso_mses)))
+least_squares_mses <- kfold(k, least_squares_predict, y, x)
+print(paste("Least Squares MSE: ", mean(least_squares_mses), ', ', var(least_squares_mses)))

@@ -28,131 +28,35 @@ standardize_x  <-  function(yx) {
 
 ridge_predict <- function(x_train, y_train, x_test) {
   glmnet::cv.glmnet(x_train, y_train, alpha=0) %>%
-    glmnet::predict_linear(x_test)
+    predict(x_test)
 }
 
 
 lasso_predict <- function(x_train, y_train, x_test) {
   glmnet::cv.glmnet(x_train, y_train, alpha=1) %>%
-    glmnet::predict_linear(x_test)
+    predict(x_test)
 }
 
 
 least_squares_predict <- function(x_train, y_train, x_test) {
-  glmnet::cv.glmnet(x_train, y_train, lambda=0) %>%
-    glmnet::predict_linear(x_test)
+  glmnet::glmnet(x_train, y_train, lambda=0) %>%
+    predict(x_test)
 }
 
 
 
 # K fold validation ---------------------------
 
-kfold <- function(k, predfun, x, y, seed=0) {
-  y <- y[[1]]
-  x <- data.matrix(x)
+kfold <- function(k, predfun, y, x, seed=0) {
   set.seed(seed)
   folds <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
-  residuals <- sapply(1:k, function (k) {
-    y[folds == k] - predfun(x[folds != k], y[folds != k], x[folds == k])
+  deltas <- sapply(1:k, function (k) {
+    y[folds == k] - predfun(x[folds != k, ], y[folds != k], x[folds == k, ])
   })
-  mean(residuals ** 2)
+  sapply(deltas, function(ds) {mean(ds ** 2) })
 }
 
 
-# ridge.predict = function(x_train,y_train,x_test,y_test){
-#   grid<-10^seq(10,-2,length=100)
-#   Ridge.mod<-glmnet(x_train,y_train,alpha=0,lambda=grid,thresh=1e-12)
-#   cv.out<-cv.glmnet(x_train,y_train,alpha=0)
-#   bestlam<-cv.out$lambda.min
-#   pred<-predict(Ridge.mod,s=bestlam,newx=x_test)
-#   coef<-predict(Ridge.mod,s=bestlam,type="coefficients")
-#   MSE<-mean((pred-y_test)^2)
-#   out<-data.frame(y_pred=pred,y_real=y_test)
-#   #This won't assign name y_pred, don't know why. Hence the following
-#   names(out)[1]<-"y_pred"
-#   ridge<-list(out=out,coef=coef,MSE=MSE,bestlam=bestlam)
-#   return(ridge)
-# }
-# 
-# #Function which will run cross validated output on whole data
-# ridge.predict.kfold = function(yx,k,s){
-#   set.seed(s) 
-#   y <- yx[[1]]
-#   x <- data.matrix(yx[,-1])
-#   folds<-sample(1:k,nrow(x),replace=TRUE)
-#   ridge.folds <- list()
-#   for(j in 1:k){
-#     ridge.folds[[j]] <- ridge.predict(x[folds!=j,],y[folds!=j],x[folds==j,],y[folds==j])
-#     names(ridge.folds)[j] <- paste("fold_",j,sep="")
-#     #Following is to add indexing information for the y's within the folds
-#     ridge.folds[[j]]$indices <- which(folds==j)
-#   }
-#   return(ridge.folds)
-# }
-# 
-# 
-# ### Lasso
-# 
-# #Assumes independent variables already in model matrix form
-# 
-# lasso.predict = function(x_train,y_train,x_test,y_test){
-#   grid<-10^seq(10,-2,length=100)
-#   Lasso.mod<-glmnet(x_train,y_train,alpha=1,lambda=grid)
-#   cv.out<-cv.glmnet(x_train,y_train,alpha=1)
-#   bestlam<-cv.out$lambda.min
-#   pred<-predict(Lasso.mod,s=bestlam,newx=x_test)
-#   coef<-predict(Lasso.mod,s=bestlam,type="coefficients")
-#   MSE<-mean((pred-y_test)^2)
-#   out<-data.frame(y_pred=pred,y_real=y_test)
-#   #This won't assign name y_pred, don't know why. Hence the following
-#   names(out)[1]<-"y_pred"  
-#   lasso<-list("out"=out,"coef"=coef,"MSE"=MSE,"bestlam"=bestlam)
-#   return(lasso)
-# }
-# 
-# #Function which will run cross validated output on whole data
-# lasso.predict.kfold = function(yx,k,s){
-#   set.seed(s) 
-#   y <- yx[[1]]
-#   x <- data.matrix(yx[,-1])
-#   folds=sample(1:k,nrow(x),replace=TRUE)
-#   lasso.folds <- list()
-#   for(j in 1:k){
-#     lasso.folds[[j]] <- lasso.predict(x[folds!=j,],y[folds!=j],x[folds==j,],y[folds==j])
-#     names(lasso.folds)[j] <- paste("fold_",j,sep="")
-#   }
-#   return(lasso.folds)
-# }
-# 
-# ### Straight regression
-# 
-# reg.predict = function(yx_train,yx_test,varlist){
-#   #varlist is a vector of names of variables to be included in regression
-#   yx_train_red <- cbind(yx_train[,1],yx_train[,varlist])
-#   yx_test_red <- cbind(yx_test[,1],yx_test[,varlist])
-#   names(yx_train_red)[1]<-"Y"
-#   fit<-lm(Y~.,data=yx_train_red)
-#   pred<-predict(fit,newdata=yx_test_red[,-1])
-#   coef<-fit$coefficients
-#   MSE=mean((pred-yx_test_red[[1]])^2)
-#   out=data.frame(y_pred=pred,y_real=yx_test_red[[1]])
-#   reg=list(out=out,coef=coef,MSE=MSE)
-#   return(reg)
-# }
-# 
-# #Function which will run cross validated output on whole data
-# reg.predict.kfold = function(yx,k,s,varlist){
-#   set.seed(s) 
-#   folds=sample(1:k,nrow(yx),replace=TRUE)
-#   reg.folds <- list()
-#   for(j in 1:k){
-#     reg.folds[[j]] <- reg.predict(yx[folds!=j,],yx[folds==j,],varlist)
-#     names(reg.folds)[j] <- paste("fold_",j,sep="")
-#   }
-#   return(reg.folds)
-# }
-# 
-# 
 # ### Stepwise regression
 # 
 # library(leaps)
