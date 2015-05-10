@@ -5,94 +5,98 @@
 ## using baseline covariates, both for the baseline year and future years
 #####################################################################
 
-#rm(list=ls())
-
-setwd("C:/Users/Jack/Box Sync/Poverty Targeting/LSMS_ISA/Tanzania/")
-data_in = "intermediate/data/intermediate_tanzania_for_R_1.dta"
-var_table_tanzania = "variable_tables/variable_table_tanzania.xlsx"
-
-
-####################################################################
-### Setting up the data
-####################################################################
-
-### Import data
-
+library(magrittr)
 library(foreign)
-Tanzania.panel <- read.dta(data_in)
-names(Tanzania.panel)
-
-
-### Creating variable lists
-
 library(xlsx)
-Tanzania.var_table <- read.xlsx(var_table_tanzania,sheetName="Var (Final)")
 
-#Just using priority 1 variables for the time being
-covariates.categorical = as.vector(Tanzania.var_table$var_name[Tanzania.var_table$type=="Categorical"
-                                                               &Tanzania.var_table$priority==1&Tanzania.var_table$exists_2008_09==1])
-covariates.cardinal = as.vector(Tanzania.var_table$var_name[Tanzania.var_table$type=="Cardinal"
-                                                            &Tanzania.var_table$priority==1&Tanzania.var_table$exists_2008_09==1])
-covariates.yesno = as.vector(Tanzania.var_table$var_name[Tanzania.var_table$type=="Yes/No"
-                                                         &Tanzania.var_table$priority==1&Tanzania.var_table$exists_2008_09==1])
-covariates.all = c(covariates.categorical,covariates.cardinal,covariates.yesno)
+library(MLlibrary)
 
 
-### Ensuring R has casted the variables as it should have
 
-str(Tanzania.panel[c(covariates.categorical)])
-Tanzania.panel[,c(covariates.categorical)] <- lapply(Tanzania.panel[,c(covariates.categorical)], as.factor)
-str(Tanzania.panel[c(covariates.categorical)])
-#It worked!
-Tanzania.panel[,c(covariates.cardinal)] <- lapply(Tanzania.panel[,c(covariates.cardinal)], as.numeric)
-Tanzania.panel[,c(covariates.yesno)] <- lapply(Tanzania.panel[,c(covariates.yesno)], as.logical)
-#Note, may wish to recode some of the categoricals as ordered and the yes/no as categorical.
+DATA_PATH = "inst/extdata/intermediate_tanzania_for_R_1.dta"
+VARIABLE_TABLE_PATH = "inst/extdata/variable_table_tanzania.xlsx"
+
+# setwd("C:/Users/Jack/Box Sync/Poverty Targeting/LSMS_ISA/Tanzania/")
+# data_in = "intermediate/data/intermediate_tanzania_for_R_1.dta"
+# var_table_tanzania = "variable_tables/variable_table_tanzania.xlsx"
 
 
-### Creating new dependent variables
+# Load data ---------------------------
 
-Tanzania.panel$lconsPC = log(Tanzania.panel$expmR %/% Tanzania.panel$hhsize) 
-Tanzania.panel$lconsPAE = log(Tanzania.panel$expmR %/% Tanzania.panel$adulteq)
+load_data <- function() {
+  read.dta(DATA_PATH)
+}
 
+add_covariates <- function(output_df, tanzania_panel) {
+  feature_info <- read.xlsx(VARIABLE_TABLE_PATH, sheetName="Var (Final)")
 
-#08
+  # Select features and determine feature types
+  # Just using priority one variables for now
+  is_priority_one <- feature_info$priority == 1
+  exists_2008_09 <- feature_info$exists_2008_09 == 1
+  select_names_by_type <- function(type) {
+    is_desired_type <- feature_info$type == type
+    as.vector(feature_info$var_name[is_priority_one & exists_2008_09 & is_desired_type])
+  }
+  
+  covariates_categorical <- select_names_by_type("Categorical")
+  covariates_cardinal <- select_names_by_type("Cardinal")
+  covariates_yesno <- select_names_by_type("Yes/No")
+  covariates <- c(covariates_categorical, covariates_cardinal, covariates_yesno)
 
-#Temporary fix for missing variables (algorithms don't run with them)
-Tanzania.08.PC <- Tanzania.panel[Tanzania.panel$year==2008&complete.cases(Tanzania.panel),c("lconsPC",covariates.all)]
+  # Add features to output
+  output_df[, c(covariates_categorical)] <- tanzania_panel[, c(covariates_categorical)]
+  output_df[, c(covariates_cardinal)] <- tanzania_panel[, c(covariates_cardinal)]
+  output_df[, c(covariates_yesno)] <- tanzania_panel[, c(covariates_yesno)]
+  
+  # Make sure features are cast correctly
+  output_df[, c(covariates_categorical)] <- lapply(output_df[, c(covariates_categorical)], as.factor)
+  output_df[, c(covariates_cardinal)] <- lapply(output_df[, c(covariates_cardinal)], as.numeric)
+  # Note, may wish to recode some of the categoricals as ordered and the yes/no as categorical.
+  output_df[, c(covariates_yesno)] <- lapply(output_df[, c(covariates_yesno)], as.logical)
 
-#Normal version
-yx.08 <- data.frame(y=Tanzania.08.PC$lconsPC, x=Tanzania.08.PC[,covariates.all])
-#Model Matrix version
-yx.MM.08 <- data.frame(y=Tanzania.08.PC$lconsPC, x=model.matrix(lconsPC~.,Tanzania.08.PC))
+  output_df
+}
 
-set.seed(1)      
-train=sample(1:nrow(yx.08), nrow(yx.08)/2)
-test=(-train)
-#standardizing x-variables - only needed for MM version, which goes to Lasso and Ridge
-yx.MM.08<-standardize.x(yx.MM.08)
+add_target_per_capita <- function(output_df, panel_df) {
+  output_df$lconsPC <- log(panel_df$expmR / panel_df$hhsize) 
+  output_df
+}
 
-yx.train.08=yx.08[train,]
-yx.test.08=yx.08[test,]
+add_target_adult_equivalent <- function(output_df, panel_df) {
+  output_df$lconsPAE <- log(panel_df$expmR %/% panel_df$adulteq)
+  output_df
+}
 
-yx.MM.train.08=yx.MM.08[train,]
-yx.MM.test.08=yx.MM.08[test,]
+remove_missing_data <- function(output_df) {
+  output_df[complete.cases(output_df), ]
+}
 
-ridge.08.08 <-ridge.predict.kfold(yx.MM.08,10,1)
-lasso.08.08 <-lasso.predict.kfold(yx.MM.08,10,1)
+select_year <- function(output_df, panel_df, year) {
+  output_df[panel_df$year == year, ]
+}
 
-temp <- reg.predict(yx.train.08,yx.test.08,c("x.wall_mat","x.toilet","x.children"))
-reg.08.08 <- reg.predict.kfold(yx.08,10,1,c("x.wall_mat","x.toilet","x.children"))
+create_dataset <- function(year, remove_missing=TRUE) {
+  tanzania_panel <- load_data()
+  df <-
+    matrix(nrow=nrow(tanzania_panel), ncol=0) %>%
+    data.frame() %>%
+    add_covariates(tanzania_panel) %>%
+    add_target_per_capita(tanzania_panel) %>%
+    select_year(tanzania_panel, year) 
+  if (remove_missing) remove_missing_data(df)
+  df
+}
 
-temp <-tree.predict(yx.train.08,yx.test.08)
-tree.08.08 <-tree.predict.kfold(yx.08,10,1)
+# Run analysis ---------------------------
 
-temp <-regfit.predict(yx.train.08,yx.test.08,20)
-regfit.08.08 <- regfit.predict.kfold(yx.MM.08,10,1,20)
-
-scoring.curve.1.kfold(ridge.08.08)
-
-par( mfrow = c( 2, 2 ) )
-ROC.curve.1.kfold(ridge.08.08,12.5)
-ROC.curve.1.kfold(lasso.08.08,12.5)
-ROC.curve.1.kfold(regfit.08.08,12.5)
-ROC.curve.1.kfold(tree.08.08,12.5)
+tz08 <- create_dataset(2008)
+x <- model.matrix(lconsPC ~ ., tz08)
+y <- tz08[rownames(x), "lconsPC"]
+k <- 10
+ridge_mses <- kfold(k, ridge_predict, y, x)
+print(paste("Ridge MSE:", mean(ridge_mses), var(ridge_mses)))
+lasso_mses <- kfold(k, lasso_predict, y, x)
+print(paste("Lasso MSE: ", mean(lasso_mses), ', ', var(lasso_mses)))
+least_squares_mses <- kfold(k, least_squares_predict, y, x)
+print(paste("Least Squares MSE: ", mean(least_squares_mses), ', ', var(least_squares_mses)))
