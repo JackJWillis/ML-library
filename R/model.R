@@ -20,7 +20,9 @@ standardize_x  <-  function(yx) {
   yx
 }
 
+
 # Linear models ---------------------------
+
 
 ridge_predict <- function(x_train, y_train, x_test) {
   fit <- glmnet::cv.glmnet(x_train, y_train, alpha=0)
@@ -46,10 +48,9 @@ least_squares_predict <- function(x_train, y_train, x_test) {
 kfold <- function(k, predfun, y, x, seed=0) {
   set.seed(seed)
   folds <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
-  deltas <- sapply(1:k, function (k) {
-    y[folds == k] - predfun(x[folds != k, ], y[folds != k], x[folds == k, ])
-  })
-  sapply(deltas, function(ds) {mean(ds ** 2) })
+  preds <- unlist(sapply(1:k, function (k) predfun(x[folds != k, ], y[folds != k], x[folds == k, ])))
+  trues <- unlist(sapply(1:k, function(k) y[folds == k]))
+  data.frame(predicted=preds, true=trues, fold=folds)
 }
 
 
