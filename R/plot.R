@@ -2,8 +2,47 @@
 ### This file contains graphing functions for plotting the output from the ML_functions
 #############
 
-plot_scatter <- function(kfold_results) {
-  ggplot2::ggplot(kfold_results, ggplot2::aes(x=true, y=predicted)) +
+check_ids_match <- function(dfs) {
+  ids <- lapply(dfs, function(df) df$id)
+  all(Reduce(equals, ids))
+}
+
+check_trues_match <- function(dfs) {
+  trues <- lapply(dfs, function(df) df$true)
+  all(Reduce(all.equal, trues))
+}
+
+join_dfs <- function(dfs, keep_fold=FALSE) {
+  stopifnot(check_ids_match(dfs))
+  stopifnot(check_trues_match(dfs))
+  df <- data.frame(matrix(nrow=nrow(dfs[[1]]), ncol=0))
+  df$id <- dfs[[1]]$id
+  df$true <- dfs[[1]]$true
+  
+  rename_columns <- function(name, df) {
+    new_df <- data.frame(matrix(nrow=nrow(df), ncol=0))
+    new_df[, paste(name, "predicted", sep="_")] <- df$predicted
+    if(keep_fold) {
+      new_df[, paste(name, "fold", sep="_")] <- df$fold
+    }
+    new_df[, "id"] <- df$id
+    new_df
+  }
+
+  join_two <- function(df1, df2) {
+    merge(df1, df2, by="id")
+  }
+
+  renamed_dfs <- mapply(rename_columns, names(dfs), dfs, SIMPLIFY=FALSE)
+  Reduce(join_two, renamed_dfs, init=df)
+}
+
+
+plot_scatter <- function(...) {
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  melted <- reshape2::melt(joined, id=c("id", "true"))
+  ggplot2::ggplot(melted, ggplot2::aes(x=true, y=value, color=variable)) +
     ggplot2::geom_point(alpha=0.5)
 }
 
