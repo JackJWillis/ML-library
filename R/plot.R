@@ -4,12 +4,14 @@
 
 check_ids_match <- function(dfs) {
   ids <- lapply(dfs, function(df) df$id)
-  all(Reduce(equals, ids))
+  all_equal <- lapply(ids, function(id_list) id_list == ids[[1]])
+  all(unlist(all_equal))
 }
 
 check_trues_match <- function(dfs) {
   trues <- lapply(dfs, function(df) df$true)
-  all(Reduce(all.equal, trues))
+  all_equal <- lapply(trues, function(trues_list) all.equal(trues_list, trues[[1]]))
+  all(unlist(all_equal))
 }
 
 join_dfs <- function(dfs, keep_fold=FALSE) {
