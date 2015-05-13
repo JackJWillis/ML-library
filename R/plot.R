@@ -63,10 +63,24 @@ plot_density<- function(...) {
 
 #' Produce an ROC curve which plots a given method's sensitivity/specificity with respect
 #' a given poverty threshold.
-plot_roc <- function(kfold_results, threshold) {
-  response <- kfold_results$true < threshold
-  roc <- pROC::roc(response, kfold_results$predicted)
-  plot(roc)
+plot_roc <- function(THRESHOLD, ...) {
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  joined$response <- joined$true < THRESHOLD
+  joined$id <- NULL
+  joined$true <- NULL
+  roc_formula <- as.formula(paste("response ~", paste(names(dfs), collapse="+")))
+  rocs <- pROC::roc(roc_formula, data=joined, plot=FALSE)
+  roc_to_df <- function(name, roc) {
+    data.frame(sensitivity=roc$sensitivities, specificity=roc$specificities, method=name)
+  }
+  roc_dfs <- mapply(roc_to_df, names(rocs), rocs, SIMPLIFY=FALSE)
+  roc_df <- do.call("rbind", roc_dfs)
+  ggplot2::ggplot(roc_df, ggplot2::aes(x=specificity, y=sensitivity, color=method)) +
+    ggplot2::geom_step() +
+    ggplot2::scale_x_reverse() +
+    ggplot2::geom_abline(intercept=1, slope=1, alpha=0.5) 
+  # TODO display auc
 }
 
 
