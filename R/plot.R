@@ -53,9 +53,11 @@ plot_scatter <- function(...) {
     ggplot2::geom_point(alpha=0.5)
 }
 
-plot_density<- function(kfold_results) {
-  melted <- reshape2::melt(kfold_results, id=c("fold"))
-  ggplot2::ggplot(melted, ggplot2::aes(x=value, fill=variable)) +
+plot_density<- function(...) {
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  melted <- reshape2::melt(joined, variable.name="method", id=c("id"))
+  ggplot2::ggplot(melted, ggplot2::aes(x=value, fill=method)) +
     ggplot2::geom_density(alpha=0.5)
 }
 
