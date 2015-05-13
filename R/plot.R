@@ -70,11 +70,6 @@ plot_roc <- function(kfold_results, threshold) {
 }
 
 
-get_cumulative <- function(kfold_results, threshold) {
-  
-}
-
-
 #' If we target N people, what fraction of the true poor would receive funds?
 #' True Positives / Total Positives
 plot_accuracy <- function(kfold_results, threshold, point_count=20) {
