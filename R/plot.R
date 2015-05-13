@@ -13,15 +13,20 @@ check_trues_match <- function(dfs) {
 }
 
 join_dfs <- function(dfs, keep_fold=FALSE) {
-  stopifnot(check_ids_match(dfs))
-  stopifnot(check_trues_match(dfs))
+  if(length(dfs) != 1) {
+    stopifnot(check_ids_match(dfs))
+    stopifnot(check_trues_match(dfs))
+  }
+  if(is.null(names(dfs))) {
+    names(dfs) <- seq_len(length(dfs))
+  }
   df <- data.frame(matrix(nrow=nrow(dfs[[1]]), ncol=0))
   df$id <- dfs[[1]]$id
   df$true <- dfs[[1]]$true
   
   rename_columns <- function(name, df) {
     new_df <- data.frame(matrix(nrow=nrow(df), ncol=0))
-    new_df[, paste(name, "predicted", sep="_")] <- df$predicted
+    new_df[, name] <- df$predicted
     if(keep_fold) {
       new_df[, paste(name, "fold", sep="_")] <- df$fold
     }
@@ -41,8 +46,8 @@ join_dfs <- function(dfs, keep_fold=FALSE) {
 plot_scatter <- function(...) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  melted <- reshape2::melt(joined, id=c("id", "true"))
-  ggplot2::ggplot(melted, ggplot2::aes(x=true, y=value, color=variable)) +
+  melted <- reshape2::melt(joined, value.name="predicted", variable.name="method", id=c("id", "true"))
+  ggplot2::ggplot(melted, ggplot2::aes(x=true, y=predicted, color=method)) +
     ggplot2::geom_point(alpha=0.5)
 }
 
