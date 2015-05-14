@@ -2,6 +2,66 @@
 ### This file contains graphing functions for plotting the output from the ML_functions
 #############
 
+plot_scatter <- function(kfold_results) {
+  ggplot2::ggplot(kfold_results, ggplot2::aes(x=true, y=predicted)) +
+    ggplot2::geom_point(alpha=0.5)
+}
+
+plot_density<- function(kfold_results) {
+  melted <- reshape2::melt(kfold_results, id=c("fold"))
+  ggplot2::ggplot(melted, ggplot2::aes(x=value, fill=variable)) +
+    ggplot2::geom_density(alpha=0.5)
+}
+
+#' Produce an ROC curve which plots a given method's sensitivity/specificity with respect
+#' a given poverty threshold.
+plot_roc <- function(kfold_results, threshold) {
+  response <- kfold_results$true < threshold
+  roc <- pROC::roc(response, kfold_results$predicted)
+  plot(roc)
+}
+
+
+get_cumulative <- function(kfold_results, threshold) {
+  
+}
+
+
+#' If we target N people, what fraction of the true poor would receive funds?
+#' True Positives / Total Positives
+plot_accuracy <- function(kfold_results, threshold, point_count=20) {
+  N <- nrow(kfold_results)
+  plot_points <- seq(1, N, length=point_count)
+  
+  ranked <- kfold_results[order(kfold_results$predicted), ]
+  ranked$response <- ranked$true < threshold
+  ranked$coverage <- cumsum(ranked$response) / sum(ranked$response)
+  
+  cut <- ranked[plot_points, ]
+  cut$percent_population_included <- plot_points / N
+  ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=coverage)) +
+    ggplot2::geom_step()
+}
+
+
+#' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
+#' True Positives / (True Positives + False Positives)
+plot_accuracy_dollars <- function(kfold_results, threshold, point_count=20) {
+  N <- nrow(kfold_results)
+  plot_points <- seq(1, N, length=point_count)
+  
+  ranked <- kfold_results[order(kfold_results$predicted), ]
+  ranked$response <- ranked$true < threshold
+  ranked$to_true_poor <- cumsum(ranked$response) / seq(1, nrow(ranked))
+  
+  cut <- ranked[plot_points, ]
+  cut$percent_population_included <- plot_points / N
+  ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=to_true_poor)) +
+    ggplot2::geom_step()
+}
+
+
+
 
 ###Scoring curve
 

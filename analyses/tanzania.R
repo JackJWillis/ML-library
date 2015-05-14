@@ -94,9 +94,7 @@ tz08 <- create_dataset(2008)
 x <- model.matrix(lconsPC ~ ., tz08)
 y <- tz08[rownames(x), "lconsPC"]
 k <- 10
-ridge_mses <- kfold(k, ridge_predict, y, x)
-print(paste("Ridge MSE:", mean(ridge_mses), var(ridge_mses)))
-lasso_mses <- kfold(k, lasso_predict, y, x)
-print(paste("Lasso MSE: ", mean(lasso_mses), ', ', var(lasso_mses)))
-least_squares_mses <- kfold(k, least_squares_predict, y, x)
-print(paste("Least Squares MSE: ", mean(least_squares_mses), ', ', var(least_squares_mses)))
+
+ridge <- kfold(k, ridge_predict, y, x)
+lasso <- kfold(k, lasso_predict, y, x)
+least_squares <- kfold(k, least_squares_predict, y, x)
