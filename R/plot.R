@@ -86,35 +86,58 @@ plot_roc <- function(THRESHOLD, ...) {
 
 #' If we target N people, what fraction of the true poor would receive funds?
 #' True Positives / Total Positives
-plot_accuracy <- function(kfold_results, threshold, point_count=20) {
-  N <- nrow(kfold_results)
-  plot_points <- seq(1, N, length=point_count)
-  
-  ranked <- kfold_results[order(kfold_results$predicted), ]
-  ranked$response <- ranked$true < threshold
-  ranked$coverage <- cumsum(ranked$response) / sum(ranked$response)
+plot_accuracy <- function(THRESHOLD, ...) {
+  POINT_COUNT = 20
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  N <- nrow(joined)
+  plot_points <- seq(1, N, length=POINT_COUNT)
+  joined$response <- joined$true < THRESHOLD
+  true_poor <- sum(joined$response)
+
+  get_coverage <- function(method, df) {
+    cumsum(df[order(df[, method]), "response"]) / true_poor
+  }
+  ranked <- data.frame(mapply(get_cumsum, names(dfs), list(joined), SIMPLIFY=FALSE))
   
   cut <- ranked[plot_points, ]
   cut$percent_population_included <- plot_points / N
-  ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=coverage)) +
-    ggplot2::geom_step()
+  melted <- reshape2::melt(
+    cut, 
+    value.name="coverage",
+    variable.name="method",
+    id="percent_population_included")
+  ggplot2::ggplot(melted, ggplot2::aes(x=percent_population_included, y=coverage, color=method)) +
+    ggplot2::geom_step() +
+    ggplot2::geom_point()
 }
 
 
 #' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
 #' True Positives / (True Positives + False Positives)
-plot_accuracy_dollars <- function(kfold_results, threshold, point_count=20) {
-  N <- nrow(kfold_results)
-  plot_points <- seq(1, N, length=point_count)
-  
-  ranked <- kfold_results[order(kfold_results$predicted), ]
-  ranked$response <- ranked$true < threshold
-  ranked$to_true_poor <- cumsum(ranked$response) / seq(1, nrow(ranked))
+plot_accuracy_dollars <- function(THRESHOLD, ...) {
+  POINT_COUNT <- 20
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  N <- nrow(joined)
+  plot_points <- seq(1, N, length=POINT_COUNT)
+  joined$response <- joined$true < THRESHOLD
+
+  get_to_true_poor <- function(method, df) {
+    cumsum(df[order(df[, method]), "response"]) / seq(1, N)
+  }
+  ranked <- data.frame(mapply(get_to_true_poor, names(dfs), list(joined), SIMPLIFY=FALSE))
   
   cut <- ranked[plot_points, ]
   cut$percent_population_included <- plot_points / N
-  ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=to_true_poor)) +
-    ggplot2::geom_step()
+  melted <- reshape2::melt(
+    cut, 
+    value.name="to_true_poor",
+    variable.name="method",
+    id="percent_population_included")
+  ggplot2::ggplot(melted, ggplot2::aes(x=percent_population_included, y=to_true_poor, color=method)) +
+    ggplot2::geom_step() +
+    ggplot2::geom_point()
 }
 
 
