@@ -91,8 +91,7 @@ plot_roc <- function(THRESHOLD, ...) {
 
 #' If we target N people, what fraction of the true poor would receive funds?
 #' True Positives / Total Positives
-plot_accuracy <- function(THRESHOLD, ...) {
-  POINT_COUNT = 20
+plot_accuracy <- function(THRESHOLD, ..., POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   N <- nrow(joined)
@@ -120,8 +119,7 @@ plot_accuracy <- function(THRESHOLD, ...) {
 
 #' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
 #' True Positives / (True Positives + False Positives)
-plot_accuracy_dollars <- function(THRESHOLD, ...) {
-  POINT_COUNT <- 20
+plot_accuracy_dollars <- function(THRESHOLD, ..., POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   N <- nrow(joined)
