@@ -69,8 +69,13 @@ plot_roc <- function(THRESHOLD, ...) {
   joined$response <- joined$true < THRESHOLD
   joined$id <- NULL
   joined$true <- NULL
+  
   roc_formula <- as.formula(paste("response ~", paste(names(dfs), collapse="+")))
   rocs <- pROC::roc(roc_formula, data=joined, plot=FALSE)
+  if(length(dfs) == 1) {
+    rocs <- list(rocs)
+    names(rocs) <- names(dfs)
+  }
   roc_to_df <- function(name, roc) {
     data.frame(sensitivity=roc$sensitivities, specificity=roc$specificities, method=name)
   }
@@ -100,7 +105,7 @@ plot_accuracy <- function(THRESHOLD, ...) {
   }
   ranked <- data.frame(mapply(get_cumsum, names(dfs), list(joined), SIMPLIFY=FALSE))
   
-  cut <- ranked[plot_points, ]
+  cut <- ranked[plot_points, ,drop=FALSE]
   cut$percent_population_included <- plot_points / N
   melted <- reshape2::melt(
     cut, 
@@ -128,7 +133,7 @@ plot_accuracy_dollars <- function(THRESHOLD, ...) {
   }
   ranked <- data.frame(mapply(get_to_true_poor, names(dfs), list(joined), SIMPLIFY=FALSE))
   
-  cut <- ranked[plot_points, ]
+  cut <- ranked[plot_points, , drop=FALSE]
   cut$percent_population_included <- plot_points / N
   melted <- reshape2::melt(
     cut, 
