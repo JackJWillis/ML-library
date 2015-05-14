@@ -28,6 +28,7 @@ get_cumulative <- function(kfold_results, threshold) {
 
 
 #' If we target N people, what fraction of the true poor would receive funds?
+#' True Positives / Total Positives
 plot_accuracy <- function(kfold_results, threshold, point_count=20) {
   N <- nrow(kfold_results)
   plot_points <- seq(1, N, length=point_count)
@@ -44,6 +45,7 @@ plot_accuracy <- function(kfold_results, threshold, point_count=20) {
 
 
 #' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
+#' True Positives / (True Positives + False Positives)
 plot_accuracy_dollars <- function(kfold_results, threshold, point_count=20) {
   N <- nrow(kfold_results)
   plot_points <- seq(1, N, length=point_count)
