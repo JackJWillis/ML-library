@@ -19,6 +19,7 @@ Imports:
   ggplot2,
   magrittr,
   maptools,
+  pROC,
   party,
   randomForest,
   reshape2,
