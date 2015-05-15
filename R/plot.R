@@ -92,7 +92,7 @@ plot_roc <- function(THRESHOLD, ...) {
 
 plot_cumulative <- function(joined, methods, fun, threshold, y_label, display_cutoffs, point_count) {
   ranked <- data.frame(mapply(fun, methods, list(joined), SIMPLIFY=FALSE))
-  plot_points <- seq(1, nrow(joined), point_count)
+  plot_points <- seq(1, nrow(joined), nrow(joined) / point_count)
   cut <- ranked[plot_points, , drop=FALSE]
   cut$percent_population_included <- plot_points / nrow(joined) 
   melted <- reshape2::melt(cut,
