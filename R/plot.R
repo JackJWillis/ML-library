@@ -105,13 +105,15 @@ plot_cumulative <- function(joined, methods, fun, threshold, y_label, display_cu
 
   if(display_cutoffs) {
     # TODO annotate plot
-    threshold.df <- data.frame(sapply(methods, function(name) {
-      idx <- sum(joined[, name] < threshold)
-      ranked[idx, name]},
-      simplify=FALSE))
-    threshold.melted <- reshape2::melt(threshold.df, id=c())
+    threshold.df <- data.frame(
+      idx=sapply(methods, function(name) {sum(joined[, name] < threshold)}),
+      method=methods)
+    threshold.df$percent_total <- threshold.df$idx / nrow(ranked)
+    threshold.df$y <- mapply(function(idx, name) ranked[idx, name],  threshold.df[, "idx"], threshold.df[, "method"])
     p <- p +
-      ggplot2::geom_hline(data=threshold.melted, mapping=ggplot2::aes(yintercept=value, color=variable))
+      ggplot2::geom_segment(
+        data=threshold.df,
+        mapping=ggplot2::aes(y=y, x=percent_total, yend=y, xend=1., color=method))
   }
   p
 }
