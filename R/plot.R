@@ -102,7 +102,7 @@ plot_accuracy <- function(THRESHOLD, ..., POINT_COUNT=20) {
   get_coverage <- function(method, df) {
     cumsum(df[order(df[, method]), "response"]) / true_poor
   }
-  ranked <- data.frame(mapply(get_cumsum, names(dfs), list(joined), SIMPLIFY=FALSE))
+  ranked <- data.frame(mapply(get_coverage, names(dfs), list(joined), SIMPLIFY=FALSE))
   
   cut <- ranked[plot_points, ,drop=FALSE]
   cut$percent_population_included <- plot_points / N
