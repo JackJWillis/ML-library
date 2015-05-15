@@ -53,13 +53,14 @@ plot_scatter <- function(...) {
     ggplot2::geom_point(alpha=0.5)
 }
 
-plot_density<- function(...) {
+plot_density <- function(...) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   melted <- reshape2::melt(joined, variable.name="method", id=c("id"))
   ggplot2::ggplot(melted, ggplot2::aes(x=value, fill=method)) +
     ggplot2::geom_density(alpha=0.5)
 }
+
 
 #' Produce an ROC curve which plots a given method's sensitivity/specificity with respect
 #' a given poverty threshold.
@@ -89,13 +90,39 @@ plot_roc <- function(THRESHOLD, ...) {
 }
 
 
+plot_cumulative <- function(joined, methods, fun, threshold, y_label, display_cutoffs, point_count) {
+  ranked <- data.frame(mapply(fun, methods, list(joined), SIMPLIFY=FALSE))
+  plot_points <- seq(1, nrow(joined), point_count)
+  cut <- ranked[plot_points, , drop=FALSE]
+  cut$percent_population_included <- plot_points / nrow(joined) 
+  melted <- reshape2::melt(cut,
+                           variable.name="method",
+                           id="percent_population_included")
+  p <- ggplot2::ggplot(melted, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
+    ggplot2::geom_step() +
+    ggplot2::geom_point() +
+    ggplot2::labs(y = y_label)
+
+  if(display_cutoffs) {
+    # TODO annotate plot
+    threshold.df <- data.frame(sapply(methods, function(name) {
+      idx <- sum(joined[, name] < threshold)
+      ranked[idx, name]},
+      simplify=FALSE))
+    threshold.melted <- reshape2::melt(threshold.df, id=c())
+    p <- p +
+      ggplot2::geom_hline(data=threshold.melted, mapping=ggplot2::aes(yintercept=value, color=variable))
+  }
+  p
+}
+
+
 #' If we target N people, what fraction of the true poor would receive funds?
 #' True Positives / Total Positives
+#' Note that this is a reparameterization of the ROC curve
 plot_accuracy <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  N <- nrow(joined)
-  plot_points <- seq(1, N, length=POINT_COUNT)
   joined$response <- joined$true < THRESHOLD
   true_poor <- sum(joined$response)
 
@@ -107,30 +134,13 @@ plot_accuracy <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FA
   if(DISPLAY_TRUE) {
     methods <- c(methods, "true")
   }
-  ranked <- data.frame(mapply(get_coverage, methods, list(joined), SIMPLIFY=FALSE))
- 
-  cut <- ranked[plot_points, ,drop=FALSE]
-  cut$percent_population_included <- plot_points / N
-  melted <- reshape2::melt(
-    cut, 
-    value.name="coverage",
-    variable.name="method",
-    id="percent_population_included")
-  p <- ggplot2::ggplot(melted, ggplot2::aes(x=percent_population_included, y=coverage, color=method)) +
-    ggplot2::geom_step() +
-    ggplot2::geom_point()
-
-  if(DISPLAY_CUTOFFS) {
-    # TODO annotate plot
-    threshold.df <- data.frame(sapply(methods, function(name) {
-      idx <- sum(joined[, name] < THRESHOLD)
-      ranked[idx, name]},
-      simplify=FALSE))
-    threshold.melted <- reshape2::melt(threshold.df, id=c())
-    p <- p +
-      ggplot2::geom_hline(data=threshold.melted, mapping=ggplot2::aes(yintercept=value, color=variable))
-  }
-  p
+  plot_cumulative(joined=joined,
+                  methods=methods,
+                  fun=get_coverage,
+                  threshold=THRESHOLD,
+                  y_label="coverage",
+                  display_cutoffs=DISPLAY_CUTOFFS,
+                  point_count=POINT_COUNT)
 }
 
 
@@ -148,20 +158,11 @@ plot_accuracy_dollars <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CU
   }
 
   methods <- names(dfs)
-  if(DISPLAY_TRUE) {
-    methods <- c(methods, "true")
-  }
-  ranked <- data.frame(mapply(get_to_true_poor, methods, list(joined), SIMPLIFY=FALSE))
-  
-
-  cut <- ranked[plot_points, , drop=FALSE]
-  cut$percent_population_included <- plot_points / N
-  melted <- reshape2::melt(
-    cut, 
-    value.name="to_true_poor",
-    variable.name="method",
-    id="percent_population_included")
-  ggplot2::ggplot(melted, ggplot2::aes(x=percent_population_included, y=to_true_poor, color=method)) +
-    ggplot2::geom_step() +
-    ggplot2::geom_point()
+  plot_cumulative(joined=joined,
+                  methods=methods,
+                  fun=get_to_true_poor,
+                  threshold=THRESHOLD,
+                  y_label="to_true_poor",
+                  display_cutoffs=DISPLAY_CUTOFFS,
+                  point_count=POINT_COUNT)
 }
