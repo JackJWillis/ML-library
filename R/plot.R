@@ -151,12 +151,10 @@ plot_accuracy <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FA
 plot_accuracy_dollars <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  N <- nrow(joined)
-  plot_points <- seq(1, N, length=POINT_COUNT)
   joined$response <- joined$true < THRESHOLD
 
   get_to_true_poor <- function(method, df) {
-    cumsum(df[order(df[, method]), "response"]) / seq(1, N)
+    cumsum(df[order(df[, method]), "response"]) / seq(1, nrow(joined))
   }
 
   methods <- names(dfs)
