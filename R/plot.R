@@ -173,11 +173,11 @@ plot_swf <- function(..., GAMMA=10, POINT_COUNT=20) {
   joined <- join_dfs(dfs)
 
   marginal_utility <- function(consumption) consumption ^ (- GAMMA)
-  joined$utility <- sapply(joined$true, marginal_utility)
-  best_swf <- cumsum(joined[order(joined[, "true"]), "utility"])
+  joined$marginal_utility <- sapply(joined$true, marginal_utility)
+  best_swf <- cumsum(joined[order(joined[, "true"]), "marginal_utility"])
 
   get_swf <- function(method, df) {
-    cumsum(df[order(df[, method]), "utility"]) / best_swf
+    cumsum(df[order(df[, method]), "marginal_utility"]) / best_swf
   }
   plot_cumulative(joined=joined,
                   methods=methods,
