@@ -1,6 +1,4 @@
-#############
-### This file contains graphing functions for plotting the output from the ML_functions
-#############
+#' @import dplyr
 
 check_ids_match <- function(dfs) {
   ids <- lapply(dfs, function(df) df$id)
@@ -14,7 +12,7 @@ check_trues_match <- function(dfs) {
   all(unlist(all_equal))
 }
 
-join_dfs <- function(dfs, keep_fold=FALSE) {
+join_dfs <- function(dfs) {
   if(length(dfs) != 1) {
     stopifnot(check_ids_match(dfs))
     stopifnot(check_trues_match(dfs))
@@ -22,42 +20,33 @@ join_dfs <- function(dfs, keep_fold=FALSE) {
   if(is.null(names(dfs))) {
     names(dfs) <- seq_len(length(dfs))
   }
-  df <- data.frame(matrix(nrow=nrow(dfs[[1]]), ncol=0))
-  df$id <- dfs[[1]]$id
-  df$true <- dfs[[1]]$true
-  
-  rename_columns <- function(name, df) {
-    new_df <- data.frame(matrix(nrow=nrow(df), ncol=0))
-    new_df[, name] <- df$predicted
-    if(keep_fold) {
-      new_df[, paste(name, "fold", sep="_")] <- df$fold
-    }
-    new_df[, "id"] <- df$id
-    new_df
+  for( name in names(dfs)) {
+    dfs[[name]]$method <- name
   }
-
-  join_two <- function(df1, df2) {
-    merge(df1, df2, by="id")
-  }
-
-  renamed_dfs <- mapply(rename_columns, names(dfs), dfs, SIMPLIFY=FALSE)
-  Reduce(join_two, renamed_dfs, init=df)
+  joined <- do.call("rbind", dfs)
+  true_df <- data.frame(
+    true=dfs[[1]]$true,
+    predicted=dfs[[1]]$true,
+    id=dfs[[1]]$id,
+    method="true",
+    fold=1)
+  rbind(true_df, joined)
 }
 
 
 plot_scatter <- function(...) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  melted <- reshape2::melt(joined, value.name="predicted", variable.name="method", id=c("id", "true"))
-  ggplot2::ggplot(melted, ggplot2::aes(x=true, y=predicted, color=method)) +
+  joined <- dplyr::filter(joined, method != "true")
+  ggplot2::ggplot(joined, ggplot2::aes(x=true, y=predicted, color=method)) +
     ggplot2::geom_point(alpha=0.5)
 }
+
 
 plot_density <- function(...) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  melted <- reshape2::melt(joined, variable.name="method", id=c("id"))
-  ggplot2::ggplot(melted, ggplot2::aes(x=value, fill=method)) +
+  ggplot2::ggplot(joined, ggplot2::aes(x=predicted, fill=method)) +
     ggplot2::geom_density(alpha=0.5)
 }
 
@@ -67,20 +56,17 @@ plot_density <- function(...) {
 plot_roc <- function(THRESHOLD, ...) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
+  joined <- dplyr::filter(joined, method != "true")
   joined$response <- joined$true < THRESHOLD
   joined$id <- NULL
   joined$true <- NULL
   
-  roc_formula <- as.formula(paste("response ~", paste(names(dfs), collapse="+")))
-  rocs <- pROC::roc(roc_formula, data=joined, plot=FALSE)
-  if(length(dfs) == 1) {
-    rocs <- list(rocs)
-    names(rocs) <- names(dfs)
-  }
+  grouped <- dplyr::group_by(joined, method)
+  rocs <- dplyr::do(grouped, roc=pROC::roc(response ~ predicted, data=., plot=FALSE))
   roc_to_df <- function(name, roc) {
     data.frame(sensitivity=roc$sensitivities, specificity=roc$specificities, method=name)
   }
-  roc_dfs <- mapply(roc_to_df, names(rocs), rocs, SIMPLIFY=FALSE)
+  roc_dfs <- mapply(roc_to_df, rocs$method, rocs$roc, SIMPLIFY=FALSE)
   roc_df <- do.call("rbind", roc_dfs)
   ggplot2::ggplot(roc_df, ggplot2::aes(x=specificity, y=sensitivity, color=method)) +
     ggplot2::geom_step() +
@@ -90,30 +76,24 @@ plot_roc <- function(THRESHOLD, ...) {
 }
 
 
-plot_cumulative <- function(joined, methods, fun, threshold, y_label, display_cutoffs, point_count) {
-  ranked <- data.frame(mapply(fun, methods, list(joined), SIMPLIFY=FALSE))
-  plot_points <- seq(1, nrow(joined), nrow(joined) / point_count)
-  cut <- ranked[plot_points, , drop=FALSE]
-  cut$percent_population_included <- plot_points / nrow(joined) 
-  melted <- reshape2::melt(cut,
-                           variable.name="method",
-                           id="percent_population_included")
-  p <- ggplot2::ggplot(melted, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
+plot_cumulative <- function(df, threshold, y_label, display_cutoffs, point_count) {
+  cut <- df %>%
+    slice(seq(1, n(), n() / point_count))
+    
+  p <- ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
     ggplot2::geom_step() +
     ggplot2::geom_point() +
     ggplot2::labs(y = y_label)
 
   if(display_cutoffs) {
     # TODO annotate plot
-    threshold.df <- data.frame(
-      idx=sapply(methods, function(name) {sum(joined[, name] < threshold)}),
-      method=methods)
-    threshold.df$percent_total <- threshold.df$idx / nrow(ranked)
-    threshold.df$y <- mapply(function(idx, name) ranked[idx, name],  threshold.df[, "idx"], threshold.df[, "method"])
+    threshold.df <- df %>%
+      filter(cumall(predicted < threshold)) %>%
+      filter(row_number() == n())
     p <- p +
       ggplot2::geom_segment(
         data=threshold.df,
-        mapping=ggplot2::aes(y=y, x=percent_total, yend=y, xend=1., color=method))
+        mapping=ggplot2::aes(y=value, x=percent_population_included, yend=value, xend=1., color=method))
   }
   p
 }
@@ -126,19 +106,17 @@ plot_accuracy <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FA
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined$response <- joined$true < THRESHOLD
-  true_poor <- sum(joined$response)
-
-  get_coverage <- function(method, df) {
-    cumsum(df[order(df[, method]), "response"]) / true_poor
+  if(!DISPLAY_TRUE) {
+    joined <- dplyr::filter(joined, method!="true")
   }
 
-  methods <- names(dfs)
-  if(DISPLAY_TRUE) {
-    methods <- c(methods, "true")
-  }
-  plot_cumulative(joined=joined,
-                  methods=methods,
-                  fun=get_coverage,
+  df <- joined %>%
+    group_by(method) %>%
+    arrange(predicted) %>%
+    mutate(value=cumsum(response) / sum(response)) %>%
+    mutate(percent_population_included=row_number() / n())
+
+  plot_cumulative(df=df,
                   threshold=THRESHOLD,
                   y_label="coverage",
                   display_cutoffs=DISPLAY_CUTOFFS,
@@ -151,15 +129,17 @@ plot_accuracy_dollars <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CU
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined$response <- joined$true < THRESHOLD
-
-  get_to_true_poor <- function(method, df) {
-    cumsum(df[order(df[, method]), "response"]) / seq(1, nrow(joined))
+  if (!DISPLAY_TRUE) {
+      joined <- dplyr::filter(joined, method!="true")
   }
 
-  methods <- names(dfs)
-  plot_cumulative(joined=joined,
-                  methods=methods,
-                  fun=get_to_true_poor,
+  df <- joined %>%
+    group_by(method) %>%
+    arrange(predicted) %>%
+    mutate(value=cumsum(response) / row_number()) %>%
+    mutate(percent_population_included=row_number() / n())
+
+  plot_cumulative(df=df,
                   threshold=THRESHOLD,
                   y_label="to_true_poor",
                   display_cutoffs=DISPLAY_CUTOFFS,
@@ -169,23 +149,20 @@ plot_accuracy_dollars <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CU
 
 plot_swf <- function(..., GAMMA=10, POINT_COUNT=20) {
   dfs <- list(...)
-  methods <- names(dfs)
   joined <- join_dfs(dfs)
-
+  joined <- dplyr::filter(joined, method!="true")
   marginal_utility <- function(consumption) consumption ^ (- GAMMA)
   joined$marginal_utility <- sapply(joined$true, marginal_utility)
-  best_swf <- cumsum(joined[order(joined[, "marginal_utility"], decreasing=TRUE), "marginal_utility"])
 
-  get_swf <- function(method, df) {
-    cumsum(df[order(df[, method]), "marginal_utility"]) / best_swf
-  }
-  plot_cumulative(joined=joined,
-                  methods=methods,
-                  fun=get_swf,
+  df <- joined %>%
+    group_by(method) %>%
+    arrange(predicted) %>%
+    mutate(value=cumsum(marginal_utility) / cumsum(sort(marginal_utility, decreasing=TRUE)))%>%
+    mutate(percent_population_included=row_number() / n())
+
+  plot_cumulative(df=df,
                   threshold=NULL,
-                  y_label="coverage",
+                  y_label="welfare",
                   display_cutoffs=FALSE,
                   point_count=POINT_COUNT)
 }
-
-
