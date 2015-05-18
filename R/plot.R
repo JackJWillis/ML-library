@@ -145,7 +145,6 @@ plot_accuracy <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FA
                   point_count=POINT_COUNT)
 }
 
-
 #' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
 #' True Positives / (True Positives + False Positives)
 plot_accuracy_dollars <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FALSE, POINT_COUNT=20) {
@@ -166,3 +165,27 @@ plot_accuracy_dollars <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CU
                   display_cutoffs=DISPLAY_CUTOFFS,
                   point_count=POINT_COUNT)
 }
+
+
+plot_swf <- function(..., GAMMA=10, POINT_COUNT=20) {
+  dfs <- list(...)
+  methods <- names(dfs)
+  joined <- join_dfs(dfs)
+
+  marginal_utility <- function(consumption) consumption ^ (- GAMMA)
+  joined$marginal_utility <- sapply(joined$true, marginal_utility)
+  best_swf <- cumsum(joined[order(joined[, "marginal_utility"], decreasing=TRUE), "marginal_utility"])
+
+  get_swf <- function(method, df) {
+    cumsum(df[order(df[, method]), "marginal_utility"]) / best_swf
+  }
+  plot_cumulative(joined=joined,
+                  methods=methods,
+                  fun=get_swf,
+                  threshold=NULL,
+                  y_label="coverage",
+                  display_cutoffs=FALSE,
+                  point_count=POINT_COUNT)
+}
+
+
