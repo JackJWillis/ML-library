@@ -54,7 +54,7 @@ predict.regsubsets=function(object, newdata, ...){
 
 
 stepwise_predict <- function(x_train, y_train, x_test) {
-  fit <- leaps::regsubsets(x_train, y_train, method="forward")
+  fit <- leaps::regsubsets(x_train, y_train, method="forward", nvmax=100)
   predict(fit, x_test)
 }
 
