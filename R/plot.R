@@ -30,7 +30,9 @@ join_dfs <- function(dfs) {
     id=dfs[[1]]$id,
     method="true",
     fold=1)
-  rbind(true_df, joined)
+  joined <- rbind(true_df, joined)
+  joined$fold <- factor(joined$fold)
+  joined
 }
 
 
@@ -43,17 +45,22 @@ plot_scatter <- function(...) {
 }
 
 
-plot_density <- function(...) {
+plot_density <- function(..., SHOW_FOLDS=TRUE) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  ggplot2::ggplot(joined, ggplot2::aes(x=predicted, fill=method)) +
-    ggplot2::geom_density(alpha=0.5)
+  p <- ggplot2::ggplot(joined, ggplot2::aes(x=predicted, color=method)) +
+    ggplot2::geom_density()
+  if (SHOW_FOLDS) {
+    no_true <- filter(joined, method != "true")
+    p <- p + ggplot2::geom_density(no_true, mapping=ggplot2::aes(x=predicted, color=method, group=fold), alpha=0.1)
+  }
+  p
 }
 
 
 #' Produce an ROC curve which plots a given method's sensitivity/specificity with respect
 #' a given poverty threshold.
-plot_roc <- function(THRESHOLD, ...) {
+plot_roc <- function(THRESHOLD, ..., PLOT_FOLDS=FALSE) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined <- dplyr::filter(joined, method != "true")
@@ -61,15 +68,32 @@ plot_roc <- function(THRESHOLD, ...) {
   joined$id <- NULL
   joined$true <- NULL
   
-  grouped <- dplyr::group_by(joined, method)
-  rocs <- dplyr::do(grouped, roc=pROC::roc(response ~ predicted, data=., plot=FALSE))
-  roc_to_df <- function(name, roc) {
-    data.frame(sensitivity=roc$sensitivities, specificity=roc$specificities, method=name)
+  if (PLOT_FOLDS) {
+    grouped <- dplyr::group_by(joined, method, fold)
   }
-  roc_dfs <- mapply(roc_to_df, rocs$method, rocs$roc, SIMPLIFY=FALSE)
+  else {
+    grouped <- dplyr::group_by(joined, method)
+  }
+  
+  rocs <- dplyr::do(grouped, roc=pROC::roc(response ~ predicted, data=., plot=FALSE))
+  if (!PLOT_FOLDS) {
+    rocs$fold <- 1
+  }
+  roc_to_df <- function(name, fold, roc) {
+    data.frame(sensitivity=roc$sensitivities, specificity=roc$specificities, method=name, fold=fold)
+  }
+  roc_dfs <- mapply(roc_to_df, rocs$method, rocs$fold, rocs$roc, SIMPLIFY=FALSE)
   roc_df <- do.call("rbind", roc_dfs)
-  ggplot2::ggplot(roc_df, ggplot2::aes(x=specificity, y=sensitivity, color=method)) +
-    ggplot2::geom_step() +
+  
+  
+  if (PLOT_FOLDS) {
+    aes <- ggplot2::aes(x=specificity, y=sensitivity, color=method, group=fold)
+  }
+  else {
+    aes <- ggplot2::aes(x=specificity, y=sensitivity, color=method)
+  }
+  ggplot2::ggplot(roc_df, aes) +
+    ggplot2::geom_step(alpha=0.5) +
     ggplot2::scale_x_reverse() +
     ggplot2::geom_abline(intercept=1, slope=1, alpha=0.5) 
   # TODO display auc
