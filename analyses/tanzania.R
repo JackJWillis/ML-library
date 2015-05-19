@@ -99,7 +99,7 @@ k <- 10
 ridge <- kfold(k, ridge_predict, y, x)
 lasso <- kfold(k, lasso_predict, y, x)
 least_squares <- kfold(k, least_squares_predict, y, x)
-stepwise <- kfold(k, stepwise_predict, y, x
+stepwise <- kfold(k, stepwise_predict, y, x)
 
 plot_scatter(ridge=ridge, lasso=lasso, ls=least_squares)
 plot_density(ridge=ridge, lasso=lasso, ls=least_squares)
