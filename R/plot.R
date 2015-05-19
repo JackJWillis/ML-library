@@ -97,7 +97,7 @@ plot_roc <- function(THRESHOLD, ..., PLOT_FOLDS=FALSE) {
 }
 
 
-plot_cumulative <- function(df, threshold, y_label, display_cutoffs, point_count) {
+plot_cumulative <- function(df, threshold, y_label, display_cutoffs, display_folds, folded, point_count) {
   cut <- df %>%
     slice(seq(1, n(), n() / point_count))
     
@@ -106,7 +106,7 @@ plot_cumulative <- function(df, threshold, y_label, display_cutoffs, point_count
     ggplot2::geom_point() +
     ggplot2::labs(y = y_label)
 
-  if(display_cutoffs) {
+  if (display_cutoffs) {
     # TODO annotate plot
     threshold.df <- df %>%
       filter(cumall(predicted < threshold)) %>%
@@ -116,6 +116,11 @@ plot_cumulative <- function(df, threshold, y_label, display_cutoffs, point_count
         data=threshold.df,
         mapping=ggplot2::aes(y=value, x=percent_population_included, yend=value, xend=1., color=method))
   }
+  if (display_folds) {
+    folded_cut <- folded %>% slice(seq(1, n(), n() / point_count))
+    aes <- ggplot2::aes(x=percent_population_included, y=value, color=method, group=fold)
+    p <- p + ggplot2::geom_step(data=folded_cut, mapping=aes, alpha=0.3)
+  }
   p
 }
 
@@ -123,30 +128,41 @@ plot_cumulative <- function(df, threshold, y_label, display_cutoffs, point_count
 #' If we target N people, what fraction of the true poor would receive funds?
 #' True Positives / Total Positives
 #' Note that this is a reparameterization of the ROC curve
-plot_accuracy <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FALSE, POINT_COUNT=20) {
+plot_accuracy <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FALSE, DISPLAY_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined$response <- joined$true < THRESHOLD
   if(!DISPLAY_TRUE) {
     joined <- dplyr::filter(joined, method!="true")
   }
+  make_df <- function(df, folds) {
 
-  df <- joined %>%
-    group_by(method) %>%
-    arrange(predicted) %>%
-    mutate(value=cumsum(response) / sum(response)) %>%
-    mutate(percent_population_included=row_number() / n())
+    if (folds) {
+      grouped <- group_by(df, method, fold)
+    }
+    else {
+      grouped <- group_by(df, method)
+    }
+    grouped %>%
+      arrange(predicted) %>%
+      mutate(value=cumsum(response) / sum(response)) %>%
+      mutate(percent_population_included=row_number() / n())
+  }
 
+  df <- make_df(joined, FALSE)
+  folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
                   threshold=THRESHOLD,
                   y_label="coverage",
                   display_cutoffs=DISPLAY_CUTOFFS,
+                  display_folds=DISPLAY_FOLDS,
+                  folded=folded_df,
                   point_count=POINT_COUNT)
 }
 
 #' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
 #' True Positives / (True Positives + False Positives)
-plot_accuracy_dollars <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FALSE, POINT_COUNT=20) {
+plot_accuracy_dollars <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CUTOFFS=FALSE, DISPLAY_FOLDS=TRUE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined$response <- joined$true < THRESHOLD
@@ -154,36 +170,60 @@ plot_accuracy_dollars <- function(THRESHOLD, ..., DISPLAY_TRUE=FALSE, DISPLAY_CU
       joined <- dplyr::filter(joined, method!="true")
   }
 
-  df <- joined %>%
-    group_by(method) %>%
-    arrange(predicted) %>%
-    mutate(value=cumsum(response) / row_number()) %>%
-    mutate(percent_population_included=row_number() / n())
+  make_df <- function(df, folds) {
 
+    if (folds) {
+      grouped <- group_by(df, method, fold)
+    }
+    else {
+      grouped <- group_by(df, method)
+    }
+    grouped %>%
+      arrange(predicted) %>%
+      mutate(value=cumsum(response) / row_number()) %>%
+      mutate(percent_population_included=row_number() / n())
+  }
+
+  df <- make_df(joined, FALSE)
+  folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
                   threshold=THRESHOLD,
                   y_label="to_true_poor",
                   display_cutoffs=DISPLAY_CUTOFFS,
+                  display_folds=DISPLAY_FOLDS,
+                  folded=folded_df,
                   point_count=POINT_COUNT)
 }
 
 
-plot_swf <- function(..., GAMMA=10, POINT_COUNT=20) {
+plot_swf <- function(..., GAMMA=10, DISPLAY_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined <- dplyr::filter(joined, method!="true")
   marginal_utility <- function(consumption) consumption ^ (- GAMMA)
   joined$marginal_utility <- sapply(joined$true, marginal_utility)
 
-  df <- joined %>%
-    group_by(method) %>%
-    arrange(predicted) %>%
-    mutate(value=cumsum(marginal_utility) / cumsum(sort(marginal_utility, decreasing=TRUE)))%>%
-    mutate(percent_population_included=row_number() / n())
+  make_df <- function(df, folds) {
 
+    if (folds) {
+      grouped <- group_by(df, method, fold)
+    }
+    else {
+      grouped <- group_by(df, method)
+    }
+    grouped %>%
+      arrange(predicted) %>%
+      mutate(value=cumsum(marginal_utility) / cumsum(sort(marginal_utility, decreasing=TRUE)))%>%
+      mutate(percent_population_included=row_number() / n())
+  }
+
+  df <- make_df(joined, FALSE)
+  folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
                   threshold=NULL,
                   y_label="welfare",
                   display_cutoffs=FALSE,
+                  display_folds=DISPLAY_FOLDS,
+                  folded=folded_df,
                   point_count=POINT_COUNT)
 }
