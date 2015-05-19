@@ -22,24 +22,56 @@ standardize_predictors  <-  function(df, target) {
 }
 
 
+fold <- function(x_train, y_train, x_test, y_test) {
+  list(x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
+}
+
+fit <- function(x_train, y_train) UseMethod("fit")
+
 # Regularized linear models ---------------------------
 
-
-ridge_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::cv.glmnet(x_train, y_train, standardize=FALSE, alpha=0)
-  predict(fit, x_test)
+Ridge <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="ridge")
 }
 
 
-lasso_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::cv.glmnet(x_train, y_train, standardize=FALSE, alpha=1)
-  predict(fit, x_test)
+fit.ridge <- function(f) {
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
 }
 
 
-least_squares_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::glmnet(x_train, y_train, standardize=FALSE, lambda=0)
-  predict(fit, x_test)
+predict.ridge <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+
+Lasso <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+}
+
+
+fit.lasso <- function(f) {
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+}
+
+
+predict.lasso <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+
+LeastSquares <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="least_squares")
+}
+
+
+fit.least_squares <- function(f) {
+  glmnet::glmnet(x_train, y_train, standardize=FALSE, lambda=0)
+}
+
+
+predict.least_squares <- function(f, model) {
+  predict(model, f$x_test)
 }
 
 
@@ -52,21 +84,31 @@ predict.regsubsets=function(object, newdata, ...){
   x[, xvars] %*% coefficients
 }
 
-
-stepwise_predict <- function(x_train, y_train, x_test) {
-  fit <- leaps::regsubsets(x_train, y_train, method="forward", nvmax=100)
-  predict(fit, x_test)
+Stepwise <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
 }
+
+fit.stepwise <- function(f) {
+  leaps::regsubsets(x_train, y_train, method="forward", nvmax=100)
+}
+
+predict.stepwise <- function(f, model) {
+  predict(model, f$x_test)
+}
+
 
 
 # K fold validation ---------------------------
 
-kfold <- function(k, predfun, y, x, seed=0) {
+kfold <- function(k, model_class, y, x, seed=0) {
   set.seed(seed)
-  folds <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
-  preds <- unlist(lapply(1:k, function (k) predfun(x[folds != k, ], y[folds != k], x[folds == k, ])))
-  trues <- unlist(lapply(1:k, function(k) y[folds == k]))
-  df <- data.frame(predicted=preds, true=trues, fold=folds)
+  assignments <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
+  folds <- lapply(1:k, function (k) { 
+    model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
+  fits <- lapply(folds, fit)
+  preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
+  trues <- unlist(lapply(folds, function(f) f$y_test))
+  df <- data.frame(predicted=preds, true=trues, fold=assignments)
   df$id <- rownames(df)
   df
 }
