@@ -5,19 +5,20 @@
 
 # Data processing ---------------------------
 
-#' Standardize a dataset so that predictor variables have unit variance.
-#' 
-#' @param yx A dataframe. The first column should be the variable to be predicted.
-standardize_x  <-  function(yx) {
-  x <- yx[,1]
-  numeric_features <- sapply(x, is.numeric)
-  x[, numeric_features] <- scale(x[, numeric_features], center=True, scale=True)
+standardize_predictors  <-  function(df, target) {
+  constant_or_empty <- function(values) {
+    all(is.na(values)) || all(values[1] == values)
+  }
+  standard <- dplyr::select(df, -matches(target))
 
-  # Standardizing can cause some variables to become NA (if they are constant)
-  # Drop those variables
-  x <- x[, colSums(is.na(x)) < nrow(x)]
-  yx[, -1] <- x
-  yx
+  numeric_features <- sapply(standard, is.numeric)
+  standard[, numeric_features] <- scale(standard[, numeric_features], center=TRUE, scale=TRUE)
+
+  degenerate <- sapply(standard, constant_or_empty)
+  standard <- standard[, !degenerate]
+
+  standard[, target] <- df[, target]
+  standard
 }
 
 
@@ -25,19 +26,19 @@ standardize_x  <-  function(yx) {
 
 
 ridge_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::cv.glmnet(x_train, y_train, alpha=0)
+  fit <- glmnet::cv.glmnet(x_train, y_train, standardize=FALSE, alpha=0)
   predict(fit, x_test)
 }
 
 
 lasso_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::cv.glmnet(x_train, y_train, alpha=1)
+  fit <- glmnet::cv.glmnet(x_train, y_train, standardize=FALSE, alpha=1)
   predict(fit, x_test)
 }
 
 
 least_squares_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::glmnet(x_train, y_train, lambda=0)
+  fit <- glmnet::glmnet(x_train, y_train, standardize=FALSE, lambda=0)
   predict(fit, x_test)
 }
 
