@@ -22,7 +22,7 @@ standardize_predictors  <-  function(df, target) {
 }
 
 
-# Linear models ---------------------------
+# Regularized linear models ---------------------------
 
 
 ridge_predict <- function(x_train, y_train, x_test) {
@@ -42,6 +42,21 @@ least_squares_predict <- function(x_train, y_train, x_test) {
   predict(fit, x_test)
 }
 
+
+# Subset selection linear models ---------------------------
+
+predict.regsubsets=function(object, newdata, ...){
+  id <- which.min(summary(object)$bic)
+  coefficients <- coef(object, id=id)
+  xvars <- names(coefficients)
+  x[, xvars] %*% coefficients
+}
+
+
+stepwise_predict <- function(x_train, y_train, x_test) {
+  fit <- leaps::regsubsets(x_train, y_train, method="forward")
+  predict(fit, x_test)
+}
 
 
 # K fold validation ---------------------------
