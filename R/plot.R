@@ -45,7 +45,7 @@ plot_scatter <- function(...) {
 }
 
 
-plot_density <- function(..., SHOW_FOLDS=TRUE) {
+plot_density <- function(..., SHOW_FOLDS=FALSE) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   p <- ggplot2::ggplot(joined, ggplot2::aes(x=predicted, color=method)) +
