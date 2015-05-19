@@ -13,10 +13,10 @@ check_trues_match <- function(dfs) {
 }
 
 join_dfs <- function(dfs) {
-  if(length(dfs) != 1) {
-    stopifnot(check_ids_match(dfs))
-    stopifnot(check_trues_match(dfs))
-  }
+  # if(length(dfs) != 1) {
+  #   stopifnot(check_ids_match(dfs))
+  #   stopifnot(check_trues_match(dfs))
+  # }
   if(is.null(names(dfs))) {
     names(dfs) <- seq_len(length(dfs))
   }
