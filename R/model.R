@@ -64,8 +64,8 @@ stepwise_predict <- function(x_train, y_train, x_test) {
 kfold <- function(k, predfun, y, x, seed=0) {
   set.seed(seed)
   folds <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
-  preds <- unlist(sapply(1:k, function (k) predfun(x[folds != k, ], y[folds != k], x[folds == k, ])))
-  trues <- unlist(sapply(1:k, function(k) y[folds == k]))
+  preds <- unlist(lapply(1:k, function (k) predfun(x[folds != k, ], y[folds != k], x[folds == k, ])))
+  trues <- unlist(lapply(1:k, function(k) y[folds == k]))
   df <- data.frame(predicted=preds, true=trues, fold=folds)
   df$id <- rownames(df)
   df
