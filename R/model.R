@@ -26,7 +26,13 @@ fold <- function(x_train, y_train, x_test, y_test) {
   list(x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
 }
 
-fit <- function(x_train, y_train) UseMethod("fit")
+
+fit <- function(f) UseMethod("fit")
+
+transform_ys <- function(f) UseMethod("transform_ys")
+transform_ys.default <- function(f) {
+  f
+}
 
 # Regularized linear models ---------------------------
 
@@ -105,6 +111,7 @@ kfold <- function(k, model_class, y, x, seed=0) {
   assignments <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
   folds <- lapply(1:k, function (k) { 
     model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
+  folds <- lapply(folds, transform_ys)
   fits <- lapply(folds, fit)
   preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
   trues <- unlist(lapply(folds, function(f) f$y_test))
