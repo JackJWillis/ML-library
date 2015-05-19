@@ -51,7 +51,7 @@ plot_density <- function(..., SHOW_FOLDS=TRUE) {
   p <- ggplot2::ggplot(joined, ggplot2::aes(x=predicted, color=method)) +
     ggplot2::geom_density()
   if (SHOW_FOLDS) {
-    no_true <- filter(joined, method != "true")
+    no_true <- dplyr::filter(joined, method != "true")
     p <- p + ggplot2::geom_density(no_true, mapping=ggplot2::aes(x=predicted, color=method, group=fold), alpha=0.1)
   }
   p
@@ -68,35 +68,32 @@ plot_roc <- function(THRESHOLD, ..., PLOT_FOLDS=FALSE) {
   joined$id <- NULL
   joined$true <- NULL
   
-  if (PLOT_FOLDS) {
-    grouped <- dplyr::group_by(joined, method, fold)
-  }
-  else {
-    grouped <- dplyr::group_by(joined, method)
-  }
-  
-  rocs <- dplyr::do(grouped, roc=pROC::roc(response ~ predicted, data=., plot=FALSE))
-  if (!PLOT_FOLDS) {
-    rocs$fold <- 1
-  }
   roc_to_df <- function(name, fold, roc) {
     data.frame(sensitivity=roc$sensitivities, specificity=roc$specificities, method=name, fold=fold)
   }
-  roc_dfs <- mapply(roc_to_df, rocs$method, rocs$fold, rocs$roc, SIMPLIFY=FALSE)
+  
+  # Generate per method roc curves
+  grouped <- dplyr::group_by(joined, method)
+  rocs <- dplyr::do(grouped, roc=pROC::roc(response ~ predicted, data=., plot=FALSE))
+  roc_dfs <- mapply(roc_to_df, rocs$method, 1, rocs$roc, SIMPLIFY=FALSE)
   roc_df <- do.call("rbind", roc_dfs)
-  
-  
-  if (PLOT_FOLDS) {
-    aes <- ggplot2::aes(x=specificity, y=sensitivity, color=method, group=fold)
-  }
-  else {
-    aes <- ggplot2::aes(x=specificity, y=sensitivity, color=method)
-  }
-  ggplot2::ggplot(roc_df, aes) +
-    ggplot2::geom_step(alpha=0.5) +
+  aes <- ggplot2::aes(x=specificity, y=sensitivity, color=method)
+  p <- ggplot2::ggplot(roc_df, aes) +
+    ggplot2::geom_step(alpha=0.8) +
     ggplot2::scale_x_reverse() +
     ggplot2::geom_abline(intercept=1, slope=1, alpha=0.5) 
   # TODO display auc
+  
+  if (PLOT_FOLDS) {
+    # Generate per method-fold roc curved
+    grouped <- dplyr::group_by(joined, method, fold)
+    rocs <- dplyr::do(grouped, roc=pROC::roc(response ~ predicted, data=., plot=FALSE))
+    roc_dfs <- mapply(roc_to_df, rocs$method, rocs$fold, rocs$roc, SIMPLIFY=FALSE)
+    roc_df <- do.call("rbind", roc_dfs)
+    aes <- ggplot2::aes(x=specificity, y=sensitivity, color=method, group=fold)
+    p <- p + ggplot2::geom_step(data=roc_df, mapping=aes, alpha=0.3)
+  }
+  p
 }
 
 
