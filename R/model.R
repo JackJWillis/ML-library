@@ -31,6 +31,7 @@ fit <- function(f) UseMethod("fit")
 
 transform_ys <- function(f) UseMethod("transform_ys")
 transform_ys.default <- function(f) {
+  f$y_test_raw <- f$y_test
   f
 }
 
@@ -115,7 +116,8 @@ kfold <- function(k, model_class, y, x, seed=0) {
   fits <- lapply(folds, fit)
   preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
   trues <- unlist(lapply(folds, function(f) f$y_test))
-  df <- data.frame(predicted=preds, true=trues, fold=assignments)
+  raws <- unlist(lapply(folds, function(f) f$y_test_raw))
+  df <- data.frame(predicted=preds, true=trues, raw=raws, fold=assignments)
   df$id <- rownames(df)
   df
 }

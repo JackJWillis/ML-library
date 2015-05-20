@@ -26,7 +26,8 @@ join_dfs <- function(dfs) {
   joined <- do.call("rbind", dfs)
   true_df <- data.frame(
     true=dfs[[1]]$true,
-    predicted=dfs[[1]]$true,
+    predicted=dfs[[1]]$raw,
+    raw=dfs[[1]]$raw,
     id=dfs[[1]]$id,
     method="true",
     fold=1)
