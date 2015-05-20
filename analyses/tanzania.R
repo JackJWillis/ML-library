@@ -96,10 +96,10 @@ x <- model.matrix(lconsPC ~ ., tz08)
 y <- tz08[rownames(x), "lconsPC"]
 k <- 10
 
-ridge <- kfold(k, Ridge, y, x)
-lasso <- kfold(k, Lasso, y, x)
-least_squares <- kfold(k, LeastSquares, y, x)
-stepwise <- kfold(k, Stepwise, y, x)
+ridge <- kfold(k, Ridge(), y, x)
+lasso <- kfold(k, Lasso(), y, x)
+least_squares <- kfold(k, LeastSquares(), y, x)
+stepwise <- kfold(k, Stepwise(), y, x)
 
 plot_scatter(ridge=ridge, lasso=lasso, ls=least_squares)
 plot_density(ridge=ridge, lasso=lasso, ls=least_squares)

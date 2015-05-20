@@ -37,8 +37,10 @@ transform_ys.default <- function(f) {
 
 # Regularized linear models ---------------------------
 
-Ridge <- function(x_train, y_train, x_test, y_test) {
-  structure(fold(x_train, y_train, x_test, y_test), class="ridge")
+Ridge <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="ridge")
+  }
 }
 
 
@@ -52,8 +54,10 @@ predict.ridge <- function(f, model) {
 }
 
 
-Lasso <- function(x_train, y_train, x_test, y_test) {
-  structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+Lasso <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+  }
 }
 
 
@@ -67,8 +71,10 @@ predict.lasso <- function(f, model) {
 }
 
 
-LeastSquares <- function(x_train, y_train, x_test, y_test) {
-  structure(fold(x_train, y_train, x_test, y_test), class="least_squares")
+LeastSquares <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="least_squares")
+  }
 }
 
 
@@ -91,8 +97,10 @@ predict.regsubsets=function(object, newdata, ...){
   newdata[, xvars] %*% coefficients
 }
 
-Stepwise <- function(x_train, y_train, x_test, y_test) {
-  structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+Stepwise <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+  }
 }
 
 fit.stepwise <- function(f) {
