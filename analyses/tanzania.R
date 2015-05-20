@@ -91,13 +91,15 @@ create_dataset <- function(year, remove_missing=TRUE) {
 # Run analysis ---------------------------
 
 tz08 <- create_dataset(2008)
+tz08 <- standardize_predictors(tz08, "lconsPC")
 x <- model.matrix(lconsPC ~ ., tz08)
 y <- tz08[rownames(x), "lconsPC"]
 k <- 10
 
-ridge <- kfold(k, ridge_predict, y, x)
-lasso <- kfold(k, lasso_predict, y, x)
-least_squares <- kfold(k, least_squares_predict, y, x)
+ridge <- kfold(k, Ridge, y, x)
+lasso <- kfold(k, Lasso, y, x)
+least_squares <- kfold(k, LeastSquares, y, x)
+stepwise <- kfold(k, Stepwise, y, x)
 
 plot_scatter(ridge=ridge, lasso=lasso, ls=least_squares)
 plot_density(ridge=ridge, lasso=lasso, ls=least_squares)

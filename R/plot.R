@@ -13,20 +13,22 @@ check_trues_match <- function(dfs) {
 }
 
 join_dfs <- function(dfs) {
-  if(length(dfs) != 1) {
-    stopifnot(check_ids_match(dfs))
-    stopifnot(check_trues_match(dfs))
-  }
+  # if(length(dfs) != 1) {
+  #   stopifnot(check_ids_match(dfs))
+  #   stopifnot(check_trues_match(dfs))
+  # }
   if(is.null(names(dfs))) {
     names(dfs) <- seq_len(length(dfs))
   }
   for( name in names(dfs)) {
     dfs[[name]]$method <- name
+    dfs[[name]]$true <- as.numeric(dfs[[name]]$true)
   }
   joined <- do.call("rbind", dfs)
   true_df <- data.frame(
     true=dfs[[1]]$true,
-    predicted=dfs[[1]]$true,
+    predicted=dfs[[1]]$raw,
+    raw=dfs[[1]]$raw,
     id=dfs[[1]]$id,
     method="true",
     fold=1)
@@ -45,7 +47,7 @@ plot_scatter <- function(...) {
 }
 
 
-plot_density <- function(..., SHOW_FOLDS=TRUE) {
+plot_density <- function(..., SHOW_FOLDS=FALSE) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   p <- ggplot2::ggplot(joined, ggplot2::aes(x=predicted, color=method)) +
@@ -64,7 +66,7 @@ plot_roc <- function(THRESHOLD, ..., SHOW_FOLDS=FALSE) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined <- dplyr::filter(joined, method != "true")
-  joined$response <- joined$true < THRESHOLD
+  joined$response <- joined$raw < THRESHOLD
   joined$id <- NULL
   joined$true <- NULL
   
@@ -131,7 +133,7 @@ plot_cumulative <- function(df, threshold, y_label, show_cutoffs, show_folds, fo
 plot_accuracy <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  joined$response <- joined$true < THRESHOLD
+  joined$response <- joined$raw < THRESHOLD
   if(!SHOW_TRUE) {
     joined <- dplyr::filter(joined, method!="true")
   }
@@ -162,10 +164,10 @@ plot_accuracy <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, S
 
 #' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
 #' True Positives / (True Positives + False Positives)
-plot_accuracy_dollars <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=TRUE, POINT_COUNT=20) {
+plot_accuracy_dollars <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  joined$response <- joined$true < THRESHOLD
+  joined$response <- joined$raw < THRESHOLD
   if (!SHOW_TRUE) {
       joined <- dplyr::filter(joined, method!="true")
   }
@@ -200,8 +202,8 @@ plot_swf <- function(..., GAMMA=10, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined <- dplyr::filter(joined, method!="true")
-  marginal_utility <- function(consumption) consumption ^ (- GAMMA)
-  joined$marginal_utility <- sapply(joined$true, marginal_utility)
+  marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
+  joined$marginal_utility <- sapply(joined$raw, marginal_utility)
 
   make_df <- function(df, folds) {
 

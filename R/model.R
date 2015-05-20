@@ -5,122 +5,147 @@
 
 # Data processing ---------------------------
 
-#' Standardize a dataset so that predictor variables have unit variance.
-#' 
-#' @param yx A dataframe. The first column should be the variable to be predicted.
-standardize_x  <-  function(yx) {
-  x <- yx[,1]
-  numeric_features <- sapply(x, is.numeric)
-  x[, numeric_features] <- scale(x[, numeric_features], center=True, scale=True)
+standardize_predictors  <-  function(df, target) {
+  constant_or_empty <- function(values) {
+    all(is.na(values)) || all(values[1] == values)
+  }
+  standard <- dplyr::select(df, -matches(target))
 
-  # Standardizing can cause some variables to become NA (if they are constant)
-  # Drop those variables
-  x <- x[, colSums(is.na(x)) < nrow(x)]
-  yx[, -1] <- x
-  yx
+  numeric_features <- sapply(standard, is.numeric)
+  standard[, numeric_features] <- scale(standard[, numeric_features], center=TRUE, scale=TRUE)
+
+  degenerate <- sapply(standard, constant_or_empty)
+  standard <- standard[, !degenerate]
+
+  standard[, target] <- df[, target]
+  standard
 }
 
 
-# Linear models ---------------------------
-
-
-ridge_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::cv.glmnet(x_train, y_train, alpha=0)
-  predict(fit, x_test)
+fold <- function(x_train, y_train, x_test, y_test) {
+  list(x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
 }
 
 
-lasso_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::cv.glmnet(x_train, y_train, alpha=1)
-  predict(fit, x_test)
+fit <- function(f) UseMethod("fit")
+
+transform_ys <- function(f) UseMethod("transform_ys")
+transform_ys.default <- function(f) {
+  f$y_test_raw <- f$y_test
+  f
+}
+
+# Regularized linear models ---------------------------
+
+Ridge <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="ridge")
 }
 
 
-least_squares_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::glmnet(x_train, y_train, lambda=0)
-  predict(fit, x_test)
+fit.ridge <- function(f) {
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
 }
 
+
+predict.ridge <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+
+Lasso <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+}
+
+
+fit.lasso <- function(f) {
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+}
+
+
+predict.lasso <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+
+LeastSquares <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="least_squares")
+}
+
+
+fit.least_squares <- function(f) {
+  glmnet::glmnet(x_train, y_train, standardize=FALSE, lambda=0)
+}
+
+
+predict.least_squares <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+
+# Subset selection linear models ---------------------------
+
+predict.regsubsets=function(object, newdata, ...){
+  id <- which.min(summary(object)$bic)
+  coefficients <- coef(object, id=id)
+  xvars <- names(coefficients)
+  newdata[, xvars] %*% coefficients
+}
+
+Stepwise <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+}
+
+fit.stepwise <- function(f) {
+  leaps::regsubsets(x_train, y_train, method="forward", nvmax=100)
+}
+
+predict.stepwise <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+# Classification -----------------------------------------
+
+Logistic <- function(threshold) {
+    function(x_train, y_train, x_test, y_test) {
+      f <- fold(x_train, y_train, x_test, y_test)
+      f$threshold <- threshold
+      structure(f, class="logistic")
+    }
+}
+
+transform_ys.logistic <- function(f) {
+  threshold <- f$threshold
+  f$y_train <- as.factor(f$y_train < threshold)
+  f$y_test_raw <- f$y_test
+  f$y_test <- as.factor(f$y_test < threshold)
+  f
+}
+
+fit.logistic <- function(f) {
+  glmnet::cv.glmnet(f$x_train, f$y_train, family="binomial")
+}
+
+predict.logistic <- function(f, model) {
+  predict(model, f$x_test, type="response", lambda=lambda.min)
+}
 
 
 # K fold validation ---------------------------
 
-kfold <- function(k, predfun, y, x, seed=0) {
+kfold <- function(k, model_class, y, x, seed=0) {
   set.seed(seed)
-  folds <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
-  preds <- unlist(sapply(1:k, function (k) predfun(x[folds != k, ], y[folds != k], x[folds == k, ])))
-  trues <- unlist(sapply(1:k, function(k) y[folds == k]))
-  df <- data.frame(predicted=preds, true=trues, fold=folds)
+  assignments <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
+  folds <- lapply(1:k, function (k) { 
+    model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
+  folds <- lapply(folds, transform_ys)
+  fits <- lapply(folds, fit)
+  preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
+  trues <- unlist(lapply(folds, function(f) f$y_test))
+  raws <- unlist(lapply(folds, function(f) f$y_test_raw))
+  df <- data.frame(predicted=preds, true=trues, raw=raws, fold=assignments)
   df$id <- rownames(df)
   df
 }
-
-
-# ### Stepwise regression
-# 
-# library(leaps)
-# 
-# 
-# predict.regsubsets.2=function(object,newdata,id,...){ 
-#   mat=data.matrix(newdata) 
-#   coefi=coef(object,id=id)
-#   xvars=names(coefi)
-#   mat[,xvars]%*%coefi
-# }
-# 
-# #First creating a predict function since regsubsets() doesn't have one
-# predict.regsubsets=function(object,newdata,id,...){ 
-#   form=as.formula(as.character(object$call[[2]])) ## extract formula
-#   form <- update(form, Y ~ .)
-#   mat=model.matrix(form,newdata)
-#   coefi=coef(object,id=id)
-#   xvars=names(coefi)
-#   mat[,xvars]%*%coefi
-# }
-# 
-# #Now main function, which follows a similar form to Lasso and ridge
-# regfit.predict = function(yx_train,yx_test,nmax){
-#   set.seed(1)
-#   k=10
-#   names(yx_train)[1]<-"Y"
-#   names(yx_test)[1]<-"Y"
-#   folds=sample(1:k,nrow(yx_train),replace=TRUE)
-#   cv.errors=matrix(NA,k,nmax, dimnames=list(NULL, paste(1:nmax)))
-#   for(j in 1:k){
-#     best.fit=regsubsets(Y~.,data=yx_train[folds!=j,],nvmax=nmax,method="seqrep")
-#     for(i in 1:nmax){
-#       #Here is where the problem is:
-#       pred=predict(best.fit,yx_train[folds==j,],id=i)
-#       cv.errors[j,i]=mean((yx_train$Y[folds==j]-pred)^2)
-#     }
-#   }
-#   mean.cv.errors=apply(cv.errors,2,mean)
-#   bestn = which.min(mean.cv.errors)
-#   reg.best=regsubsets(Y~.,data=yx_train,nvmax=nmax,method="seqrep")
-#   pred=predict(reg.best,yx_test,id=bestn)  
-#   out=data.frame(y_pred=pred,y_real=yx_test[[1]])
-#   coef=coef(reg.best,bestn)
-#   MSE=mean((pred-yx_test[[1]])^2)
-#   regfit=list(out=out,coef=coef,MSE=MSE,bestn=bestn)
-#   return(regfit)
-# }
-# 
-# #Function which will run cross validated output on whole data
-# #NOT ORKIGN!!
-# regfit.predict.kfold = function(yx,k,s,nmax){
-#   set.seed(s) 
-#   folds=sample(1:k,nrow(yx),replace=TRUE)
-#   reg.folds <- list()
-#   for(j in 1:k){
-#     temp.yx.train.08 <- yx[folds!=j,]
-#     temp.yx.test.08 <- yx[folds==j,]
-#     regfit.folds[[j]] <- regfit.predict(temp.yx.train.08,temp.yx.test.08,nmax)
-#     names(regfit.folds)[j] <- paste("fold_",j,sep="")
-#   }
-#   return(regfit.folds)
-# }
-# 
-# 
 # ###Regression Tree
 # 
 # library(tree)
