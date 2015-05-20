@@ -92,14 +92,37 @@ create_dataset <- function(year, remove_missing=TRUE) {
 
 tz08 <- create_dataset(2008)
 tz08 <- standardize_predictors(tz08, "lconsPC")
-x <- model.matrix(lconsPC ~ ., tz08)
+x <- model.matrix(lconsPC ~ .,  tz08)
 y <- tz08[rownames(x), "lconsPC"]
-k <- 10
+k <- 5
 
+print("Running ridge")
 ridge <- kfold(k, Ridge(), y, x)
+print("Running lasso")
 lasso <- kfold(k, Lasso(), y, x)
+print("Running least squares")
 least_squares <- kfold(k, LeastSquares(), y, x)
+print("Running stepwise")
 stepwise <- kfold(k, Stepwise(), y, x)
+print("Running logistic")
+logistic <- kfold(k, Logistic(), y, x)
+
+# Rerun with interaction terms
+# TODO: Handle this with parameters to the model class?
+x_ix <- model.matrix(lconsPC ~ . + .:.,  tz08)
+y_ix <- tz08[rownames(x), "lconsPC"]
+k <- 5
+
+print("Running ridge with interactions")
+ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
+print("Running lasso with interactions")
+lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
+print("Running least squares with interactions")
+least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
+print("Running stepwise with interactions")
+stepwise_ix <- kfold(k, Stepwise(), y_ix, x_ix)
+print("Running logistic with interaction terms")
+logistic_ix <- kfold(k, Logistic(), y, x)
 
 plot_scatter(ridge=ridge, lasso=lasso, ls=least_squares)
 plot_density(ridge=ridge, lasso=lasso, ls=least_squares)

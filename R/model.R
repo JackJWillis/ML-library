@@ -45,7 +45,7 @@ Ridge <- function() {
 
 
 fit.ridge <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
 }
 
 
@@ -62,7 +62,7 @@ Lasso <- function() {
 
 
 fit.lasso <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
 }
 
 
