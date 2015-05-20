@@ -105,7 +105,7 @@ least_squares <- kfold(k, LeastSquares(), y, x)
 print("Running stepwise")
 stepwise <- kfold(k, Stepwise(), y, x)
 print("Running logistic")
-logistic <- kfold(k, Logistic(), y, x)
+logistic <- kfold(k, Logistic(12.5), y, x)
 
 # Rerun with interaction terms
 # TODO: Handle this with parameters to the model class?
@@ -122,7 +122,7 @@ least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
 print("Running stepwise with interactions")
 stepwise_ix <- kfold(k, Stepwise(), y_ix, x_ix)
 print("Running logistic with interaction terms")
-logistic_ix <- kfold(k, Logistic(), y_ix, x_ix)
+logistic_ix <- kfold(k, Logistic(12.5), y_ix, x_ix)
 
 plot_scatter(ridge=ridge, lasso=lasso, ls=least_squares)
 plot_density(ridge=ridge, lasso=lasso, ls=least_squares)
