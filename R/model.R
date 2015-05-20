@@ -104,7 +104,7 @@ Stepwise <- function() {
 }
 
 fit.stepwise <- function(f) {
-  leaps::regsubsets(x_train, y_train, method="forward", nvmax=100)
+  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=100)
 }
 
 predict.stepwise <- function(f, model) {
