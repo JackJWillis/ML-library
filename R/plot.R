@@ -201,7 +201,7 @@ plot_swf <- function(..., GAMMA=10, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined <- dplyr::filter(joined, method!="true")
-  marginal_utility <- function(consumption) consumption ^ (- GAMMA)
+  marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
   joined$marginal_utility <- sapply(joined$raw, marginal_utility)
 
   make_df <- function(df, folds) {
