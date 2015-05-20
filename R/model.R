@@ -126,7 +126,7 @@ fit.logistic <- function(f) {
 }
 
 predict.logistic <- function(f, model) {
-  predict(model, f$x_test, type="class")
+  predict(model, f$x_test)
 }
 
 
