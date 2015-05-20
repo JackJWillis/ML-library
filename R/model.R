@@ -103,6 +103,31 @@ predict.stepwise <- function(f, model) {
   predict(model, f$x_test)
 }
 
+# Classification -----------------------------------------
+
+Logistic <- function(threshold) {
+    function(x_train, y_train, x_test, y_test) {
+      f <- fold(x_train, y_train, x_test, y_test)
+      f$threshold <- threshold
+      structure(f, class="logistic")
+    }
+}
+
+transform_ys.logistic <- function(f) {
+  threshold <- f$threshold
+  f$y_train <- f$y_train < threshold
+  f$y_test_raw <- f$y_test
+  f$y_test <- f$y_test < threshold
+  f
+}
+
+fit.logistic <- function(f) {
+  glmnet::glmnet(f$x_train, f$y_train, family="binomial")
+}
+
+predict.logistic <- function(f, model) {
+  predict(model, f$x_test, type="class")
+}
 
 
 # K fold validation ---------------------------
