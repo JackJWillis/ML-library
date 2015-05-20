@@ -88,7 +88,7 @@ predict.regsubsets=function(object, newdata, ...){
   id <- which.min(summary(object)$bic)
   coefficients <- coef(object, id=id)
   xvars <- names(coefficients)
-  x[, xvars] %*% coefficients
+  newdata[, xvars] %*% coefficients
 }
 
 Stepwise <- function(x_train, y_train, x_test, y_test) {
