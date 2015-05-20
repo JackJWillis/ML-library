@@ -79,7 +79,7 @@ LeastSquares <- function() {
 
 
 fit.least_squares <- function(f) {
-  glmnet::glmnet(x_train, y_train, standardize=FALSE, lambda=0)
+  glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
 }
 
 
