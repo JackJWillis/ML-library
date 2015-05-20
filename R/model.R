@@ -115,18 +115,18 @@ Logistic <- function(threshold) {
 
 transform_ys.logistic <- function(f) {
   threshold <- f$threshold
-  f$y_train <- f$y_train < threshold
+  f$y_train <- as.factor(f$y_train < threshold)
   f$y_test_raw <- f$y_test
-  f$y_test <- f$y_test < threshold
+  f$y_test <- as.factor(f$y_test < threshold)
   f
 }
 
 fit.logistic <- function(f) {
-  glmnet::glmnet(f$x_train, f$y_train, family="binomial")
+  glmnet::cv.glmnet(f$x_train, f$y_train, family="binomial")
 }
 
 predict.logistic <- function(f, model) {
-  predict(model, f$x_test)
+  predict(model, f$x_test, type="response", lambda=lambda.min)
 }
 
 
