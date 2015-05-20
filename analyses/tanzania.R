@@ -110,7 +110,7 @@ logistic <- kfold(k, Logistic(), y, x)
 # Rerun with interaction terms
 # TODO: Handle this with parameters to the model class?
 x_ix <- model.matrix(lconsPC ~ . + .:.,  tz08)
-y_ix <- tz08[rownames(x), "lconsPC"]
+y_ix <- tz08[rownames(x_ix), "lconsPC"]
 k <- 5
 
 print("Running ridge with interactions")
@@ -122,7 +122,7 @@ least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
 print("Running stepwise with interactions")
 stepwise_ix <- kfold(k, Stepwise(), y_ix, x_ix)
 print("Running logistic with interaction terms")
-logistic_ix <- kfold(k, Logistic(), y, x)
+logistic_ix <- kfold(k, Logistic(), y_ix, x_ix)
 
 plot_scatter(ridge=ridge, lasso=lasso, ls=least_squares)
 plot_density(ridge=ridge, lasso=lasso, ls=least_squares)
