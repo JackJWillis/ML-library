@@ -22,24 +22,63 @@ standardize_predictors  <-  function(df, target) {
 }
 
 
+fold <- function(x_train, y_train, x_test, y_test) {
+  list(x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
+}
+
+
+fit <- function(f) UseMethod("fit")
+
+transform_ys <- function(f) UseMethod("transform_ys")
+transform_ys.default <- function(f) {
+  f$y_test_raw <- f$y_test
+  f
+}
+
 # Regularized linear models ---------------------------
 
-
-ridge_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::cv.glmnet(x_train, y_train, standardize=FALSE, alpha=0)
-  predict(fit, x_test)
+Ridge <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="ridge")
 }
 
 
-lasso_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::cv.glmnet(x_train, y_train, standardize=FALSE, alpha=1)
-  predict(fit, x_test)
+fit.ridge <- function(f) {
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
 }
 
 
-least_squares_predict <- function(x_train, y_train, x_test) {
-  fit <- glmnet::glmnet(x_train, y_train, standardize=FALSE, lambda=0)
-  predict(fit, x_test)
+predict.ridge <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+
+Lasso <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+}
+
+
+fit.lasso <- function(f) {
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+}
+
+
+predict.lasso <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+
+LeastSquares <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="least_squares")
+}
+
+
+fit.least_squares <- function(f) {
+  glmnet::glmnet(x_train, y_train, standardize=FALSE, lambda=0)
+}
+
+
+predict.least_squares <- function(f, model) {
+  predict(model, f$x_test)
 }
 
 
@@ -52,21 +91,58 @@ predict.regsubsets=function(object, newdata, ...){
   x[, xvars] %*% coefficients
 }
 
+Stepwise <- function(x_train, y_train, x_test, y_test) {
+  structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+}
 
-stepwise_predict <- function(x_train, y_train, x_test) {
-  fit <- leaps::regsubsets(x_train, y_train, method="forward", nvmax=100)
-  predict(fit, x_test)
+fit.stepwise <- function(f) {
+  leaps::regsubsets(x_train, y_train, method="forward", nvmax=100)
+}
+
+predict.stepwise <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+# Classification -----------------------------------------
+
+Logistic <- function(threshold) {
+    function(x_train, y_train, x_test, y_test) {
+      f <- fold(x_train, y_train, x_test, y_test)
+      f$threshold <- threshold
+      structure(f, class="logistic")
+    }
+}
+
+transform_ys.logistic <- function(f) {
+  threshold <- f$threshold
+  f$y_train <- as.factor(f$y_train < threshold)
+  f$y_test_raw <- f$y_test
+  f$y_test <- as.factor(f$y_test < threshold)
+  f
+}
+
+fit.logistic <- function(f) {
+  glmnet::cv.glmnet(f$x_train, f$y_train, family="binomial")
+}
+
+predict.logistic <- function(f, model) {
+  predict(model, f$x_test, type="response", lambda=lambda.min)
 }
 
 
 # K fold validation ---------------------------
 
-kfold <- function(k, predfun, y, x, seed=0) {
+kfold <- function(k, model_class, y, x, seed=0) {
   set.seed(seed)
-  folds <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
-  preds <- unlist(lapply(1:k, function (k) predfun(x[folds != k, ], y[folds != k], x[folds == k, ])))
-  trues <- unlist(lapply(1:k, function(k) y[folds == k]))
-  df <- data.frame(predicted=preds, true=trues, fold=folds)
+  assignments <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
+  folds <- lapply(1:k, function (k) { 
+    model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
+  folds <- lapply(folds, transform_ys)
+  fits <- lapply(folds, fit)
+  preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
+  trues <- unlist(lapply(folds, function(f) f$y_test))
+  raws <- unlist(lapply(folds, function(f) f$y_test_raw))
+  df <- data.frame(predicted=preds, true=trues, raw=raws, fold=assignments)
   df$id <- rownames(df)
   df
 }
