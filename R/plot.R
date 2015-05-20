@@ -22,6 +22,7 @@ join_dfs <- function(dfs) {
   }
   for( name in names(dfs)) {
     dfs[[name]]$method <- name
+    dfs[[name]]$true <- as.numeric(dfs[[name]]$true)
   }
   joined <- do.call("rbind", dfs)
   true_df <- data.frame(
