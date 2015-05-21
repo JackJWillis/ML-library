@@ -118,8 +118,9 @@ print("Running lasso with interactions")
 lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
 print("Running least squares with interactions")
 least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
-print("Running stepwise with interactions")
-stepwise_ix <- kfold(k, Stepwise(), y_ix, x_ix)
+# TODO: This fails
+# print("Running stepwise with interactions")
+# stepwise_ix <- kfold(k, Stepwise(), y_ix, x_ix)
 print("Running logistic with interaction terms")
 logistic_ix <- kfold(k, Logistic(12.5), y_ix, x_ix)
 
