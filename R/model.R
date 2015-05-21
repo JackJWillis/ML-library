@@ -62,7 +62,7 @@ Lasso <- function() {
 
 
 fit.lasso <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=1, parallel=TRUE)
 }
 
 
