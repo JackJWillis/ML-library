@@ -111,7 +111,6 @@ logistic <- kfold(k, Logistic(12.5), y, x)
 # TODO: Handle this with parameters to the model class?
 x_ix <- model.matrix(lconsPC ~ . + .:.,  tz08)
 y_ix <- tz08[rownames(x_ix), "lconsPC"]
-k <- 5
 
 print("Running ridge with interactions")
 ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
