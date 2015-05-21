@@ -38,6 +38,16 @@ join_dfs <- function(dfs) {
 }
 
 
+plot_residuals <- function(...) {
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  joined <- dplyr::filter(joined, method != "true")
+  joined$residual <- joined$true - joined$predicted
+  ggplot2::ggplot(joined, ggplot2::aes(x=predicted, y=residual, color=method)) +
+    ggplot2::geom_point(alpha=0.5)
+}
+
+
 plot_scatter <- function(...) {
   dfs <- list(...)
   joined <- join_dfs(dfs)

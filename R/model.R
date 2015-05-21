@@ -37,13 +37,15 @@ transform_ys.default <- function(f) {
 
 # Regularized linear models ---------------------------
 
-Ridge <- function(x_train, y_train, x_test, y_test) {
-  structure(fold(x_train, y_train, x_test, y_test), class="ridge")
+Ridge <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="ridge")
+  }
 }
 
 
 fit.ridge <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
 }
 
 
@@ -52,13 +54,15 @@ predict.ridge <- function(f, model) {
 }
 
 
-Lasso <- function(x_train, y_train, x_test, y_test) {
-  structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+Lasso <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+  }
 }
 
 
 fit.lasso <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
 }
 
 
@@ -67,13 +71,15 @@ predict.lasso <- function(f, model) {
 }
 
 
-LeastSquares <- function(x_train, y_train, x_test, y_test) {
-  structure(fold(x_train, y_train, x_test, y_test), class="least_squares")
+LeastSquares <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="least_squares")
+  }
 }
 
 
 fit.least_squares <- function(f) {
-  glmnet::glmnet(x_train, y_train, standardize=FALSE, lambda=0)
+  glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
 }
 
 
@@ -91,12 +97,14 @@ predict.regsubsets=function(object, newdata, ...){
   newdata[, xvars] %*% coefficients
 }
 
-Stepwise <- function(x_train, y_train, x_test, y_test) {
-  structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+Stepwise <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+  }
 }
 
 fit.stepwise <- function(f) {
-  leaps::regsubsets(x_train, y_train, method="forward", nvmax=100)
+  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=100)
 }
 
 predict.stepwise <- function(f, model) {
@@ -115,9 +123,9 @@ Logistic <- function(threshold) {
 
 transform_ys.logistic <- function(f) {
   threshold <- f$threshold
-  f$y_train <- as.factor(f$y_train < threshold)
+  f$y_train <- factor(f$y_train < threshold, levels=c(TRUE, FALSE))
   f$y_test_raw <- f$y_test
-  f$y_test <- as.factor(f$y_test < threshold)
+  f$y_test <- factor(f$y_test < threshold, levels=c(TRUE, FALSE))
   f
 }
 
