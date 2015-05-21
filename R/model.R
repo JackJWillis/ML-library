@@ -123,9 +123,9 @@ Logistic <- function(threshold) {
 
 transform_ys.logistic <- function(f) {
   threshold <- f$threshold
-  f$y_train <- as.factor(f$y_train < threshold)
+  f$y_train <- factor(f$y_train < threshold, levels=c(TRUE, FALSE))
   f$y_test_raw <- f$y_test
-  f$y_test <- as.factor(f$y_test < threshold)
+  f$y_test <- factor(f$y_test < threshold, levels=c(TRUE, FALSE))
   f
 }
 
