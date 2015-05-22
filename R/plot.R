@@ -123,12 +123,24 @@ plot_cumulative <- function(df, threshold, y_label, show_cutoffs, show_folds, fo
     threshold.df <- df %>%
       filter(cumall(predicted < threshold)) %>%
       filter(row_number() == n())
+    threshold.df[["cutoff"]] <- "consumption"
+    
+    percentile.threshold.df <- df %>%
+      arrange(raw) %>%
+      filter(cumall(raw < threshold)) %>%
+      filter(row_number() == n())
+    
+    percentile.threshold.df[["cutoff"]] <- "percentile"
+    threshold.df <- rbind(threshold.df, percentile.threshold.df)
     
     horizontal_mapping <- ggplot2::aes(y=value, x=0., yend=value, xend=percent_population_included, color=method)
     vertical_mapping <- ggplot2::aes(y=0., x=percent_population_included, yend=value, xend=percent_population_included, color=method)
+    
+    horizontal_mapping <- ggplot2::aes(y=value, x=0., yend=value, xend=percent_population_included, color=method, linetype=cutoff)
+    vertical_mapping <- ggplot2::aes(y=0., x=percent_population_included, yend=value, xend=percent_population_included, color=method, linetype=cutoff)
     p <- p +
-      ggplot2::geom_segment(data=threshold.df, mapping=horizontal_mapping, linetype="dashed") +
-      ggplot2::geom_segment(data=threshold.df, mapping=vertical_mapping, linetype="dashed")
+      ggplot2::geom_segment(data=threshold.df, mapping=horizontal_mapping) +
+      ggplot2::geom_segment(data=threshold.df, mapping=vertical_mapping)
   }
   if (show_folds) {
     folded_cut <- folded %>% slice(seq(1, n(), n() / point_count))
