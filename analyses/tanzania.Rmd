@@ -9,13 +9,14 @@ require(doMC)
 registerDoMC(cores=3)
 
 year <- 2008
-tz08 <- create_dataset(2008)
+tz08_unstandard <- create_dataset(2008)
+tz08 <- standardize_predictors(tz08_unstandard, "lconsPC")
 ```
 
 ## Data
 
 This is a sample analysis of the tanzania dataset from `r year`.
-The dataset has `r nrow(tz08)` rows and `r ncol(tz08)` columns.
+The dataset has `r nrow(tz08_unstandard) - nrow(tz08)` rows and `r ncol(tz08)` columns.
 Our goal is to predict the consumption levels from survey data.
 In this case we take the log of per capita consumption as our target variable.
 
@@ -24,12 +25,14 @@ In this case we take the log of per capita consumption as our target variable.
 We trained a number of different models on the raw data.
 We use `r k=5` fold cross validation for testing predictive accuracy.
 ```{r create_models}
-tz08 <- standardize_predictors(tz08, "lconsPC")
 x <- model.matrix(lconsPC ~ .,  tz08)
 y <- tz08[rownames(x), "lconsPC"]
 
 ridge <- kfold(k, Ridge(), y, x)
+lasso <- kfold(k, Lasso(), y, x)
 least_squares <- kfold(k, LeastSquares(), y, x)
+stepwise <- kfold(k, Stepwise(), y, x)
+logistic <- kfold(k, Logistic(12.5), y, x)
 ```
 
 We also trained each model on a dataset including all pairwise interactions.
@@ -40,10 +43,13 @@ percentile <- sum(tz08$lconsPC < threshold) / nrow(tz08)
 ```
 
 ```{r interactions}
-# x_ix <- model.matrix(lconsPC ~ . + .:.,  tz08)
-# y_ix <- tz08[rownames(x_ix), "lconsPC"]
-# 
-# least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
+x_ix <- model.matrix(lconsPC ~ . + .:.,  tz08)
+y_ix <- tz08[rownames(x_ix), "lconsPC"]
+
+ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
+lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
+least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
+logistic_ix <- kfold(k, Logistic(12.5), y_ix, x_ix)
 ```
 
 ## Assessments
@@ -63,7 +69,13 @@ Here set the threshold to be `r threshold`, about the `r sprintf("%.2f", percent
 plot_roc(
   threshold,
   ridge=ridge,
-  least_squares=least_squares)
+  lasso=lasso,
+  least_squares=least_squares,
+  ridge_ix=ridge_ix,
+  lasso_ix=lasso_ix,
+  least_squares_ix=least_squares_ix,
+  logistic_ix=logistic_ix,
+  stepwise=stepwise)
 ```
 
 ### Accuracy (Coverage rate)
@@ -71,7 +83,13 @@ plot_roc(
 plot_accuracy(
   threshold,
   ridge=ridge,
+  lasso=lasso,
   least_squares=least_squares,
+  stepwise=stepwise,
+  ridge_ix=ridge_ix,
+  lasso_ix=lasso_ix,
+  least_squares_ix=least_squares_ix,
+  logistic_ix=logistic_ix,
   SHOW_TRUE=TRUE,
   POINT_COUNT=50)
 ```
@@ -82,7 +100,13 @@ We can also display coverage rates at the consumption threshold and at the desir
 plot_accuracy(
   threshold,
   ridge=ridge,
+  lasso=lasso,
   least_squares=least_squares,
+  stepwise=stepwise,
+  ridge_ix=ridge_ix,
+  lasso_ix=lasso_ix,
+  least_squares_ix=least_squares_ix,
+  logistic_ix=logistic_ix,
   SHOW_CUTOFFS=TRUE,
   POINT_COUNT=50)
 ```
@@ -92,7 +116,13 @@ plot_accuracy(
 plot_accuracy_dollars(
   threshold,
   ridge=ridge,
+  lasso=lasso,
   least_squares=least_squares,
+  stepwise=stepwise,
+  ridge_ix=ridge_ix,
+  lasso_ix=lasso_ix,
+  least_squares_ix=least_squares_ix,
+  logistic_ix=logistic_ix,
   POINT_COUNT=50)
 ```
 
@@ -100,8 +130,13 @@ plot_accuracy_dollars(
 ```{r swf, echo=FALSE}
 plot_swf(
   ridge=ridge,
+  lasso=lasso,
   least_squares=least_squares,
-  GAMMA=2,
+  stepwise=stepwise,
+  ridge_ix=ridge_ix,
+  lasso_ix=lasso_ix,
+  least_squares_ix=least_squares_ix,
+  logistic_ix=logistic_ix,
   POINT_COUNT=50)
 ```
 
@@ -110,7 +145,9 @@ plot_swf(
 plot_metric(
   leakage,
   ridge=ridge,
-  least_squares=least_squares)
+  lasso=lasso,
+  least_squares=least_squares,
+  stepwise=stepwise)
 ```
 
 ### Undercoverage
@@ -118,7 +155,9 @@ plot_metric(
 plot_metric(
   undercoverage,
   ridge=ridge,
-  least_squares=least_squares)
+  lasso=lasso,
+  least_squares=least_squares,
+  stepwise=stepwise)
 ```
 
 ### nCGH
@@ -126,5 +165,7 @@ plot_metric(
 plot_metric(
   ncgh,
   ridge=ridge,
-  least_squares=least_squares)
+  lasso=lasso,
+  least_squares=least_squares,
+  stepwise=stepwise)
 ```
