@@ -1,4 +1,5 @@
 #' @import dplyr
+#' @export
 
 check_ids_match <- function(dfs) {
   ids <- lapply(dfs, function(df) df$id)

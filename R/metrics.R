@@ -13,6 +13,7 @@
 #' B = Beneficiary.
 #' TP+FP=B
 #' TP+FN = True poor
+#' @export
 
 
 DEFAULT_THRESHOLDS <- seq(0.1, 0.9, by=0.1)

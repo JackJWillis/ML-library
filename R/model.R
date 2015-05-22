@@ -1,7 +1,8 @@
-#############
-### This file contains ML prediction functions for different algorithms,
-### designed to be harmonized
-#############
+#' #############
+#' ### This file contains ML prediction functions for different algorithms,
+#' ### designed to be harmonized
+#' #############
+#' @export
 
 # Data processing ---------------------------
 
