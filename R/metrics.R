@@ -64,7 +64,7 @@ cgh <- function(df, THRESHOLDS=DEFAULT_THRESHOLDS) {
   quantiles,
   list(df)
   )
-  budget_percents / thresholds
+  budget_percents / THRESHOLDS
 }
 
 perfect_cgh <- function(thresholds) {
