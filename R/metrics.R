@@ -18,17 +18,17 @@
 DEFAULT_THRESHOLDS <- seq(0.1, 0.9, by=0.1)
 
 
-table_metric <- function(METRIC, ..., THRESHOLDS=DEFAULT_THREHSOLDS) {
+table_metric <- function(METRIC, ..., THRESHOLDS=DEFAULT_THRESHOLDS) {
   dfs <- list(...)
   do.call("rbind", lapply(dfs, METRIC))
 }
 
 
 plot_metric <- function(METRIC, ..., THRESHOLDS=DEFAULT_THRESHOLDS) {
-  metric_df <- table_metric(METRIC, ..., THRESHOLDS)
-  metric_df$method <- row_names()
-  melted <- reshape2::melt(metric_df, variable_name="threshold", id="method")
-  ggplot2::ggplot(melted, ggplot2::aes(x=threshold, y=value, color=method)) + 
+  metric_df <- data.frame(table_metric(METRIC, ..., THRESHOLDS=THRESHOLDS))
+  metric_df$method <- row.names(metric_df)
+  melted <- reshape2::melt(metric_df, variable.name="quantile", id="method")
+  ggplot2::ggplot(melted, ggplot2::aes(x=quantile, y=value, color=method)) + 
     ggplot2::geom_point()
 }
 
