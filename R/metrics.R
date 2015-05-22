@@ -18,7 +18,7 @@
 DEFAULT_THRESHOLDS <- seq(0.1, 0.9, by=0.1)
 
 
-table_metric <- function(METRIC, ..., THREHSOLDS=DEFAULT_THREHSOLDS) {
+table_metric <- function(METRIC, ..., THRESHOLDS=DEFAULT_THREHSOLDS) {
   dfs <- list(...)
   do.call("rbind", lapply(dfs, METRIC))
 }
