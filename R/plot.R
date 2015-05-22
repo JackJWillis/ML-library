@@ -208,7 +208,7 @@ plot_accuracy_dollars <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=
 }
 
 
-plot_swf <- function(..., GAMMA=10, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   joined <- dplyr::filter(joined, method!="true")
