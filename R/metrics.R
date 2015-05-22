@@ -24,11 +24,13 @@ table_metric <- function(METRIC, ..., THREHSOLDS=DEFAULT_THREHSOLDS) {
 }
 
 
-# plot_metric <- function(METRIC, ..., THRESHOLDS=DEFAULT_THRESHOLDS) {
-#  metric_df <- table_metric(METRIC, ..., THRESHOLDS)
-#  metric_df$method <- row_names()
-#  
-#}
+plot_metric <- function(METRIC, ..., THRESHOLDS=DEFAULT_THRESHOLDS) {
+  metric_df <- table_metric(METRIC, ..., THRESHOLDS)
+  metric_df$method <- row_names()
+  melted <- reshape2::melt(metric_df, variable_name="threshold", id="method")
+  ggplot2::ggplot(melted, ggplot2::aes(x=threshold, y=value, color=method)) + 
+    ggplot2::geom_point()
+}
 
 #' FP / B
 leakage <- function(df, THRESHOLDS=DEFAULT_THRESHOLDS) {
