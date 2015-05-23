@@ -56,7 +56,6 @@ y_ix <- tz08[rownames(x_ix), "lconsPC"]
 ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
 lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
 least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
-logistic_ix <- kfold(k, Logistic(12.5), y_ix, x_ix)
 ```
 
 ## Assessments
@@ -81,7 +80,6 @@ plot_roc(
   ridge_ix=ridge_ix,
   lasso_ix=lasso_ix,
   least_squares_ix=least_squares_ix,
-  logistic_ix=logistic_ix,
   stepwise=stepwise)
 ```
 
@@ -96,7 +94,6 @@ plot_accuracy(
   ridge_ix=ridge_ix,
   lasso_ix=lasso_ix,
   least_squares_ix=least_squares_ix,
-  logistic_ix=logistic_ix,
   SHOW_TRUE=TRUE,
   POINT_COUNT=50)
 ```
@@ -113,7 +110,6 @@ plot_accuracy(
   ridge_ix=ridge_ix,
   lasso_ix=lasso_ix,
   least_squares_ix=least_squares_ix,
-  logistic_ix=logistic_ix,
   SHOW_CUTOFFS=TRUE,
   POINT_COUNT=50)
 ```
@@ -129,7 +125,6 @@ plot_accuracy_dollars(
   ridge_ix=ridge_ix,
   lasso_ix=lasso_ix,
   least_squares_ix=least_squares_ix,
-  logistic_ix=logistic_ix,
   POINT_COUNT=50)
 ```
 
@@ -143,7 +138,6 @@ plot_swf(
   ridge_ix=ridge_ix,
   lasso_ix=lasso_ix,
   least_squares_ix=least_squares_ix,
-  logistic_ix=logistic_ix,
   POINT_COUNT=50)
 ```
 
