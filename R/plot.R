@@ -127,15 +127,17 @@ plot_cumulative <- function(df, threshold, y_label, show_cutoffs, show_folds, fo
     threshold.df[["cutoff"]] <- "consumption"
     
     percentile.threshold.df <- df %>%
-      arrange(raw) %>%
-      filter(cumall(raw < threshold)) %>%
-      filter(row_number() == n())
-    
+      mutate(percentile_count = sum(raw < threshold)) %>%
+      filter(percentile_count == row_number())
     percentile.threshold.df[["cutoff"]] <- "percentile"
-    threshold.df <- rbind(threshold.df, percentile.threshold.df)
+    percentile.threshold.df$percentile_count <- NULL
     
-    horizontal_mapping <- ggplot2::aes(y=value, x=0., yend=value, xend=percent_population_included, color=method)
-    vertical_mapping <- ggplot2::aes(y=0., x=percent_population_included, yend=value, xend=percent_population_included, color=method)
+    median.threshold.df <- df %>%
+      filter(cumall(predicted < median(raw))) %>%
+      filter(row_number() == n())
+    median.threshold.df[["cutoff"]] <- "median"
+      
+    threshold.df <- rbind(threshold.df, percentile.threshold.df, median.threshold.df)
     
     horizontal_mapping <- ggplot2::aes(y=value, x=0., yend=value, xend=percent_population_included, color=method, linetype=cutoff)
     vertical_mapping <- ggplot2::aes(y=0., x=percent_population_included, yend=value, xend=percent_population_included, color=method, linetype=cutoff)
