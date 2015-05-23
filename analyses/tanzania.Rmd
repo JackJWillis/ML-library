@@ -148,7 +148,10 @@ plot_metric(
   ridge=ridge,
   lasso=lasso,
   least_squares=least_squares,
-  stepwise=stepwise)
+  stepwise=stepwise,
+  ridge_ix=ridge_ix,
+  lasso_ix=lasso_ix,
+  least_squares_ix=least_squares_ix)
 ```
 
 ### Undercoverage
@@ -158,15 +161,21 @@ plot_metric(
   ridge=ridge,
   lasso=lasso,
   least_squares=least_squares,
-  stepwise=stepwise)
+  stepwise=stepwise
+  ridge_ix=ridge_ix,
+  lasso_ix=lasso_ix,
+  least_squares_ix=least_squares_ix)
 ```
 
-### nCGH
-```{r ncgh, echo=FALSE}
+### CGH
+```{r cgh, echo=FALSE}
 plot_metric(
-  ncgh,
+  cgh,
   ridge=ridge,
   lasso=lasso,
   least_squares=least_squares,
-  stepwise=stepwise)
+  stepwise=stepwise,
+  ridge_ix=ridge_ix,
+  lasso_ix=lasso_ix,
+  least_squares_ix=least_squares_ix)
 ```
