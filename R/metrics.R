@@ -13,6 +13,7 @@
 #' B = Beneficiary.
 #' TP+FP=B
 #' TP+FN = True poor
+#' @export
 
 
 DEFAULT_THRESHOLDS <- seq(0.1, 0.9, by=0.1)
@@ -63,7 +64,7 @@ cgh <- function(df, THRESHOLDS=DEFAULT_THRESHOLDS) {
   quantiles,
   list(df)
   )
-  budget_percents / thresholds
+  budget_percents / THRESHOLDS
 }
 
 perfect_cgh <- function(thresholds) {
