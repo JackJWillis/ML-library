@@ -39,12 +39,23 @@ join_dfs <- function(dfs) {
 }
 
 
-plot_residuals <- function(...) {
-  dfs <- list(...)
-  joined <- join_dfs(dfs)
+plot_residuals_ <- function(joined) {
   joined <- dplyr::filter(joined, method != "true")
   joined$residual <- joined$true - joined$predicted
   ggplot2::ggplot(joined, ggplot2::aes(x=predicted, y=residual, color=method)) +
+    ggplot2::geom_point(alpha=0.5)
+}
+
+plot_residuals <- function(...) {
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  plot_residuals_(joined)
+}
+
+
+plot_scatter_ <- function(joined) {
+  joined <- dplyr::filter(joined, method != "true")
+  ggplot2::ggplot(joined, ggplot2::aes(x=true, y=predicted, color=method)) +
     ggplot2::geom_point(alpha=0.5)
 }
 
@@ -52,15 +63,11 @@ plot_residuals <- function(...) {
 plot_scatter <- function(...) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  joined <- dplyr::filter(joined, method != "true")
-  ggplot2::ggplot(joined, ggplot2::aes(x=true, y=predicted, color=method)) +
-    ggplot2::geom_point(alpha=0.5)
+  plot_scatter_(joined)
 }
 
 
-plot_density <- function(..., SHOW_FOLDS=FALSE) {
-  dfs <- list(...)
-  joined <- join_dfs(dfs)
+plot_density_ <- function(joined, SHOW_FOLDS=FALSE) {
   p <- ggplot2::ggplot(joined, ggplot2::aes(x=predicted, color=method)) +
     ggplot2::geom_density()
   if (SHOW_FOLDS) {
@@ -70,12 +77,14 @@ plot_density <- function(..., SHOW_FOLDS=FALSE) {
   p
 }
 
-
-#' Produce an ROC curve which plots a given method's sensitivity/specificity with respect
-#' a given poverty threshold.
-plot_roc <- function(THRESHOLD, ..., SHOW_FOLDS=FALSE) {
+plot_density <- function(..., SHOW_FOLDS=FALSE) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
+  plot_density_(joined, SHOW_FOLDS)
+}
+
+
+plot_roc_ <- function(THRESHOLD, joined, SHOW_FOLDS=FALSE) {
   joined <- dplyr::filter(joined, method != "true")
   joined$response <- joined$raw < THRESHOLD
   joined$id <- NULL
@@ -107,6 +116,14 @@ plot_roc <- function(THRESHOLD, ..., SHOW_FOLDS=FALSE) {
     p <- p + ggplot2::geom_step(data=roc_df, mapping=aes, alpha=0.3)
   }
   p
+}
+
+#' Produce an ROC curve which plots a given method's sensitivity/specificity with respect
+#' a given poverty threshold.
+plot_roc <- function(THRESHOLD, ..., SHOW_FOLDS=FALSE) {
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  plot_roc_(THRESHOLD, joined, SHOW_FOLDS)
 }
 
 
@@ -154,12 +171,7 @@ plot_cumulative <- function(df, threshold, y_label, show_cutoffs, show_folds, fo
 }
 
 
-#' If we target N people, what fraction of the true poor would receive funds?
-#' True Positives / Total Positives
-#' Note that this is a reparameterization of the ROC curve
-plot_accuracy <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
-  dfs <- list(...)
-  joined <- join_dfs(dfs)
+plot_accuracy_ <- function(THRESHOLD, joined, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   joined$response <- joined$raw < THRESHOLD
   if(!SHOW_TRUE) {
     joined <- dplyr::filter(joined, method!="true")
@@ -189,11 +201,18 @@ plot_accuracy <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, S
                   point_count=POINT_COUNT)
 }
 
-#' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
-#' True Positives / (True Positives + False Positives)
-plot_accuracy_dollars <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+
+#' If we target N people, what fraction of the true poor would receive funds?
+#' True Positives / Total Positives
+#' Note that this is a reparameterization of the ROC curve
+plot_accuracy <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
+  plot_accuracy_(THRESHOLD, joined, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
+}
+
+
+plot_accuracy_dollars_ <- function(THRESHOLD, joined, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   joined$response <- joined$raw < THRESHOLD
   if (!SHOW_TRUE) {
       joined <- dplyr::filter(joined, method!="true")
@@ -222,12 +241,19 @@ plot_accuracy_dollars <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=
                   show_folds=SHOW_FOLDS,
                   folded=folded_df,
                   point_count=POINT_COUNT)
+
+}
+
+#' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
+#' True Positives / (True Positives + False Positives)
+plot_accuracy_dollars <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  plot_accuracy_dollars_(THRESHOLD, joined, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
 
 
-plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
-  dfs <- list(...)
-  joined <- join_dfs(dfs)
+plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   joined <- dplyr::filter(joined, method!="true")
   marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
   joined$marginal_utility <- sapply(joined$raw, marginal_utility)
@@ -255,4 +281,11 @@ plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
                   show_folds=SHOW_FOLDS,
                   folded=folded_df,
                   point_count=POINT_COUNT)
+}
+
+
+plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  plot_swf_(joined, GAMMA, SHOW_FOLDS, POINT_COUNT)
 }
