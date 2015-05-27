@@ -19,18 +19,27 @@
 DEFAULT_THRESHOLDS <- seq(0.1, 0.9, by=0.1)
 
 
-table_metric <- function(METRIC, ..., THRESHOLDS=DEFAULT_THRESHOLDS) {
-  dfs <- list(...)
-  do.call("rbind", lapply(dfs, METRIC))
+table_metric_ <- function(METRIC, joined, THRESHOLDS=DEFAULT_THRESHOLDS) {
+  joined <- dplyr::filter(joined, method != "true")
+  grouped <- dplyr::group_by(joined, method)
+  df <- dplyr::do(grouped, metric=METRIC(., THRESHOLDS))
+  bound <- data.frame(do.call("rbind", df$metric))
+  bound$method <- df$method
+  bound
 }
 
 
-plot_metric <- function(METRIC, ..., THRESHOLDS=DEFAULT_THRESHOLDS) {
-  metric_df <- data.frame(table_metric(METRIC, ..., THRESHOLDS=THRESHOLDS))
-  metric_df$method <- row.names(metric_df)
+plot_metric_ <- function(METRIC, joined, THRESHOLDS=DEFAULT_THRESHOLDS) {
+  metric_df <- data.frame(table_metric_(METRIC, joined, THRESHOLDS))
   melted <- reshape2::melt(metric_df, variable.name="quantile", id="method")
   ggplot2::ggplot(melted, ggplot2::aes(x=quantile, y=value, color=method)) + 
     ggplot2::geom_point()
+}
+
+plot_metric <- function(METRIC, ..., THRESHOLDS=DEFAULT_THRESHOLDS) {
+  dfs <- list(dfs)
+  joined <- join_dfs(dfs)
+  plot_metric_(joined)
 }
 
 #' FP / B
