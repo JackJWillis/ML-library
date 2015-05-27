@@ -2,45 +2,38 @@
 title: "Tanzania Prediction Example"
 output:
   html_document
-
-  pdf_document
 ---
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
                       warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir="../")
 ```
 
 ```{r load_data, echo=FALSE}
-source("tanzania.R")
-require(doMC)
-registerDoMC(cores=3)
+library(MLlibrary)
+library(dplyr)
 
-year <- 2008
-tz08_unstandard <- create_dataset(2008)
-tz08 <- standardize_predictors(tz08_unstandard, "lconsPC")
+NAME <- "tanzania"
+tz08 <- load_dataset(NAME)
 ```
 
 ## Data
 
-This is a sample analysis of the tanzania dataset from `r year`.
-The dataset has `r nrow(tz08_unstandard) - nrow(tz08)` rows and `r ncol(tz08)` columns.
+This is a sample analysis of the tanzania dataset from 2008.
+The dataset has `r nrow(tz08)` rows and `r ncol(tz08)` columns.
+TODO: how many missing?
 Our goal is to predict the consumption levels from survey data.
 In this case we take the log of per capita consumption as our target variable.
 
 ## Models
 
+```{r load_models, echo=FALSE}
+joined <- load_models(NAME)
+k <- nrow(distinct(joined, fold))
+```
+
 We trained a number of different models on the raw data.
 We use `r k=5` fold cross validation for testing predictive accuracy.
-```{r create_models}
-x <- model.matrix(lconsPC ~ .,  tz08)
-y <- tz08[rownames(x), "lconsPC"]
-
-ridge <- kfold(k, Ridge(), y, x)
-lasso <- kfold(k, Lasso(), y, x)
-least_squares <- kfold(k, LeastSquares(), y, x)
-stepwise <- kfold(k, Stepwise(), y, x)
-logistic <- kfold(k, Logistic(12.5), y, x)
-```
 
 We also trained each model on a dataset including all pairwise interactions.
 
@@ -49,22 +42,11 @@ threshold <- 12.5
 percentile <- sum(tz08$lconsPC < threshold) / nrow(tz08)
 ```
 
-```{r interactions}
-x_ix <- model.matrix(lconsPC ~ . + .:.,  tz08)
-y_ix <- tz08[rownames(x_ix), "lconsPC"]
-
-ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
-lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
-least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
-```
-
 ## Assessments
 
 ### Density
 ```{r density, echo=FALSE}
-plot_density(
-  ridge=ridge,
-  least_squares=least_squares)
+plot_density_(joined)
 ```
 Note that the following metrics take a threshold parameter to determine the true poor.
 Here set the threshold to be `r threshold`, about the `r sprintf("%.2f", percentile)` percentile.
@@ -72,110 +54,41 @@ Here set the threshold to be `r threshold`, about the `r sprintf("%.2f", percent
 ### ROC
 
 ```{r roc, echo=FALSE}
-plot_roc(
-  threshold,
-  ridge=ridge,
-  lasso=lasso,
-  least_squares=least_squares,
-  ridge_ix=ridge_ix,
-  lasso_ix=lasso_ix,
-  least_squares_ix=least_squares_ix,
-  stepwise=stepwise)
+plot_roc_(threshold, joined)
 ```
 
 ### Accuracy (Coverage rate)
 ```{r accuracy, echo=FALSE}
-plot_accuracy(
-  threshold,
-  ridge=ridge,
-  lasso=lasso,
-  least_squares=least_squares,
-  stepwise=stepwise,
-  ridge_ix=ridge_ix,
-  lasso_ix=lasso_ix,
-  least_squares_ix=least_squares_ix,
-  SHOW_TRUE=TRUE,
-  POINT_COUNT=50)
+plot_accuracy_(threshold, joined, SHOW_TRUE=TRUE, POINT_COUNT=50)
 ```
 
 We can also display coverage rates at the consumption threshold and at the desired percentile.
 
 ```{r accuracy_cutoffs, echo=FALSE}
-plot_accuracy(
-  threshold,
-  ridge=ridge,
-  lasso=lasso,
-  least_squares=least_squares,
-  stepwise=stepwise,
-  ridge_ix=ridge_ix,
-  lasso_ix=lasso_ix,
-  least_squares_ix=least_squares_ix,
-  SHOW_CUTOFFS=TRUE,
-  POINT_COUNT=50)
+plot_accuracy_(threshold, joined, SHOW_CUTOFFS=TRUE, POINT_COUNT=50)
 ```
 
 ### Budget to the true poor
 ```{r accuracy_dollars, echo=FALSE}
-plot_accuracy_dollars(
-  threshold,
-  ridge=ridge,
-  lasso=lasso,
-  least_squares=least_squares,
-  stepwise=stepwise,
-  ridge_ix=ridge_ix,
-  lasso_ix=lasso_ix,
-  least_squares_ix=least_squares_ix,
-  POINT_COUNT=50)
+plot_accuracy_dollars_(threshold, joined, POINT_COUNT=50)
 ```
 
 ### Social welfare
 ```{r swf, echo=FALSE}
-plot_swf(
-  ridge=ridge,
-  lasso=lasso,
-  least_squares=least_squares,
-  stepwise=stepwise,
-  ridge_ix=ridge_ix,
-  lasso_ix=lasso_ix,
-  least_squares_ix=least_squares_ix,
-  POINT_COUNT=50)
+plot_swf_(joined, POINT_COUNT=50)
 ```
 
 ### Leakage
 ```{r leakage, echo=FALSE}
-plot_metric(
-  leakage,
-  ridge=ridge,
-  lasso=lasso,
-  least_squares=least_squares,
-  stepwise=stepwise,
-  ridge_ix=ridge_ix,
-  lasso_ix=lasso_ix,
-  least_squares_ix=least_squares_ix)
+plot_metric_(leakage, joined)
 ```
 
 ### Undercoverage
 ```{r undercoverage, echo=FALSE}
-plot_metric(
-  undercoverage,
-  ridge=ridge,
-  lasso=lasso,
-  least_squares=least_squares,
-  stepwise=stepwise
-  ridge_ix=ridge_ix,
-  lasso_ix=lasso_ix,
-  least_squares_ix=least_squares_ix)
+plot_metric_(undercoverage, joined)
 ```
 
 ### CGH
 ```{r cgh, echo=FALSE}
-plot_metric(
-  cgh,
-  ridge=ridge,
-  lasso=lasso,
-  least_squares=least_squares,
-  stepwise=stepwise,
-  ridge_ix=ridge_ix,
-  lasso_ix=lasso_ix,
-  least_squares_ix=least_squares_ix)
+plot_metric_(cgh, joined)
 ```
