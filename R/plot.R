@@ -203,8 +203,9 @@ plot_accuracy <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SH
 }
 
 
-plot_accuracy_dollars_ <- function(THRESHOLD, joined, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
-  joined$response <- joined$raw < THRESHOLD
+plot_accuracy_dollars_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+  joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
+  joined$threshold <- THRESHOLD
   if (!SHOW_TRUE) {
       joined <- dplyr::filter(joined, method!="true")
   }
@@ -212,12 +213,13 @@ plot_accuracy_dollars_ <- function(THRESHOLD, joined, SHOW_TRUE=FALSE, SHOW_CUTO
   make_df <- function(df, folds) {
 
     if (folds) {
-      grouped <- group_by(df, method, fold)
+      grouped <- group_by(df, method, fold, threshold)
     }
     else {
-      grouped <- group_by(df, method)
+      grouped <- group_by(df, method, threshold)
     }
     grouped %>%
+      mutate(response=raw < quantile(raw, threshold)) %>%
       arrange(predicted) %>%
       mutate(value=cumsum(response) / row_number()) %>%
       mutate(percent_population_included=row_number() / n())
@@ -226,7 +228,6 @@ plot_accuracy_dollars_ <- function(THRESHOLD, joined, SHOW_TRUE=FALSE, SHOW_CUTO
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
-                  threshold=THRESHOLD,
                   y_label="to_true_poor",
                   show_cutoffs=SHOW_CUTOFFS,
                   show_folds=SHOW_FOLDS,
@@ -237,15 +238,16 @@ plot_accuracy_dollars_ <- function(THRESHOLD, joined, SHOW_TRUE=FALSE, SHOW_CUTO
 
 #' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
 #' True Positives / (True Positives + False Positives)
-plot_accuracy_dollars <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy_dollars <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_accuracy_dollars_(THRESHOLD, joined, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
+  plot_accuracy_dollars_(joined, THRESHOLD, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
 
 
 plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   joined <- dplyr::filter(joined, method!="true")
+  joined$threshold <- ""
   marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
   joined$marginal_utility <- sapply(joined$raw, marginal_utility)
 
@@ -266,7 +268,6 @@ plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
-                  threshold=NULL,
                   y_label="welfare",
                   show_cutoffs=FALSE,
                   show_folds=SHOW_FOLDS,
