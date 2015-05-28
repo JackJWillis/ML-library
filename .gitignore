@@ -3,3 +3,6 @@
 .RData
 *.dta
 *.xlsx
+*.csv
+*.html
+*/Figs/*
