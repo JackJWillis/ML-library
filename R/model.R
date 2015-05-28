@@ -152,7 +152,6 @@ kfold <- function(k, model_class, y, x, seed=0) {
   trues <- unlist(lapply(folds, function(f) f$y_test))
   raws <- unlist(lapply(folds, function(f) f$y_test_raw))
   df <- data.frame(predicted=preds, true=trues, raw=raws, fold=assignments)
-  df$id <- rownames(df)
   df
 }
 # ###Regression Tree
