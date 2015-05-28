@@ -1,6 +1,8 @@
 #' @import dplyr
 #' @export
 
+DEFAULT_PERCENTILES <- seq(0.1, 0.9, by=0.1)
+
 join_dfs <- function(dfs) {
   if(is.null(names(dfs))) {
     names(dfs) <- seq_len(length(dfs))
@@ -67,33 +69,36 @@ plot_density <- function(..., SHOW_FOLDS=FALSE) {
 }
 
 
-plot_roc_ <- function(THRESHOLD, joined, SHOW_FOLDS=FALSE) {
+plot_roc_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
   joined <- dplyr::filter(joined, method != "true")
-  joined$response <- joined$raw < THRESHOLD
-  joined$id <- NULL
+  joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
+  joined$threshold <- THRESHOLD
   joined$true <- NULL
   
-  roc_to_df <- function(name, fold, roc) {
-    data.frame(sensitivity=roc$sensitivities, specificity=roc$specificities, method=name, fold=fold)
+  roc_to_df <- function(name, fold, roc, threshold) {
+    data.frame(sensitivity=roc$sensitivities, specificity=roc$specificities, method=name, fold=fold, threshold=threshold)
   }
   
   # Generate per method roc curves
-  grouped <- dplyr::group_by(joined, method)
+  grouped <- dplyr::group_by(joined, method, threshold) %>%
+    mutate(response=raw < quantile(raw, threshold))
   rocs <- dplyr::do(grouped, roc=pROC::roc(response ~ predicted, data=., plot=FALSE))
-  roc_dfs <- mapply(roc_to_df, rocs$method, 1, rocs$roc, SIMPLIFY=FALSE)
+  roc_dfs <- mapply(roc_to_df, rocs$method, 1, rocs$roc, rocs$threshold, SIMPLIFY=FALSE)
   roc_df <- do.call("rbind", roc_dfs)
   aes <- ggplot2::aes(x=specificity, y=sensitivity, color=method)
   p <- ggplot2::ggplot(roc_df, aes) +
     ggplot2::geom_step(alpha=0.8) +
     ggplot2::scale_x_reverse() +
-    ggplot2::geom_abline(intercept=1, slope=1, alpha=0.5) 
+    ggplot2::geom_abline(intercept=1, slope=1, alpha=0.5) +
+    ggplot2::facet_wrap(~ threshold)
   # TODO show auc
   
   if (SHOW_FOLDS) {
     # Generate per method-fold roc curved
-    grouped <- dplyr::group_by(joined, method, fold)
+    grouped <- dplyr::group_by(joined, method, fold, threshold) %>%
+      mutate(response=raw < quantile(raw, threshold))
     rocs <- dplyr::do(grouped, roc=pROC::roc(response ~ predicted, data=., plot=FALSE))
-    roc_dfs <- mapply(roc_to_df, rocs$method, rocs$fold, rocs$roc, SIMPLIFY=FALSE)
+    roc_dfs <- mapply(roc_to_df, rocs$method, rocs$fold, rocs$roc, rocs$threshold, SIMPLIFY=FALSE)
     roc_df <- do.call("rbind", roc_dfs)
     aes <- ggplot2::aes(x=specificity, y=sensitivity, color=method, group=fold)
     p <- p + ggplot2::geom_step(data=roc_df, mapping=aes, alpha=0.3)
@@ -103,10 +108,10 @@ plot_roc_ <- function(THRESHOLD, joined, SHOW_FOLDS=FALSE) {
 
 #' Produce an ROC curve which plots a given method's sensitivity/specificity with respect
 #' a given poverty threshold.
-plot_roc <- function(THRESHOLD, ..., SHOW_FOLDS=FALSE) {
+plot_roc <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_roc_(THRESHOLD, joined, SHOW_FOLDS)
+  plot_roc_(joined, THRESHOLD, SHOW_FOLDS)
 }
 
 
