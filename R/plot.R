@@ -115,24 +115,26 @@ plot_roc <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
 }
 
 
-plot_cumulative <- function(df, threshold, y_label, show_cutoffs, show_folds, folded, point_count) {
+plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count) {
   cut <- df %>%
     slice(seq(1, n(), n() / point_count))
     
   p <- ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
     ggplot2::geom_step() +
     ggplot2::geom_point() +
+    ggplot2::facet_wrap(~ threshold) +
     ggplot2::labs(y = y_label)
 
   if (show_cutoffs) {
     # TODO annotate plot
+    df <- mutate(df, absolute=quantile(raw, threshold))
     threshold.df <- df %>%
-      filter(cumall(predicted < threshold)) %>%
+      filter(cumall(predicted < absolute)) %>%
       filter(row_number() == n())
     threshold.df[["cutoff"]] <- "consumption"
     
     percentile.threshold.df <- df %>%
-      mutate(percentile_count = sum(raw < threshold)) %>%
+      mutate(percentile_count = sum(raw < absolute)) %>%
       filter(percentile_count == row_number())
     percentile.threshold.df[["cutoff"]] <- "percentile"
     percentile.threshold.df$percentile_count <- NULL
@@ -159,20 +161,22 @@ plot_cumulative <- function(df, threshold, y_label, show_cutoffs, show_folds, fo
 }
 
 
-plot_accuracy_ <- function(THRESHOLD, joined, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
-  joined$response <- joined$raw < THRESHOLD
+plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+  joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
+  joined$threshold <- THRESHOLD
   if(!SHOW_TRUE) {
     joined <- dplyr::filter(joined, method!="true")
   }
   make_df <- function(df, folds) {
 
     if (folds) {
-      grouped <- group_by(df, method, fold)
+      grouped <- group_by(df, method, fold, threshold)
     }
     else {
-      grouped <- group_by(df, method)
+      grouped <- group_by(df, method, threshold)
     }
     grouped %>%
+      mutate(response=raw < quantile(raw, threshold)) %>%
       arrange(predicted) %>%
       mutate(value=cumsum(response) / sum(response)) %>%
       mutate(percent_population_included=row_number() / n())
@@ -181,7 +185,6 @@ plot_accuracy_ <- function(THRESHOLD, joined, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALS
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
-                  threshold=THRESHOLD,
                   y_label="coverage",
                   show_cutoffs=SHOW_CUTOFFS,
                   show_folds=SHOW_FOLDS,
@@ -193,10 +196,10 @@ plot_accuracy_ <- function(THRESHOLD, joined, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALS
 #' If we target N people, what fraction of the true poor would receive funds?
 #' True Positives / Total Positives
 #' Note that this is a reparameterization of the ROC curve
-plot_accuracy <- function(THRESHOLD, ..., SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_accuracy_(THRESHOLD, joined, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
+  plot_accuracy_(joined, THRESHOLD, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
 
 
