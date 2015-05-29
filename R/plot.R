@@ -115,6 +115,37 @@ plot_roc <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
 }
 
 
+plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
+  dfs <- list(...)
+  joined <- join_dfs(dfs)
+  plot_reach_vs_waste_(joined, THRESHOLD, SHOW_FOLDS)
+}
+
+
+plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
+  joined <- dplyr::filter(joined, method != "true")
+  joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
+  joined$threshold <- THRESHOLD
+  joined$true <- NULL
+  
+  roc_to_df <- function(name, fold, roc, threshold, total_poor, total_rich) {
+    data.frame(reach=total_poor*roc$specificities, waste=total_rich*(1-roc$sensitivities), method=name, fold=fold, threshold=threshold)
+  }
+  grouped <- dplyr::group_by(joined, method, threshold) %>%
+    mutate(response=raw < quantile(raw, threshold))
+  rocs <- dplyr::do(grouped,
+                    roc=pROC::roc(response ~ predicted, data=., plot=FALSE),
+                    total_poor=sum(.$response),
+                    total_rich=sum(!.$response))
+  roc_dfs <- mapply(roc_to_df, rocs$method, 1, rocs$roc, rocs$threshold, unlist(rocs$total_poor), unlist(rocs$total_rich), SIMPLIFY=FALSE)
+  roc_df <- do.call("rbind", roc_dfs)
+  aes <- ggplot2::aes(x=reach, y=waste, color=method)
+  p <- ggplot2::ggplot(roc_df, aes) +
+    ggplot2::geom_step(alpha=0.8) +
+    ggplot2::facet_wrap(~ threshold)
+  p
+}
+
 plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count) {
   cut <- df %>%
     slice(seq(1, n(), n() / point_count))
