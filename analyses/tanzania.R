@@ -99,6 +99,7 @@ tz08 <- create_dataset(2008)
 tz08 <- standardize_predictors(tz08, "lconsPC")
 save_dataset(NAME, tz08)
 x <- model.matrix(lconsPC ~ .,  tz08)
+x_nmm <- tz08[-"lconsPC",]
 y <- tz08[rownames(x), "lconsPC"]
 k <- 5
 
@@ -112,6 +113,12 @@ print("Running stepwise")
 stepwise <- kfold(k, Stepwise(), y, x)
 print("Running logistic")
 logistic <- kfold(k, Logistic(12.5), y, x)
+print("Running rtree")
+rtree <- kfold(k, rTree(), y, x_nmm)
+print("Running randomForest")
+forest <- kfold(k, Forest(), y, x_nmm)
+
+
 
 # Rerun with interaction terms
 # TODO: Handle this with parameters to the model class?

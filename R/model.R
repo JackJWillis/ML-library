@@ -112,6 +112,44 @@ predict.stepwise <- function(f, model) {
   predict(model, f$x_test)
 }
 
+# Tree based models --------------------------------------
+
+rTree <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="tree")
+  }
+}
+
+fit.rTree <- function(f) {
+  tree <- tree
+  yx_train_global <<- data.frame(Y=f$y_train,X=f$x_train)
+  names(yx_train_global)[1]<<-"Y"
+  tree.first <- tree::tree(Y~.,yx_train_global)
+  cv.trees <- tree::cv.tree(tree.first)
+  #Chooses tree size with minimal deviance
+  bestsize <- cv.trees$size[which.min(cv.trees$dev)]
+  tree.final <- tree::prune.tree(tree.first, best = bestsize)  
+}
+
+predict.rTree <- function(f, model) {
+  predict(model, f$x_test)
+}
+
+Forest <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="randomForest")
+  }
+}
+
+fit.forest <- function(f) {
+#Supposedly this doesn't need CV  
+  randomForest::randomForest(f$x_train, f$y_train)
+}
+
+predict.forest <- function(f, model) {
+  predict(model, f$x_test)
+}
+
 # Classification -----------------------------------------
 
 Logistic <- function(threshold) {
