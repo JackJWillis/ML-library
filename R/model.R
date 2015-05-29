@@ -22,13 +22,13 @@ standardize_predictors  <-  function(df, target) {
   standard
 }
 
+MISSINGNESS_INDICATOR <- "missing_missing_missing"
 na_indicator <- function(df) {
-  missingness <- "missing_missing_missing"
   for (name in names(df)) {
     if (any(is.na(df[[name]]))) {
       if (is.factor(df[[name]])) {
-        levels(df[[name]]) <- c(levels(df[[name]]), missingness)
-        df[is.na(df[[name]]), name] <- missingness
+        levels(df[[name]]) <- c(levels(df[[name]]), MISSINGNESS_INDICATOR)
+        df[is.na(df[[name]]), name] <- MISSINGNESS_INDICATOR
       }
       if (is.numeric(df[[name]])) {
         df[[paste(name, "NA", sep=".")]] <- is.na(df[[name]])
