@@ -57,13 +57,14 @@ add_covariates <- function(output_df, tanzania_panel) {
   output_df[, c(covariates_categorical)] <- lapply(output_df[, c(covariates_categorical)], as.factor)
   output_df[, c(covariates_cardinal)] <- lapply(output_df[, c(covariates_cardinal)], as.numeric)
   # Note, may wish to recode some of the categoricals as ordered and the yes/no as categorical.
-  output_df[, c(covariates_yesno)] <- lapply(output_df[, c(covariates_yesno)], as.logical)
+  output_df[, c(covariates_yesno)] <- lapply(output_df[, c(covariates_yesno)], as.factor)
 
   output_df
 }
 
 add_target_per_capita <- function(output_df, panel_df) {
   output_df$lconsPC <- log(panel_df$expmR / panel_df$hhsize) 
+  output_df$lhhsize <- log(panel_df$hhsize) 
   output_df
 }
 
@@ -94,10 +95,10 @@ create_dataset <- function(year, remove_missing=TRUE) {
 
 # Run analysis ---------------------------
 
-tz08_missing <- create_dataset(2008, remove_missing=FALSE)
-tz08 <- create_dataset(2008)
+tz08 <- create_dataset(2008, remove_missing=FALSE)
 tz08 <- standardize_predictors(tz08, "lconsPC")
-save_dataset(NAME, tz08)
+tz08 <- na_indicator(tz08)
+#save_dataset(NAME, tz08)
 x <- model.matrix(lconsPC ~ .,  tz08)
 y <- tz08[rownames(x), "lconsPC"]
 k <- 5

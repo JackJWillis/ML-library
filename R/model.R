@@ -22,6 +22,23 @@ standardize_predictors  <-  function(df, target) {
   standard
 }
 
+na_indicator <- function(df) {
+  missingness <- "missing_missing_missing"
+  for (name in names(df)) {
+    if (any(is.na(df[[name]]))) {
+      if (is.factor(df[[name]])) {
+        levels(df[[name]]) <- c(levels(df[[name]]), missingness)
+        df[is.na(df[[name]]), name] <- missingness
+      }
+      if (is.numeric(df[[name]])) {
+        df[[paste(name, "NA", sep=".")]] <- is.na(df[[name]])
+        df[is.na(df[[name]]), name] <- 0
+      }
+    }
+  }
+  df
+}
+
 
 fold <- function(x_train, y_train, x_test, y_test) {
   list(x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
