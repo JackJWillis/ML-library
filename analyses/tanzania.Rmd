@@ -33,7 +33,7 @@ k <- nrow(distinct(joined, fold))
 ```
 
 We trained a number of different models on the raw data.
-We use `r k=5` fold cross validation for testing predictive accuracy.
+We use `r k` fold cross validation for testing predictive accuracy.
 
 We also trained each model on a dataset including all pairwise interactions.
 
@@ -42,7 +42,9 @@ We also trained each model on a dataset including all pairwise interactions.
 
 ### Density
 ```{r density, echo=FALSE}
-plot_density_(joined)
+no_logistic <- filter(joined, method != "logistic")
+no_logistic<- filter(no_logistic, method != "logistic_ix")
+plot_density_(no_logistic)
 ```
 
 ### ROC
@@ -60,7 +62,7 @@ plot_accuracy_(joined, SHOW_TRUE=TRUE, POINT_COUNT=50)
 We can also display coverage rates at the consumption threshold and at the desired percentile.
 
 ```{r accuracy_cutoffs, echo=FALSE}
-plot_accuracy_(joined, THRESHOLD=0.2, SHOW_CUTOFFS=TRUE, POINT_COUNT=50)
+plot_accuracy_(no_logistic, THRESHOLD=0.2, SHOW_CUTOFFS=TRUE, POINT_COUNT=50)
 ```
 
 ### Budget to the true poor
@@ -69,7 +71,7 @@ plot_accuracy_dollars_(joined, POINT_COUNT=50)
 ```
 
 ```{r accuracy_dollars_cutoffs, echo=FALSE}
-plot_accuracy_dollars_(joined, THRESHOLD=0.2, SHOW_CUTOFFS=TRUE, POINT_COUNT=50)
+plot_accuracy_dollars_(no_logistic, THRESHOLD=0.2, SHOW_CUTOFFS=TRUE, POINT_COUNT=50)
 ```
 
 ### Social welfare
