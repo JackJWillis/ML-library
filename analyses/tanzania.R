@@ -8,6 +8,9 @@
 library(magrittr)
 library(foreign)
 library(xlsx)
+library(doMC)
+registerDoMC(cores=4)
+
 
 library(MLlibrary)
 
@@ -97,12 +100,12 @@ create_dataset <- function(year, remove_missing=TRUE) {
 
 tz08 <- create_dataset(2008, remove_missing=FALSE)
 tz08 <- standardize_predictors(tz08, "lconsPC")
-tz08 <- na_indicator(tz08)
-#save_dataset(NAME, tz08)
+save_dataset(NAME, tz08)
 x <- model.matrix(lconsPC ~ .,  tz08)
 y <- tz08[rownames(x), "lconsPC"]
 k <- 5
 
+# Running with missing data removed
 print("Running ridge")
 ridge <- kfold(k, Ridge(), y, x)
 print("Running lasso")
@@ -131,6 +134,22 @@ least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
 print("Running logistic with interaction terms")
 logistic_ix <- kfold(k, Logistic(12.5), y_ix, x_ix)
 
+# Running with missing data and indicators included
+tz08_missing <- na_indicator(tz08)
+x <- model.matrix(lconsPC ~ .,  tz08_missing)
+y <- tz08[rownames(x), "lconsPC"]
+print("Running ridge with missing")
+ridge_missing <- kfold(k, Ridge(), y, x)
+print("Running lasso with missing")
+lasso_missing <- kfold(k, Lasso(), y, x)
+print("Running least squares with missing")
+least_squares_missing <- kfold(k, LeastSquares(), y, x)
+# TODO: This fails
+#print("Running stepwise with missing")
+#stepwise_missing <- kfold(k, Stepwise(), y, x)
+print("Running logistic with missing")
+logistic_missing <- kfold(k, Logistic(12.5), y, x)
+
 save_models(NAME,
   ridge=ridge,
   lasso=lasso,
@@ -140,4 +159,8 @@ save_models(NAME,
   ridge_ix=ridge_ix,
   lasso_ix=lasso_ix,
   least_squares_ix=least_squares_ix,
-  logistic_ix=logistic_ix)
+  logistic_ix=logistic_ix,
+  ridge_missing=ridge_missing,
+  lasso_missing=lasso_missing,
+  least_squares_missing=least_squares_missing,
+  logistic_missing=logistic_missing)
