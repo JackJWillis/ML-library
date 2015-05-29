@@ -1,0 +1,92 @@
+---
+title: "Ghana_pe prediction"
+output: html_document
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir="../")
+```
+
+```{r load_data, echo=FALSE}
+library(MLlibrary)
+library(dplyr)
+
+NAME <- "ghana_pe"
+gh_pe <- load_dataset(NAME)
+```
+
+## Data
+
+This is a sample analysis of the ghana dataset from 2006, using variables which are pre feature extraction (as far as possible).
+The dataset has `r nrow(gh_pe)` rows and `r ncol(gh_pe)` columns.
+TODO: how many missing?
+Our goal is to predict the consumption levels from survey data.
+In this case we take the log of per capita consumption as our target variable.
+
+## Models
+
+```{r load_models, echo=FALSE}
+joined <- load_models(NAME)
+k <- nrow(distinct(joined, fold))
+```
+
+We trained a number of different models on the raw data.
+We use `r k=5` fold cross validation for testing predictive accuracy.
+
+We also trained each model on a dataset including all pairwise interactions.
+
+
+## Assessments
+
+### Density
+```{r density, echo=FALSE}
+plot_density_(filter(filter(joined,method!="logistic"),method!="logistic_ix"))
+```
+
+### ROC
+
+```{r roc, echo=FALSE}
+plot_roc_(joined)
+plot_roc_(joined, THRESHOLD=0.2)
+```
+
+### Accuracy (Coverage rate)
+```{r accuracy, echo=FALSE}
+plot_accuracy_(joined, SHOW_TRUE=TRUE, POINT_COUNT=50)
+```
+
+We can also display coverage rates at the consumption threshold and at the desired percentile.
+
+```{r accuracy_cutoffs, echo=FALSE}
+plot_accuracy_(joined, THRESHOLD=0.2, SHOW_CUTOFFS=TRUE, POINT_COUNT=50)
+```
+
+### Budget to the true poor
+```{r accuracy_dollars, echo=FALSE}
+plot_accuracy_dollars_(joined, POINT_COUNT=50)
+```
+
+```{r accuracy_dollars_cutoffs, echo=FALSE}
+plot_accuracy_dollars_(joined, THRESHOLD=0.2, SHOW_CUTOFFS=TRUE, POINT_COUNT=50)
+```
+
+### Social welfare
+```{r swf, echo=FALSE}
+plot_swf_(joined, POINT_COUNT=50)
+```
+
+### Leakage
+```{r leakage, echo=FALSE}
+plot_metric_(leakage, joined)
+```
+
+### Undercoverage
+```{r undercoverage, echo=FALSE}
+plot_metric_(undercoverage, joined)
+```
+
+### CGH
+```{r cgh, echo=FALSE}
+plot_metric_(cgh, joined)
+```
