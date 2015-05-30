@@ -75,7 +75,8 @@ predict.ridge <- function(f, model) {
 Lasso <- function(max_covariates=NULL) {
   function(x_train, y_train, x_test, y_test) {
     f <- structure(fold(x_train, y_train, x_test, y_test), class="lasso")
-    f$max_covariates  <- f$max_covariates
+    f$max_covariates <- max_covariates
+    f
   }
 }
 
@@ -87,7 +88,9 @@ fit.lasso <- function(f) {
 
 predict.lasso <- function(f, model) {
   max_covariates <- f$max_covariates
-  if is.null(max_covariates) s <- model$lambda.min
+  if (is.null(max_covariates)) {
+    s <- model$lambda.min
+  }
   else {
     s <- model$lambda[which.min(model$cvm[model$nzero < max_covariates])]
   }
@@ -124,7 +127,8 @@ predict.regsubsets=function(object, newdata, ...){
 Stepwise <- function(max_covariates=100) {
   function(x_train, y_train, x_test, y_test) {
     f <- structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
-    f$max_covariates <= max_covariates
+    f$max_covariates <- max_covariates
+    f
   }
 }
 
