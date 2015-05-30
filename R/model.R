@@ -133,13 +133,12 @@ predict.stepwise <- function(f, model) {
 
 rTree <- function() {
   function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="tree")
+    structure(fold(x_train, y_train, x_test, y_test), class="rTree")
   }
 }
 
 fit.rTree <- function(f) {
-  tree <- tree
-  yx_train_global <<- data.frame(Y=f$y_train,X=f$x_train)
+  yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
   names(yx_train_global)[1]<<-"Y"
   tree.first <- tree::tree(Y~.,yx_train_global)
   cv.trees <- tree::cv.tree(tree.first)
@@ -154,7 +153,7 @@ predict.rTree <- function(f, model) {
 
 Forest <- function() {
   function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="randomForest")
+    structure(fold(x_train, y_train, x_test, y_test), class="forest")
   }
 }
 

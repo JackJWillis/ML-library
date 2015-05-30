@@ -92,7 +92,7 @@ create_dataset <- function(year, remove_missing=TRUE) {
     add_covariates(tanzania_panel) %>%
     add_target_per_capita(tanzania_panel) %>%
     select_year(tanzania_panel, year) 
-  if (remove_missing) remove_missing_data(df)
+  if (remove_missing) df <- remove_missing_data(df)
   df
 }
 
@@ -102,7 +102,7 @@ tz08 <- create_dataset(2008, remove_missing=FALSE)
 tz08 <- standardize_predictors(tz08, "lconsPC")
 save_dataset(NAME, tz08)
 x <- model.matrix(lconsPC ~ .,  tz08)
-x_nmm <- tz08[-"lconsPC",]
+x_nmm <- select(tz08,-one_of("lconsPC"))
 y <- tz08[rownames(x), "lconsPC"]
 k <- 5
 
@@ -115,8 +115,8 @@ print("Running least squares")
 least_squares <- kfold(k, LeastSquares(), y, x)
 print("Running stepwise")
 stepwise <- kfold(k, Stepwise(), y, x)
-print("Running logistic")
-logistic <- kfold(k, Logistic(12.5), y, x)
+# print("Running logistic")
+# logistic <- kfold(k, Logistic(12.5), y, x)
 print("Running rtree")
 rtree <- kfold(k, rTree(), y, x_nmm)
 print("Running randomForest")
