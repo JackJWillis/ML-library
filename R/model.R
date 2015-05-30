@@ -115,14 +115,15 @@ predict.regsubsets=function(object, newdata, ...){
   newdata[, xvars] %*% coefficients
 }
 
-Stepwise <- function() {
+Stepwise <- function(max_covariates=100) {
   function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+    f <- structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+    f$max_covariates <= max_covariates
   }
 }
 
 fit.stepwise <- function(f) {
-  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=100)
+  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=max_covariates)
 }
 
 predict.stepwise <- function(f, model) {
