@@ -213,12 +213,15 @@ kfold_fit <- function(k, model_class, y, x, seed=0) {
     model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
   folds <- lapply(folds, transform_ys)
   fits <- lapply(folds, fit)
-  list(folds=folds, fits=fits)
+  list(folds=folds, fits=fits, assignments=assignments)
 }
 
 kfold_predict <- function(kfold_fits) {
   folds <- kfold_fits$folds
   fits <- kfold_fits$fits
+  assignments <- kfold_fits$assignments
+  #Order in df will be ascending in fold number, hence
+  assignments <- sort(assignments)
   preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
   trues <- unlist(lapply(folds, function(f) f$y_test))
   raws <- unlist(lapply(folds, function(f) f$y_test_raw))
