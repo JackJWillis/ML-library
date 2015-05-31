@@ -206,19 +206,31 @@ predict.logistic <- function(f, model) {
 
 # K fold validation ---------------------------
 
-kfold <- function(k, model_class, y, x, seed=0) {
+kfold_fit <- function(k, model_class, y, x, seed=0) {
   set.seed(seed)
   assignments <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
   folds <- lapply(1:k, function (k) { 
     model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
   folds <- lapply(folds, transform_ys)
   fits <- lapply(folds, fit)
+  list(folds=folds, fits=fits)
+}
+
+kfold_predict <- function(kfold_fits) {
+  folds <- kfold_fits$folds
+  fits <- kfold_fits$fits
   preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
   trues <- unlist(lapply(folds, function(f) f$y_test))
   raws <- unlist(lapply(folds, function(f) f$y_test_raw))
   df <- data.frame(predicted=preds, true=trues, raw=raws, fold=assignments)
   df
 }
+
+kfold <- function(k, model_class, y, x, seed=0) {
+  kfold_fits <- kfold_fit(k, model_class, y, x, seed)
+  kfold_predict(kfold_fits)
+}
+
 # ###Regression Tree
 # 
 # library(tree)
