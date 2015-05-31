@@ -20,9 +20,9 @@ tz08 <- load_dataset(NAME)
 ## Data
 
 This is a sample analysis of the tanzania dataset from 2008.
-The dataset has `r nrow(tz08)` rows and `r ncol(tz08)` columns.
-`r nrow(tz08) - nrow(model.matrix(lconsPC ~ .,  tz08))` rows contain missing data.
-We ran models on the dataset without the missing data and with the missing data (with missingness indicators).
+The dataset has `r nrow(tz08)` people and `r ncol(tz08)` variables.
+`r nrow(tz08) - nrow(model.matrix(lconsPC ~ .,  tz08))` rows contain some missing data.
+We ran models on the dataset without the missing data.
 Our goal is to predict the consumption levels from survey data.
 In this case we take the log of per capita consumption as our target variable.
 
@@ -48,49 +48,14 @@ no_logistic <- filter(no_missing, !grepl("logistic", method))
 plot_density_(no_logistic)
 ```
 
-### ROC
+### Reach vs Waste
 
-```{r roc, echo=FALSE}
-plot_roc_(no_missing)
-plot_roc_(no_missing, THRESHOLD=0.2)
-```
-
-### Coverage
-```{r accuracy, echo=FALSE}
-plot_accuracy_(no_missing, SHOW_TRUE=TRUE, POINT_COUNT=50)
-```
-
-We can also display coverage rates at the consumption threshold and at the desired percentile.
-
-```{r accuracy_cutoffs, echo=FALSE}
-plot_accuracy_(no_logistic, THRESHOLD=0.2, SHOW_CUTOFFS=TRUE, POINT_COUNT=50)
-```
-
-### Budget to the true poor
-```{r accuracy_dollars, echo=FALSE}
-plot_accuracy_dollars_(no_missing, POINT_COUNT=50)
-```
-
-```{r accuracy_dollars_cutoffs, echo=FALSE}
-plot_accuracy_dollars_(no_logistic, THRESHOLD=0.2, SHOW_CUTOFFS=TRUE, POINT_COUNT=50)
+```{r rvw, echo=FALSE}
+plot_reach_vs_waste_(no_missing)
+plot_reach_vs_waste_(no_missing, THRESHOLD=0.2)
 ```
 
 ### Social welfare
 ```{r swf, echo=FALSE}
 plot_swf_(no_missing, POINT_COUNT=50)
-```
-
-### Leakage
-```{r leakage, echo=FALSE}
-plot_metric_(leakage, no_missing)
-```
-
-### Undercoverage
-```{r undercoverage, echo=FALSE}
-plot_metric_(undercoverage, no_missing)
-```
-
-### CGH
-```{r cgh, echo=FALSE}
-plot_metric_(cgh, no_missing)
 ```

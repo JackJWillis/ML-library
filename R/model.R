@@ -22,6 +22,23 @@ standardize_predictors  <-  function(df, target) {
   standard
 }
 
+MISSINGNESS_INDICATOR <- "missing_missing_missing"
+na_indicator <- function(df) {
+  for (name in names(df)) {
+    if (any(is.na(df[[name]]))) {
+      if (is.factor(df[[name]])) {
+        levels(df[[name]]) <- c(levels(df[[name]]), MISSINGNESS_INDICATOR)
+        df[is.na(df[[name]]), name] <- MISSINGNESS_INDICATOR
+      }
+      if (is.numeric(df[[name]])) {
+        df[[paste(name, "NA", sep=".")]] <- is.na(df[[name]])
+        df[is.na(df[[name]]), name] <- 0
+      }
+    }
+  }
+  df
+}
+
 
 fold <- function(x_train, y_train, x_test, y_test) {
   list(x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
@@ -55,9 +72,11 @@ predict.ridge <- function(f, model) {
 }
 
 
-Lasso <- function() {
+Lasso <- function(max_covariates=NULL) {
   function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+    f <- structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+    f$max_covariates <- max_covariates
+    f
   }
 }
 
@@ -68,7 +87,14 @@ fit.lasso <- function(f) {
 
 
 predict.lasso <- function(f, model) {
-  predict(model, f$x_test)
+  max_covariates <- f$max_covariates
+  if (is.null(max_covariates)) {
+    s <- model$lambda.min
+  }
+  else {
+    s <- model$lambda[which.min(model$cvm[model$nzero < max_covariates])]
+  }
+  predict(model, f$x_test, s=s)
 }
 
 
@@ -98,14 +124,16 @@ predict.regsubsets=function(object, newdata, ...){
   newdata[, xvars] %*% coefficients
 }
 
-Stepwise <- function() {
+Stepwise <- function(max_covariates=100) {
   function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+    f <- structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+    f$max_covariates <- max_covariates
+    f
   }
 }
 
 fit.stepwise <- function(f) {
-  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=100)
+  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=max_covariates)
 }
 
 predict.stepwise <- function(f, model) {
@@ -178,19 +206,31 @@ predict.logistic <- function(f, model) {
 
 # K fold validation ---------------------------
 
-kfold <- function(k, model_class, y, x, seed=0) {
+kfold_fit <- function(k, model_class, y, x, seed=0) {
   set.seed(seed)
   assignments <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
   folds <- lapply(1:k, function (k) { 
     model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
   folds <- lapply(folds, transform_ys)
   fits <- lapply(folds, fit)
+  list(folds=folds, fits=fits)
+}
+
+kfold_predict <- function(kfold_fits) {
+  folds <- kfold_fits$folds
+  fits <- kfold_fits$fits
   preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
   trues <- unlist(lapply(folds, function(f) f$y_test))
   raws <- unlist(lapply(folds, function(f) f$y_test_raw))
   df <- data.frame(predicted=preds, true=trues, raw=raws, fold=assignments)
   df
 }
+
+kfold <- function(k, model_class, y, x, seed=0) {
+  kfold_fits <- kfold_fit(k, model_class, y, x, seed)
+  kfold_predict(kfold_fits)
+}
+
 # ###Regression Tree
 # 
 # library(tree)

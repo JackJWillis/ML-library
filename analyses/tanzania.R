@@ -8,6 +8,9 @@
 library(magrittr)
 library(foreign)
 library(xlsx)
+library(doMC)
+registerDoMC(cores=4)
+
 
 library(MLlibrary)
 
@@ -57,13 +60,14 @@ add_covariates <- function(output_df, tanzania_panel) {
   output_df[, c(covariates_categorical)] <- lapply(output_df[, c(covariates_categorical)], as.factor)
   output_df[, c(covariates_cardinal)] <- lapply(output_df[, c(covariates_cardinal)], as.numeric)
   # Note, may wish to recode some of the categoricals as ordered and the yes/no as categorical.
-  output_df[, c(covariates_yesno)] <- lapply(output_df[, c(covariates_yesno)], as.logical)
+  output_df[, c(covariates_yesno)] <- lapply(output_df[, c(covariates_yesno)], as.factor)
 
   output_df
 }
 
 add_target_per_capita <- function(output_df, panel_df) {
   output_df$lconsPC <- log(panel_df$expmR / panel_df$hhsize) 
+  output_df$lhhsize <- log(panel_df$hhsize) 
   output_df
 }
 
@@ -94,8 +98,7 @@ create_dataset <- function(year, remove_missing=TRUE) {
 
 # Run analysis ---------------------------
 
-tz08_missing <- create_dataset(2008, remove_missing=FALSE)
-tz08 <- create_dataset(2008)
+tz08 <- create_dataset(2008, remove_missing=FALSE)
 tz08 <- standardize_predictors(tz08, "lconsPC")
 save_dataset(NAME, tz08)
 x <- model.matrix(lconsPC ~ .,  tz08)
@@ -103,6 +106,7 @@ x_nmm <- select(tz08,-one_of("lconsPC"))
 y <- tz08[rownames(x), "lconsPC"]
 k <- 5
 
+# Running with missing data removed
 print("Running ridge")
 ridge <- kfold(k, Ridge(), y, x)
 print("Running lasso")
@@ -111,8 +115,8 @@ print("Running least squares")
 least_squares <- kfold(k, LeastSquares(), y, x)
 print("Running stepwise")
 stepwise <- kfold(k, Stepwise(), y, x)
-print("Running logistic")
-logistic <- kfold(k, Logistic(12.5), y, x)
+# print("Running logistic")
+# logistic <- kfold(k, Logistic(12.5), y, x)
 print("Running rtree")
 rtree <- kfold(k, rTree(), y, x_nmm)
 print("Running randomForest")
@@ -137,6 +141,22 @@ least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
 print("Running logistic with interaction terms")
 logistic_ix <- kfold(k, Logistic(12.5), y_ix, x_ix)
 
+# Running with missing data and indicators included
+tz08_missing <- na_indicator(tz08)
+x <- model.matrix(lconsPC ~ .,  tz08_missing)
+y <- tz08[rownames(x), "lconsPC"]
+print("Running ridge with missing")
+ridge_missing <- kfold(k, Ridge(), y, x)
+print("Running lasso with missing")
+lasso_missing <- kfold(k, Lasso(), y, x)
+print("Running least squares with missing")
+least_squares_missing <- kfold(k, LeastSquares(), y, x)
+# TODO: This fails
+#print("Running stepwise with missing")
+#stepwise_missing <- kfold(k, Stepwise(), y, x)
+print("Running logistic with missing")
+logistic_missing <- kfold(k, Logistic(12.5), y, x)
+
 save_models(NAME,
   ridge=ridge,
   lasso=lasso,
@@ -146,4 +166,8 @@ save_models(NAME,
   ridge_ix=ridge_ix,
   lasso_ix=lasso_ix,
   least_squares_ix=least_squares_ix,
-  logistic_ix=logistic_ix)
+  logistic_ix=logistic_ix,
+  ridge_missing=ridge_missing,
+  lasso_missing=lasso_missing,
+  least_squares_missing=least_squares_missing,
+  logistic_missing=logistic_missing)
