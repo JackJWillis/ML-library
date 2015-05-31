@@ -106,12 +106,15 @@ LeastSquares <- function() {
 
 
 fit.least_squares <- function(f) {
-  glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
+  #glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
+  yx_train_global <- data.frame(Y=f$y_train,f$x_train)
+  names(yx_train_global)[1] <-"Y"
+  lm(Y ~ ., data=yx_train_global)
 }
 
 
 predict.least_squares <- function(f, model) {
-  predict(model, f$x_test)
+  predict(model, data.frame(f$x_test))
 }
 
 
