@@ -133,7 +133,7 @@ Stepwise <- function(max_covariates=100) {
 }
 
 fit.stepwise <- function(f) {
-  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=max_covariates)
+  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=f$max_covariates)
 }
 
 predict.stepwise <- function(f, model) {
