@@ -23,9 +23,8 @@ Imports:
   party,
   randomForest,
   reshape2,
-  rgdal,
   scales,
   tree,
   vcd,
-  xlsx,
+  xlsx
 Suggests: testthat

@@ -8,9 +8,6 @@
 library(magrittr)
 library(foreign)
 library(xlsx)
-library(doMC)
-registerDoMC(cores=4)
-
 
 library(MLlibrary)
 
