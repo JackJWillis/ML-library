@@ -49,6 +49,10 @@ test_that("trainging and testing are disjoint", {
       train <- fold$x_train
       test <- fold$x_test
       expect_true(length(intersect(train, test)) == 0)
+      
+      train <- fold$y_train
+      test <- fold$y_test
+      expect_true(length(intersect(train, test)) == 0)
     }
   }
 })
@@ -63,27 +67,29 @@ test_that("trainging and testing contain all the data", {
     for (fold in split) {
       train <- fold$x_train
       test <- fold$x_test
-      expect_true(setequal(union(train, test),x))
+      expect_true(setequal(union(train, test), x))
+      
+      train <- fold$y_train
+      test <- fold$y_test
+      expect_true(setequal(union(train, test), y))
     }
   }
 })
 
 
-test_that("regularizers produce lower mse", {
+test_that("can reproduce islr", {
   # From Introduction to Statistical Learning, Chapter 6
   Hitters <- ISLR::Hitters
-  Hitters <- na.omit(Hitters)[, -1]
-  x <- model.matrix(Salary ~ ., Hitters)
+  Hitters <- na.omit(Hitters)
+  x <- model.matrix(Salary ~ ., Hitters)[, -1]
   y <- Hitters$Salary
-  seed <- 1
-#   split <- kfold_split(2,  y, x, seed)$splits[[1]]
+  seed <- 100
   set.seed(seed)
-  train=sample(1:nrow(x), nrow(x)/2)
-  test=(-train)
-  split <- list(x_train=x[train, ], y_train=y[train], x_test=x[test, ], y_test=y[test])
+  split <- kfold_split(2, y, x, seed)$splits[[1]]
   y_train <- split$y_train
   y_test <- split$y_test
   x_test <- split$x_test
+  
   ls <- do.call(LeastSquares(), split)
   ls_fit <- fit(ls)
   ls_mse <- mean((predict(ls, ls_fit) - y_test) ^ 2)
@@ -102,4 +108,5 @@ test_that("regularizers produce lower mse", {
   print(ridge_mse)
   print(lasso_mse)
   print(mean_mse)
+
 })
