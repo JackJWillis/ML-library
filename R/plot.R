@@ -121,7 +121,6 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
     
   p <- ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
     ggplot2::geom_step() +
-    ggplot2::geom_point() +
     ggplot2::facet_wrap(~ threshold) +
     ggplot2::labs(y = y_label)
 
@@ -306,7 +305,7 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
-                  y_label="number of rich targeted",
+                  y_label="number of poor targeted",
                   show_cutoffs=SHOW_CUTOFFS,
                   show_folds=SHOW_FOLDS,
                   folded=folded_df,

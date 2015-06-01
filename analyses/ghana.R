@@ -8,7 +8,7 @@
 library(magrittr)
 library(foreign)
 library(xlsx)
-
+library(dplyr)
 library(MLlibrary)
 
 
@@ -79,6 +79,7 @@ gh <- create_dataset()
 gh <- standardize_predictors(gh, "lnwelfare")
 save_dataset(NAME, gh)
 x <- model.matrix(lnwelfare ~ .,  gh)
+x_nmm <- select(gh,-one_of("lnwelfare"))
 y <- gh[rownames(x), "lnwelfare"]
 k <- 5
 
@@ -88,13 +89,13 @@ print("Running lasso")
 lasso <- kfold(k, Lasso(), y, x)
 print("Running least squares")
 least_squares <- kfold(k, LeastSquares(), y, x)
-print("Running stepwise")
-stepwise <- kfold(k, Stepwise(), y, x)
-print("Running logistic")
-logistic <- kfold(k, Logistic(2.62), y, x)
+
+print("Running rtree")
+rtree <- kfold(k, rTree2(), y, x_nmm)
+print("Running randomForest")
+forest <- kfold(k, Forest(), y, x_nmm)
 
 # Rerun with interaction terms
-# TODO: Handle this with parameters to the model class?
 x_ix <- model.matrix(lnwelfare ~ . + .:.,  gh)
 y_ix <- gh[rownames(x_ix), "lnwelfare"]
 
@@ -104,19 +105,13 @@ print("Running lasso with interactions")
 lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
 print("Running least squares with interactions")
 least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
-# TODO: This fails
-# print("Running stepwise with interactions")
-# stepwise_ix <- kfold(k, Stepwise(), y_ix, x_ix)
-print("Running logistic with interaction terms")
-logistic_ix <- kfold(k, Logistic(2.62), y_ix, x_ix)
 
 save_models(NAME,
             ridge=ridge,
             lasso=lasso,
             least_squares=least_squares,
-            stepwise=stepwise,
-            logistic=logistic,
+            rtree=rtree,
+            forest=forest,
             ridge_ix=ridge_ix,
             lasso_ix=lasso_ix,
-            least_squares_ix=least_squares_ix,
-            logistic_ix=logistic_ix)
+            least_squares_ix=least_squares_ix)

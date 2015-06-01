@@ -47,6 +47,7 @@ fold <- function(x_train, y_train, x_test, y_test) {
 
 fit <- function(f) UseMethod("fit")
 
+
 transform_ys <- function(f) UseMethod("transform_ys")
 transform_ys.default <- function(f) {
   f$y_test_raw <- f$y_test
@@ -63,12 +64,15 @@ Ridge <- function() {
 
 
 fit.ridge <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
+  ridge_model <- glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+  cv_ridge <- glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
+  ridge_model$best_lambda <- cv_ridge$lambda.min
+  ridge_model
 }
 
 
 predict.ridge <- function(f, model) {
-  predict(model, f$x_test)
+  predict(model, s=model$best_lambda, newx=f$x_test)
 }
 
 
@@ -82,19 +86,22 @@ Lasso <- function(max_covariates=NULL) {
 
 
 fit.lasso <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=1, parallel=TRUE)
+  lasso_model <- glmnet::glmnet(f$x_train, f$y_train, alpha=1, standardize=TRUE)
+  cv_lasso <- glmnet::cv.glmnet(f$x_train, f$y_train, alpha=1, standardize=TRUE, parallel=TRUE)
+  max_covariates <- f$max_covariates
+  if (is.null(max_covariates)) {
+    s <- cv_lasso$lambda.min
+  }
+  else {
+    s <- cv_lasso$lambda[which.min(cv_lasso$cvm[cv_lasso$nzero < max_covariates])]
+  }
+  lasso_model$best_lambda <- s 
+  lasso_model
 }
 
 
 predict.lasso <- function(f, model) {
-  max_covariates <- f$max_covariates
-  if (is.null(max_covariates)) {
-    s <- model$lambda.min
-  }
-  else {
-    s <- model$lambda[which.min(model$cvm[model$nzero < max_covariates])]
-  }
-  predict(model, f$x_test, s=s)
+  predict(model, newx=f$x_test, s=model$best_lambda)
 }
 
 
@@ -106,12 +113,15 @@ LeastSquares <- function() {
 
 
 fit.least_squares <- function(f) {
-  glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
+  #glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
+  yx_train_global <- data.frame(Y=f$y_train,f$x_train)
+  names(yx_train_global)[1] <-"Y"
+  lm(Y ~ ., data=yx_train_global)
 }
 
 
 predict.least_squares <- function(f, model) {
-  predict(model, f$x_test)
+  predict(model, data.frame(f$x_test))
 }
 
 
@@ -226,14 +236,26 @@ predict.logistic <- function(f, model) {
 
 # K fold validation ---------------------------
 
-kfold_fit <- function(k, model_class, y, x, seed=0) {
-  set.seed(seed)
-  assignments <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
-  folds <- lapply(1:k, function (k) { 
-    model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
+kfold_split <- function(k, y, x, seed=NULL) {
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+  assignments <- sample(rep(1:k, length.out=nrow(x)))
+  splits <- lapply(1:k, function (k) { 
+     list(
+       x_train=x[assignments != k, ],
+       y_train=y[assignments != k],
+       x_test=x[assignments == k, ],
+       y_test=y[assignments == k])})
+  list(splits=splits, assignments=assignments)
+}
+
+kfold_fit <- function(kfold_splits, model_class) {
+  splits <- kfold_splits$splits
+  folds <- lapply(splits, function(s) do.call(model_class, s))
   folds <- lapply(folds, transform_ys)
   fits <- lapply(folds, fit)
-  list(folds=folds, fits=fits, assignments=assignments)
+  list(folds=folds, fits=fits, assignments=kfold_splits$assignments)
 }
 
 kfold_predict <- function(kfold_fits) {
@@ -250,7 +272,8 @@ kfold_predict <- function(kfold_fits) {
 }
 
 kfold <- function(k, model_class, y, x, seed=0) {
-  kfold_fits <- kfold_fit(k, model_class, y, x, seed)
+  kfold_splits <- kfold_split(k, y, x, seed)
+  kfold_fits <- kfold_fit(kfold_splits, model_class)
   kfold_predict(kfold_fits)
 }
 
