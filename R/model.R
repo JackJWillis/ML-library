@@ -47,6 +47,7 @@ fold <- function(x_train, y_train, x_test, y_test) {
 
 fit <- function(f) UseMethod("fit")
 
+
 transform_ys <- function(f) UseMethod("transform_ys")
 transform_ys.default <- function(f) {
   f$y_test_raw <- f$y_test
@@ -229,14 +230,24 @@ predict.logistic <- function(f, model) {
 
 # K fold validation ---------------------------
 
-kfold_fit <- function(k, model_class, y, x, seed=0) {
+kfold_split <- function(k, y, x, seed=0) {
   set.seed(seed)
-  assignments <- sample(1:k, nrow(x), replace=TRUE) #TODO load balance
-  folds <- lapply(1:k, function (k) { 
-    model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
+  assignments <- sample(rep(1:k, length.out=nrow(x)))
+  splits <- lapply(1:k, function (k) { 
+     list(
+       x_train=x[assignments != k, ],
+       y_train=y[assignments != k],
+       x_test=x[assignments == k, ],
+       y_test=y[assignments == k])})
+  list(splits=splits, assignments=assignments)
+}
+
+kfold_fit <- function(kfold_splits, model_class) {
+  splits <- kfold_splits$splits
+  folds <- lapply(splits, function(s) do.call(model_class, s))
   folds <- lapply(folds, transform_ys)
   fits <- lapply(folds, fit)
-  list(folds=folds, fits=fits, assignments=assignments)
+  list(folds=folds, fits=fits, assignments=kfold_splits$assignments)
 }
 
 kfold_predict <- function(kfold_fits) {
@@ -253,7 +264,8 @@ kfold_predict <- function(kfold_fits) {
 }
 
 kfold <- function(k, model_class, y, x, seed=0) {
-  kfold_fits <- kfold_fit(k, model_class, y, x, seed)
+  kfold_splits <- kfold_split(k, y, x, seed)
+  kfold_fits <- kfold_fit(kfold_splits, model_class)
   kfold_predict(kfold_fits)
 }
 
