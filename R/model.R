@@ -190,7 +190,7 @@ Forest <- function() {
 
 fit.forest <- function(f) {
 #Supposedly this doesn't need CV  
-  randomForest::randomForest(f$x_train, f$y_train,ntree=2000)
+  randomForest::randomForest(f$x_train, f$y_train, ntree=500)
 }
 
 predict.forest <- function(f, model) {
