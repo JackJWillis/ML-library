@@ -64,7 +64,7 @@ Ridge <- function() {
 
 
 fit.ridge <- function(f) {
-  ridge_model <- glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+  ridge_model <- glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
   cv_ridge <- glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
   ridge_model$best_lambda <- cv_ridge$lambda.min
   ridge_model
@@ -86,7 +86,7 @@ Lasso <- function(max_covariates=NULL) {
 
 
 fit.lasso <- function(f) {
-  lasso_model <- glmnet(f$x_train, f$y_train, alpha=1, standardize=TRUE)
+  lasso_model <- glmnet::glmnet(f$x_train, f$y_train, alpha=1, standardize=TRUE)
   cv_lasso <- glmnet::cv.glmnet(f$x_train, f$y_train, alpha=1, standardize=TRUE, parallel=TRUE)
   max_covariates <- f$max_covariates
   if (is.null(max_covariates)) {
