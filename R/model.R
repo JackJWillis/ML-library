@@ -118,7 +118,7 @@ predict.least_squares <- function(f, model) {
 # Subset selection linear models ---------------------------
 
 predict.regsubsets=function(object, newdata, ...){
-  id <- which.min(summary(object)$bic)
+  id <- which.min(summary(object)$rss)
   coefficients <- coef(object, id=id)
   xvars <- names(coefficients)
   newdata[, xvars] %*% coefficients
