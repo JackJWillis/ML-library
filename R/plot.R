@@ -282,12 +282,10 @@ plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   plot_swf_(joined, GAMMA, SHOW_FOLDS, POINT_COUNT)
 }
 
-plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
-  if(!SHOW_TRUE) {
-    joined <- dplyr::filter(joined, method!="true")
-  }
+  joined <- dplyr::filter(joined, method!="true")
   make_df <- function(df, folds) {
     
     if (folds) {
@@ -315,7 +313,7 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLD
                   point_count=POINT_COUNT)
 }
 
-plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   plot_reach_vs_waste_(joined, THRESHOLD, SHOW_FOLDS, POINT_COUNT)
