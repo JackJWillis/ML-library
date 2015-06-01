@@ -26,5 +26,6 @@ Imports:
   scales,
   tree,
   vcd,
-  xlsx
+  xlsx,
+  rpart
 Suggests: testthat
