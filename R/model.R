@@ -118,7 +118,7 @@ predict.least_squares <- function(f, model) {
 # Subset selection linear models ---------------------------
 
 predict.regsubsets=function(object, newdata, ...){
-  id <- which.min(summary(object)$bic)
+  id <- which.min(summary(object)$rss)
   coefficients <- coef(object, id=id)
   xvars <- names(coefficients)
   newdata[, xvars] %*% coefficients
@@ -133,7 +133,7 @@ Stepwise <- function(max_covariates=100) {
 }
 
 fit.stepwise <- function(f) {
-  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=max_covariates)
+  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=f$max_covariates)
 }
 
 predict.stepwise <- function(f, model) {
@@ -162,6 +162,26 @@ predict.rTree <- function(f, model) {
   predict(model, f$x_test)
 }
 
+rTree2 <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="rTree2")
+  }
+}
+
+fit.rTree2 <- function(f) {
+  yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
+  names(yx_train_global)[1]<<-"Y"
+  #Setting cp low to ensure trees sufficiently complex
+  tree.first <- rpart::rpart(Y~., method="anova", data=yx_train_global, cp=0.001)
+  #Chooses tree size with minimal xerror
+  bestsize <- tree.first$cptable[which.min(tree.first$cptable[,"xerror"]),"CP"]
+  tree.final <- rpart::prune(tree.first, cp = bestsize)  
+}
+
+predict.rTree2 <- function(f, model) {
+  predict(model, f$x_test)
+}
+
 Forest <- function() {
   function(x_train, y_train, x_test, y_test) {
     structure(fold(x_train, y_train, x_test, y_test), class="forest")
@@ -170,7 +190,7 @@ Forest <- function() {
 
 fit.forest <- function(f) {
 #Supposedly this doesn't need CV  
-  randomForest::randomForest(f$x_train, f$y_train)
+  randomForest::randomForest(f$x_train, f$y_train, ntree=500)
 }
 
 predict.forest <- function(f, model) {
@@ -213,12 +233,15 @@ kfold_fit <- function(k, model_class, y, x, seed=0) {
     model_class(x[assignments != k, ], y[assignments != k], x[assignments == k, ], y[assignments == k])})
   folds <- lapply(folds, transform_ys)
   fits <- lapply(folds, fit)
-  list(folds=folds, fits=fits)
+  list(folds=folds, fits=fits, assignments=assignments)
 }
 
 kfold_predict <- function(kfold_fits) {
   folds <- kfold_fits$folds
   fits <- kfold_fits$fits
+  assignments <- kfold_fits$assignments
+  #Order in df will be ascending in fold number, hence
+  assignments <- sort(assignments)
   preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
   trues <- unlist(lapply(folds, function(f) f$y_test))
   raws <- unlist(lapply(folds, function(f) f$y_test_raw))
@@ -231,58 +254,4 @@ kfold <- function(k, model_class, y, x, seed=0) {
   kfold_predict(kfold_fits)
 }
 
-# ###Regression Tree
-# 
-# library(tree)
-# 
-# tree.predict = function(yx_train,yx_test){
-#   #Have to generate a global version otherise cv.trees doesn't ork. See here:
-#   #http://stackoverflow.com/questions/28148533/is-data-framedata-object-not-found-in-function-context
-#   yx_train_global <<- yx_train
-#   names(yx_train_global)[1]<<-"Y"
-#   tree.first <- tree(Y~.,yx_train_global)
-#   cv.trees <- cv.tree(tree.first)
-#   #Chooses tree size with minimal deviance
-#   bestsize <- cv.trees$size[which.min(cv.trees$dev)]
-#   tree.final <- prune.tree(tree.first, best = bestsize)
-#   pred=predict(tree.final,newdata=yx_test[,-1])
-#   pred.tree=predict(tree.final,newdata=yx_test[,-1],type="tree")
-#   MSE=mean((pred-yx_test[[1]])^2)
-#   out=data.frame(y_pred=pred,y_real=yx_test[[1]])
-#   tree=list(out=out,tree=pred.tree,MSE=MSE,bestsize=bestsize)
-#   yx_train_global <<- NA
-#   return(tree)  
-# }
-# 
-# 
-# #Function which will run cross validated output on whole data
-# tree.predict.kfold = function(yx,k,s){
-#   set.seed(s) 
-#   folds=sample(1:k,nrow(yx),replace=TRUE)
-#   tree.folds <- list()
-#   for(j in 1:k){
-#     tree.folds[[j]] <- tree.predict(yx[folds!=j,],yx[folds==j,])
-#     names(tree.folds)[j] <- paste("fold_",j,sep="")
-#   }
-#   return(tree.folds)
-# }
-# 
-# 
-# ###Random forests
-# 
-# library(randomForest)
-# 
-#   # TO FILL
-# 
-# 
-# ###Conditional inference trees
-# 
-# library(party)
-# 
-# CIT.predict = function(yx_train,yx_test){
-#   names(yx_train)[1]<-"Y"
-#   fit <- ctree(Y~.,data=yx_train)
-#   
-#   # TO FILL  
-# }
-# 
+

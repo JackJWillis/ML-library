@@ -23,9 +23,9 @@ Imports:
   party,
   randomForest,
   reshape2,
-  rgdal,
   scales,
   tree,
   vcd,
   xlsx,
+  rpart
 Suggests: testthat
