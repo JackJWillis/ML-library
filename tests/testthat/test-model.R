@@ -72,25 +72,29 @@ test_that("trainging and testing contain all the data", {
 test_that("regularizers produce lower mse", {
   # From Introduction to Statistical Learning, Chapter 6
   Hitters <- ISLR::Hitters
-  Hitters <- na.omit(Hitters)
-  x <- model.matrix(Salary ~ ., Hitters)[, -1]
+  Hitters <- na.omit(Hitters)[, -1]
+  x <- model.matrix(Salary ~ ., Hitters)
   y <- Hitters$Salary
   seed <- 1
-  split <- kfold_split(2,  y, x, seed)$splits[[1]]
+#   split <- kfold_split(2,  y, x, seed)$splits[[1]]
+  set.seed(seed)
+  train=sample(1:nrow(x), nrow(x)/2)
+  test=(-train)
+  split <- list(x_train=x[train, ], y_train=y[train], x_test=x[test, ], y_test=y[test])
   y_train <- split$y_train
   y_test <- split$y_test
   x_test <- split$x_test
   ls <- do.call(LeastSquares(), split)
   ls_fit <- fit(ls)
-  ls_mse <- mean((predict(ls_fit, data.frame(x_test)) - y_test) ^ 2)
+  ls_mse <- mean((predict(ls, ls_fit) - y_test) ^ 2)
 
   ridge <- do.call(Ridge(), split)
   ridge_fit <- fit(ridge)
-  ridge_mse <- mean((predict(ridge_fit, x_test) - y_test) ^ 2)
+  ridge_mse <- mean((predict(ridge, ridge_fit) - y_test) ^ 2)
 
   lasso <- do.call(Lasso(), split)
   lasso_fit <- fit(lasso)
-  lasso_mse <- mean((predict(lasso_fit, x_test)- y_test) ^ 2)
+  lasso_mse <- mean((predict(lasso, lasso_fit)- y_test) ^ 2)
   
   mean_mse <- mean((mean(y_train) - y_test) ^ 2)
 

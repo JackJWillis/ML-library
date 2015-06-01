@@ -64,12 +64,15 @@ Ridge <- function() {
 
 
 fit.ridge <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
+  ridge_model <- glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
+  cv_ridge <- glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
+  ridge_model$best_lambda <- cv_ridge$lambda.min
+  ridge_model
 }
 
 
 predict.ridge <- function(f, model) {
-  predict(model, f$x_test)
+  predict(model, s=model$best_lambda, newx=f$x_test)
 }
 
 
@@ -83,19 +86,22 @@ Lasso <- function(max_covariates=NULL) {
 
 
 fit.lasso <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=1, parallel=TRUE)
+  lasso_model <- glmnet(f$x_train, f$y_train, alpha=1, standardize=TRUE)
+  cv_lasso <- glmnet::cv.glmnet(f$x_train, f$y_train, alpha=1, standardize=TRUE, parallel=TRUE)
+  max_covariates <- f$max_covariates
+  if (is.null(max_covariates)) {
+    s <- cv_lasso$lambda.min
+  }
+  else {
+    s <- cv_lasso$lambda[which.min(cv_lasso$cvm[cv_lasso$nzero < max_covariates])]
+  }
+  lasso_model$best_lambda <- s 
+  lasso_model
 }
 
 
 predict.lasso <- function(f, model) {
-  max_covariates <- f$max_covariates
-  if (is.null(max_covariates)) {
-    s <- model$lambda.min
-  }
-  else {
-    s <- model$lambda[which.min(model$cvm[model$nzero < max_covariates])]
-  }
-  predict(model, f$x_test, s=s)
+  predict(model, newx=f$x_test, s=model$best_lambda)
 }
 
 
@@ -230,8 +236,10 @@ predict.logistic <- function(f, model) {
 
 # K fold validation ---------------------------
 
-kfold_split <- function(k, y, x, seed=0) {
-  set.seed(seed)
+kfold_split <- function(k, y, x, seed=NULL) {
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
   assignments <- sample(rep(1:k, length.out=nrow(x)))
   splits <- lapply(1:k, function (k) { 
      list(
