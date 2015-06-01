@@ -162,6 +162,26 @@ predict.rTree <- function(f, model) {
   predict(model, f$x_test)
 }
 
+rTree2 <- function() {
+  function(x_train, y_train, x_test, y_test) {
+    structure(fold(x_train, y_train, x_test, y_test), class="rTree2")
+  }
+}
+
+fit.rTree2 <- function(f) {
+  yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
+  names(yx_train_global)[1]<<-"Y"
+  #Setting cp low to ensure trees sufficiently complex
+  tree.first <- rpart::rpart(Y~., method="anova", data=yx_train_global, cp=0.001)
+  #Chooses tree size with minimal xerror
+  bestsize <- tree.first$cptable[which.min(tree.first$cptable[,"xerror"]),"CP"]
+  tree.final <- rpart::prune(tree.first, cp = bestsize)  
+}
+
+predict.rTree2 <- function(f, model) {
+  predict(model, f$x_test)
+}
+
 Forest <- function() {
   function(x_train, y_train, x_test, y_test) {
     structure(fold(x_train, y_train, x_test, y_test), class="forest")
@@ -170,7 +190,7 @@ Forest <- function() {
 
 fit.forest <- function(f) {
 #Supposedly this doesn't need CV  
-  randomForest::randomForest(f$x_train, f$y_train)
+  randomForest::randomForest(f$x_train, f$y_train,ntree=2000)
 }
 
 predict.forest <- function(f, model) {
