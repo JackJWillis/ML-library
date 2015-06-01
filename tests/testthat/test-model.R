@@ -30,11 +30,10 @@ test_that("splits are even", {
   x <- matrix(1:row_count, nrow=row_count, ncol=1)
   y <- seq_len(row_count)
   seed <- 1
-  
   for (k in 1:row_count) {
     split <- kfold_split(k, y, x, seed)
     for (fold in split$splits) {
-      expect_true(abs(length(fold$y_train) - k) <= 1)
+      expect_true(abs(length(fold$y_test) - (row_count / k)) <= 1)
     }
   }
 })
