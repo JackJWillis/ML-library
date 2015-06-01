@@ -298,9 +298,9 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
       mutate(response1=raw < quantile(raw, threshold)) %>%
       mutate(response2=raw >= quantile(raw, threshold)) %>%  
       arrange(predicted) %>%
-      mutate(value=cumsum(response2) / n()) %>%
-      #Note this is percent poor included, might wish to change later
-      mutate(percent_population_included=cumsum(response1) / n())
+      mutate(value=cumsum(response1) / n()) %>%
+      #Note this is number rich included, might wish to change later
+      mutate(percent_population_included=cumsum(response2) / n())
   }
   
   df <- make_df(joined, FALSE)
