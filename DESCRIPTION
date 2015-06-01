@@ -28,4 +28,6 @@ Imports:
   vcd,
   xlsx,
   rpart
-Suggests: testthat
+Suggests:
+  testthat,
+  ISLR,
