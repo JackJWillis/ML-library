@@ -18,11 +18,11 @@ gh <- load_dataset(NAME)
 
 ## Data
 
-This is a sample analysis of the ghana dataset from 2006.
-The dataset has `r nrow(gh)` rows and `r ncol(gh)` columns.
-TODO: how many missing?
-Our goal is to predict the consumption levels from survey data.
-In this case we take the log of per capita consumption as our target variable.
+This is a sample analysis of the ghana dataset from 2006. We are just using the `r ncol(gh)` variables which went into a PMT which was recently developed by the WB. The dataset has `r nrow(gh)` households which have no missing data.
+
+Our goal is to predict the consumption levels from survey data, using a variety of functional forms with these variables. Least squares can be considered the benchmark method.
+
+In this case we take the log of (price adjusted) per (equivalence scale) capita consumption as our target variable.
 
 ## Models
 
@@ -37,25 +37,35 @@ We use `r k=5` fold cross validation for testing predictive accuracy.
 We also trained each model on a dataset including all pairwise interactions.
 
 ### Density
+
+The following shows the density plots across the methods. rtree is not displayed since it is a set of point masses. 
 ```{r density, echo=FALSE}
-plot_density_(filter(filter(joined,method!="logistic"),method!="logistic_ix"))
+plot_density_(filter(joined,method!="logistic" & method!="logistic_ix" & method!="rtree"))
 ```
 
 
 ### Reach vs waste
+The following shows, for different poverty thresholds (as quantiles of the population), how the number of poor included increases compared to how the number of rich included increases as the eligibility cutoff increases.
 ```{r reach_vs_waste, echo=FALSE}
 plot_reach_vs_waste_(joined, POINT_COUNT=100)
 ```
+The following is the same graph, for a poverty line at the 40% percentile of the distribution.
 ```{r reach_vs_waste_0.4, echo=FALSE}
 plot_reach_vs_waste_(joined, POINT_COUNT=1000, THRESHOLD = 0.4)
 ```
 
 ### Social welfare (gamma = 2)
+
+The following shows, as the coverage of the program is increased, the social welfare using a targeting rule based on our prediction, divided by the social welfare of using a perfect targeting rule. The social welfare is the sum of the marginal utilities of consumption of recipients, using a CRRA utility function with coefficient of relative risk aversion = gamma.
+
 ```{r swf_2, echo=FALSE}
 plot_swf_(joined, POINT_COUNT=1000, GAMMA = 2)
 ```
 
 ### Social welfare (gamma = 4)
+
+This is the same graph but with a higher CRRA.
+
 ```{r swf_4, echo=FALSE}
 plot_swf_(joined, POINT_COUNT=1000, GAMMA = 4)
 ```
