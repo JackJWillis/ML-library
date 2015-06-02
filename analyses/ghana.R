@@ -68,7 +68,7 @@ create_dataset <- function(remove_missing=TRUE) {
     data.frame() %>%
     add_covariates(ghana) %>%
     add_target(ghana) 
-  if (remove_missing) remove_missing_data(df)
+  if (remove_missing) df <- remove_missing_data(df)
   df
 }
 
@@ -107,9 +107,9 @@ print("Running least squares with interactions")
 least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
 
 save_models(NAME,
+            least_squares=least_squares,
             ridge=ridge,
             lasso=lasso,
-            least_squares=least_squares,
             rtree=rtree,
             forest=forest,
             ridge_ix=ridge_ix,
