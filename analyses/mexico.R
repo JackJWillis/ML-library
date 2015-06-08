@@ -57,10 +57,12 @@ create_dataset <- function(remove_missing=TRUE) {
     select(-contains("tenen_")) %>%
     mutate(tam_loc=iconv(tam_loc, to="ascii", sub=""))
     
+  
+  df$state <- sapply(mexico$ubica_geo, function(s) substr(s, 1, 2))
+  df$muni <- sapply(mexico$ubica_geo, function(s) substr(s, 3, 5))
   year_df <- select(df, ends_with("_a"))
   year_df <- lapply(year_df, transform_years)
   df[, names(year_df)] <- year_df
-  df$location <- sapply(mexico$ubica_geo, function(s) substr(s, 1, 2))
   df$lconsPC <- log(mexico[, consumption_variable] / mexico[, hhsize_variable])
   if (remove_missing) df <- remove_missing_data(df)
   df
