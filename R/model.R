@@ -126,6 +126,7 @@ fit.grouped_ridge <- function(f) {
 predict.grouped_ridge <- function(f, model) {
   models <- model$ridge
   best_lambdas <- model$best_lambdas
+  grouping_variable <- f$grouping_variable
   
   all_x <- rbind(f$x_train, f$x_test)
   all_y <- c(f$y_train, f$y_test)
