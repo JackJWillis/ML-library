@@ -321,6 +321,48 @@ predict.logistic <- function(f, model) {
   predict(model, f$x_test, type="response", lambda=lambda.min)
 }
 
+# MCA + KNN
+
+MCA_KNN <- function(k=5) {
+  function(x_train, y_train, x_test, y_test) {
+    factors <- sapply(x_train, is.factor)
+    if (!all(factors)) {
+      print(paste("Warning:", sum(!factors), "non-factor variables found, only factors will be used."))
+    }
+    f <- fold(x_train, y_train, x_test, y_test)
+    f$k <- k
+    structure(f, class="mca_knn")
+  }
+}
+
+
+fit.mca_knn<- function(f) {
+  categorical <- f$x_train[, sapply(f$x_train, is.factor)]
+  res.mca <- FactoMineR::MCA(categorical, ncp=f$k, graph=FALSE)
+  res.mca
+}
+
+predict.mca_knn<- function(f, model) {
+  var_coords <- t(data.frame(model$var$coord))
+  obs_coords <- model$ind$coord
+  categorical_test <- f$x_test[, sapply(f$x_test, is.factor)]
+  k <- f$k
+  # There's probably a faster way to do this
+  to_mca_coords <- function(obs) {
+    coord <- rep(0, k)
+    for (key in names(obs)) {
+      val <- obs[key]
+      weights <- var_coords[, paste(key, val, sep="_")]
+      coord <- coord + weights
+    }
+    coord
+  }
+  coords <- t(apply(categorical_test, 1, to_mca_coords))
+  # TODO how to get rid of levels?
+  class::knn(obs_coords, coords, f$y_train)
+}
+
+
 
 # K fold validation ---------------------------
 
