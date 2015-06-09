@@ -358,8 +358,9 @@ predict.mca_knn<- function(f, model) {
     coord
   }
   coords <- t(apply(categorical_test, 1, to_mca_coords))
-  # TODO how to get rid of levels?
-  class::knn(obs_coords, coords, f$y_train)
+  winners <- class::knn(obs_coords, coords, 1:nrow(obs_coords))
+  winners <- as.numeric(levels(winners))[as.integer(winners)]
+  f$y_train[winners]
 }
 
 
