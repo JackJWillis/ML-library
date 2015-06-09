@@ -323,7 +323,7 @@ predict.logistic <- function(f, model) {
 
 # MCA + KNN
 
-MCA_KNN <- function(k=5) {
+MCA_KNN <- function(ndim=5, k=1, threshold=NULL) {
   function(x_train, y_train, x_test, y_test) {
     factors <- sapply(x_train, is.factor)
     if (!all(factors)) {
@@ -331,6 +331,7 @@ MCA_KNN <- function(k=5) {
     }
     f <- fold(x_train, y_train, x_test, y_test)
     f$k <- k
+    f$ndim <- ndim
     structure(f, class="mca_knn")
   }
 }
@@ -338,7 +339,7 @@ MCA_KNN <- function(k=5) {
 
 fit.mca_knn<- function(f) {
   categorical <- f$x_train[, sapply(f$x_train, is.factor)]
-  res.mca <- FactoMineR::MCA(categorical, ncp=f$k, graph=FALSE)
+  res.mca <- FactoMineR::MCA(categorical, ncp=f$ndim, graph=FALSE)
   res.mca
 }
 
@@ -347,9 +348,11 @@ predict.mca_knn<- function(f, model) {
   obs_coords <- model$ind$coord
   categorical_test <- f$x_test[, sapply(f$x_test, is.factor)]
   k <- f$k
+  ndim <- f$ndim
+  threshold <- f$threshold
   # There's probably a faster way to do this
   to_mca_coords <- function(obs) {
-    coord <- rep(0, k)
+    coord <- rep(0, ndim)
     for (key in names(obs)) {
       val <- obs[key]
       weights <- var_coords[, paste(key, val, sep="_")]
@@ -358,9 +361,14 @@ predict.mca_knn<- function(f, model) {
     coord
   }
   coords <- t(apply(categorical_test, 1, to_mca_coords))
-  winners <- class::knn(obs_coords, coords, 1:nrow(obs_coords))
-  winners <- as.numeric(levels(winners))[as.integer(winners)]
-  f$y_train[winners]
+  if (is.null(threshold)) {
+    winners <- class::knn(obs_coords, coords, 1:nrow(obs_coords))
+    winners <- as.numeric(levels(winners))[as.integer(winners)]
+    f$y_train[winners]
+  }
+  else {
+    labels <- class::knn(obs_coords, coords, f$y_train < threshold, k=k)
+  }
 }
 
 
