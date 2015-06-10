@@ -115,7 +115,7 @@ plot_roc <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
 }
 
 
-plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count) {
+plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count, x_label=percent_population_included) {
   cut <- df %>%
     slice(seq(1, n(), n() / point_count))
     
@@ -123,7 +123,8 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
     ggplot2::geom_step() +
     ggplot2::facet_wrap(~ threshold) +
     ggplot2::labs(y = y_label)
-
+    ggplot2::labs(x = x_label)
+  
   if (show_cutoffs) {
     # TODO annotate plot
     df <- mutate(df, absolute=quantile(raw, threshold))
@@ -305,7 +306,8 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
-                  y_label="number of poor targeted",
+                  y_label="number of poor targeted / N",
+                  x_label="number of rich targeted / N",
                   show_cutoffs=SHOW_CUTOFFS,
                   show_folds=SHOW_FOLDS,
                   folded=folded_df,

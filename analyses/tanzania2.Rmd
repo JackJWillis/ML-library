@@ -1,6 +1,7 @@
 ---
-title: "Ghana prediction"
-output: html_document
+title: "Tanzania Prediction Example"
+output:
+  html_document
 ---
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
@@ -12,17 +13,17 @@ knitr::opts_knit$set(root.dir="../")
 library(MLlibrary)
 library(dplyr)
 
-NAME <- "ghana"
-gh <- load_dataset(NAME)
+NAME <- "tanzania"
+tz08 <- load_dataset(NAME)
 ```
 
 ## Data
 
-This is a sample analysis of the ghana dataset from 2006. We are just using the `r ncol(gh)` variables which went into a PMT which was recently developed by the WB. The dataset has `r nrow(gh)` households which have no missing data.
+This is a sample analysis of the tanzania dataset from 2008. There is no official PMT, but the data is a panel, which we will exploit later.
 
-Least squares can be considered the benchmark method upon which the PMT from the WB was based.
+The dataset has `r nrow(tz08)` rows and `r ncol(tz08)` columns.`r nrow(tz08) - nrow(model.matrix(lconsPC ~ .,  tz08))` rows contain missing data, which the models presented here are based on.
 
-Our target variable is log of (price adjusted) per (equivalence scale) capita consumption.
+Our target variable is log of per capita consumption.
 
 ## Models
 
@@ -37,6 +38,7 @@ We use `r k` fold cross validation for testing predictive accuracy.
 The models trained are:
 
 * Least squares: Simple least squares
+* Stepwise: Stepwise regression with forward (check) selection and ADD STOPPING CRITERIA
 * Lasso: Lasso using cross validated regularization parameter 
 * Ridge: Ridge using cross validated regularization parameter 
 * rtree: Regression tree using cross validated pruning extent
@@ -44,6 +46,11 @@ The models trained are:
 * **Pairwise interactions**
 * Lasso_ix: Lasso using all pairwise interaction terms and cross validated regularization parameter
 * Ridge_ix: Ridge using all pairwise interaction terms and cross validated regularization parameter
+* **Limiting covariates**
+* Lasso_15: As lasso but limited to a maximum of 15 covariates
+* Stepwise_15: As stepwise but limited to a maximum of 15 covariates
+
+## Assessments
 
 ### Density
 
@@ -78,3 +85,4 @@ This is the same graph but with a higher CRRA.
 ```{r swf_4, echo=FALSE}
 plot_swf_(joined, POINT_COUNT=1000, GAMMA = 4)
 ```
+
