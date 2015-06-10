@@ -76,6 +76,94 @@ predict.ridge <- function(f, model) {
 }
 
 
+GroupedRidge <- function(grouping_variable, include_full=TRUE) {
+  function(x_train, y_train, x_test, y_test) {
+    f <- structure(fold(x_train, y_train, x_test, y_test), class="grouped_ridge")
+    f$grouping_variable <- grouping_variable
+    f$include_full <- include_full
+    f
+  }
+}
+
+fit.grouped_ridge <- function(f) {
+  stopifnot(!("Y" %in% colnames(f$x_train)))
+  grouping_variable <- f$grouping_variable
+  all_x <- rbind(f$x_train, f$x_test)
+  all_y <- c(f$y_train, f$y_test)
+  all_df <- data.frame(Y=all_y, all_x)
+  all_df <- dplyr::select(all_df, -one_of(grouping_variable))
+  x_mat <- model.matrix(Y ~ ., all_df)
+  
+  x_mat_train <- x_mat[1:nrow(f$x_train), ] 
+  y_train <- f$y_train
+  models <- list()
+  best_lambdas <- list()
+
+  if (f$include_full) {
+    big_ridge <- glmnet::glmnet(x_mat_train, y_train, standardize=TRUE, alpha=0)
+    big_best_lambda <- glmnet::cv.glmnet(x_mat_train, y_train, standardize=TRUE, alpha=0, parallel=TRUE)$lambda.min
+    predictions <- predict(big_ridge, x_mat_train, s=big_best_lambda)
+    x_mat_train <- cbind(x_mat_train, matrix(predictions, ncol=1, dimnames=list(NULL, "full_model_pred")))
+    models$ungrouped_ <- big_ridge
+    best_lambdas$ungrouped_ <- big_best_lambda
+  }
+  
+  df <- data.frame(x_mat_train)
+  df$Y <- f$y_train
+  df[, grouping_variable] <- f$x_train[, grouping_variable]
+  grouped <- dplyr::group_by_(df, grouping_variable)
+  to_matrix <- function(df) {
+    df <- dplyr::select(df, -one_of("Y", grouping_variable))
+    as.matrix(df)
+  }
+  m <- do(grouped,
+          ridge=glmnet::glmnet(to_matrix(.), .$Y, standardize=TRUE, alpha=0),
+          best_lambda=glmnet::cv.glmnet(to_matrix(.), .$Y, standardize=TRUE, alpha=0, parallel=TRUE)$lambda.min)
+  
+  group_names <- m[[grouping_variable]]
+  models <- append(models, as.list(m$ridge))
+  names(models) <- append(names(models), group_names)
+  
+  best_lambdas <- append(best_lambdas, as.list(m$best_lambda))
+  names(best_lambdas) <- append(names(best_lambdas), group_names)
+  
+  list(ridge=models, best_lambdas=best_lambdas)
+}
+
+predict.grouped_ridge <- function(f, model) {
+  models <- model$ridge
+  best_lambdas <- model$best_lambdas
+  grouping_variable <- f$grouping_variable
+  
+  all_x <- rbind(f$x_train, f$x_test)
+  all_y <- c(f$y_train, f$y_test)
+  all_df <- data.frame(Y=all_y, all_x)
+  all_df <- dplyr::select(all_df, -one_of(f$grouping_variable))
+  x_mat <- model.matrix(Y ~ ., all_df)
+  
+  x_mat_test <- x_mat[(nrow(f$x_train)+1):nrow(x_mat), ] 
+  if (f$include_full) {
+    pred <- predict(models$ungrouped_, x_mat_test, s=best_lambdas$ungrouped_)
+    x_mat_test <- transform(x_mat_test, predict(models$ungrouped_, x_mat_test, s=best_lambdas$ungrouped_))
+  }
+  
+  df <- data.frame(x_mat_test)
+  df[, grouping_variable] <- f$x_test[, grouping_variable]
+  df$id <- 1:nrow(df)
+  grouped <- dplyr::group_by_(df, grouping_variable)
+  to_matrix <- function(df) {
+    df <- dplyr::select(df, -one_of(grouping_variable, "id"))
+    as.matrix(df)
+  }
+  residuals <- do(grouped, id=.$id, res=predict(
+    models[[ .[[grouping_variable]][[1]] ]],
+    to_matrix(.),
+    s=best_lambdas[[ .[[grouping_variable]][[1]] ]]))
+  residuals <- (data.frame(id=unlist(residuals$id), res=unlist(residuals$res)) %>% arrange(id))$res
+  pred + residuals
+}
+
+
 Lasso <- function(max_covariates=NULL) {
   function(x_train, y_train, x_test, y_test) {
     f <- structure(fold(x_train, y_train, x_test, y_test), class="lasso")
@@ -189,7 +277,7 @@ fit.rTree2 <- function(f) {
 }
 
 predict.rTree2 <- function(f, model) {
-  predict(model, f$x_test)
+  predict(model, data.frame(f$x_test))
 }
 
 Forest <- function() {
