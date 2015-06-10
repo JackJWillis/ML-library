@@ -81,6 +81,7 @@ create_dataset <- function(remove_missing=TRUE) {
     mutate(tam_loc=iconv(tam_loc, to="ascii", sub=""))
     
   
+  # If these are factors, MCA does not work...
   df$state <- sapply(mexico$ubica_geo, function(s) substr(s, 1, 2))
   df$muni <- sapply(mexico$ubica_geo, function(s) substr(s, 3, 5))
   year_df <- select(df, ends_with("_a"))
