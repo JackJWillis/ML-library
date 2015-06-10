@@ -115,7 +115,7 @@ plot_roc <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
 }
 
 
-plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count, x_label=percent_population_included) {
+plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count, x_label="percent_population_included") {
   cut <- df %>%
     slice(seq(1, n(), n() / point_count))
     
