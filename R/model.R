@@ -260,7 +260,9 @@ fit.cTree2 <- function(f) {
   tree.final <- rpart::prune(tree.first, cp = bestsize)  
 }
 
-predict.cTree2 <- predict.rTree2
+predict.cTree2 <- function(f, model) {
+  predict(model, f$x_test, type = "vector")
+}
 
 
 cForest <- function(threshold) {
