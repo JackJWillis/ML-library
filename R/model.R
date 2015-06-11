@@ -121,11 +121,13 @@ fit.grouped_ridge <- function(f) {
           best_lambda=glmnet::cv.glmnet(to_matrix(.), .$Y, standardize=TRUE, alpha=0, parallel=TRUE)$lambda.min)
   
   group_names <- m[[grouping_variable]]
-  models <- append(models, as.list(m$ridge))
-  names(models) <- append(names(models), group_names)
+  grouped_models <- as.list(m$ridge)
+  names(grouped_models) <- group_names
+  models <- append(models, grouped_models)
   
-  best_lambdas <- append(best_lambdas, as.list(m$best_lambda))
-  names(best_lambdas) <- append(names(best_lambdas), group_names)
+  group_lambdas <- as.list(m$best_lambda)
+  names(group_lambdas) <- group_names
+  best_lambdas <- append(best_lambdas, group_lambdas)
   
   list(ridge=models, best_lambdas=best_lambdas)
 }
@@ -143,8 +145,8 @@ predict.grouped_ridge <- function(f, model) {
   
   x_mat_test <- x_mat[(nrow(f$x_train)+1):nrow(x_mat), ] 
   if (f$include_full) {
-    pred <- predict(models$ungrouped_, x_mat_test, s=best_lambdas$ungrouped_)
-    x_mat_test <- transform(x_mat_test, predict(models$ungrouped_, x_mat_test, s=best_lambdas$ungrouped_))
+    predictions <- predict(models$ungrouped_, x_mat_test, s=best_lambdas$ungrouped_)
+    x_mat_test <- cbind(x_mat_test, matrix(predictions, ncol=1, dimnames=list(NULL, "full_model_pred")))
   }
   
   df <- data.frame(x_mat_test)
@@ -155,12 +157,11 @@ predict.grouped_ridge <- function(f, model) {
     df <- dplyr::select(df, -one_of(grouping_variable, "id"))
     as.matrix(df)
   }
-  residuals <- do(grouped, id=.$id, res=predict(
+  preds <- do(grouped, id=.$id, pred=predict(
     models[[ .[[grouping_variable]][[1]] ]],
     to_matrix(.),
     s=best_lambdas[[ .[[grouping_variable]][[1]] ]]))
-  residuals <- (data.frame(id=unlist(residuals$id), res=unlist(residuals$res)) %>% arrange(id))$res
-  pred + residuals
+  (data.frame(id=unlist(preds$id), pred=unlist(preds$pred)) %>% arrange(id))$pred
 }
 
 
