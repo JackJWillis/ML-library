@@ -103,35 +103,58 @@ x_nmm <- select(mx, -one_of("lconsPC"))
 y <- mx[rownames(x), "lconsPC"]
 k <- 5
 
-# print("Running ridge")
-# ridge <- kfold(k, Ridge(), y, x)
-# print("Running lasso")
-# lasso <- kfold(k, Lasso(), y, x)
-# print("Running least squares")
-# least_squares <- kfold(k, LeastSquares(), y, x)
+print("Running ridge")
+ridge <- kfold(k, Ridge(), y, x)
+print("Running lasso")
+lasso <- kfold(k, Lasso(), y, x)
+print("Running least squares")
+least_squares <- kfold(k, LeastSquares(), y, x)
+save_models(NAME,
+            ridge=ridge,
+            lasso=lasso,
+            least_squares=least_squares)
 
-# print("Running rtree")
-# rtree <- kfold(k, rTree2(), y, x_nmm)
-# print("Running randomForest")
-# forest <- kfold(k, Forest(), y, x_nmm)
+print("Running grouped ridge")
+ridge_muni <- kfold(k, GroupedRidge("muni"), y, x_nmm)
+ridge_state <- kfold(k, GroupedRidge("state"), y, x_nmm)
+ridge_conapo <- kfold(k, GroupedRidge("conapo"), y, x_nmm)
+save_models(NAME,
+            ridge_muni=ridge_muni,
+            ridge_state=ridge_state,
+            rige_conapo=ridge_conapo)
 
-# # Rerun with interaction terms
-# x_ix <- model.matrix(lnwelfare ~ . + .:.,  gh)
-# y_ix <- gh[rownames(x_ix), "lnwelfare"]
+print("Running rtree")
+rtree <- kfold(k, rTree2(), y, x_nmm)
+print("Running randomForest")
+forest <- kfold(k, Forest(), y, x_nmm)
+save_models(NAME,
+            rtree=rtree,
+            forest=forest)
 
-# print("Running ridge with interactions")
-# ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
-# print("Running lasso with interactions")
-# lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
-# print("Running least squares with interactions")
-# least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
+print("Running mca")
+mca_knn <- kfold(k, MCA_KNN(ndim=12, k=5), y, x_nmm)
+print("Running pca")
+pca_knn <- kfold(k, PCA_KNN(ndim=12, k=5), y, x_nmm)
+save_models(NAME,
+            mca_knn=mca_knn,
+            pca_knn=pca_knn)
 
-# save_models(NAME,
-#             ridge=ridge,
-#             lasso=lasso,
-#             least_squares=least_squares,
-#             rtree=rtree,
-#             forest=forest,
-#             ridge_ix=ridge_ix,
-#             lasso_ix=lasso_ix,
-#             least_squares_ix=least_squares_ix)
+
+# Rerun with interaction terms
+mx_factors <- model.matrix[, sapply(mx, is.factor)]
+x_ix <- model.matrix(lconsPC~ . + .:.,  mx_factors)
+y_ix <- mx_factors[rownames(x_ix), "lconsPC"]
+
+print("Running ridge with interactions")
+ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
+print("Running lasso with interactions")
+lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
+print("Running least squares with interactions")
+least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
+save_models(NAME,
+            ridge_ix=ridge_ix,
+            lasso_ix=lasso_ix,
+            least_squares_ix=least_squares_ix)
+
+print("Running grouped ridge with interations")
+ridge_state_ix <- kfold(k, GroupedRidge("state"), y, x_nmm)
