@@ -321,6 +321,99 @@ predict.logistic <- function(f, model) {
   predict(model, f$x_test, type="response", lambda=lambda.min)
 }
 
+# KNN Methods -------------------------------------------
+
+MCA_KNN <- function(ndim=5, k=1, threshold=NULL) {
+  function(x_train, y_train, x_test, y_test) {
+    factors <- sapply(x_train, is.factor)
+    if (!all(factors)) {
+      print(paste("Warning:", sum(!factors), "non-factor variables found, only factors will be used."))
+    }
+    f <- fold(x_train, y_train, x_test, y_test)
+    f$k <- k
+    f$ndim <- ndim
+    structure(f, class=c("mca", "knn"))
+  }
+}
+
+PCA_KNN <- function(ndim=5, k=1, threshold=NULL) {
+  function(x_train, y_train, x_test, y_test) {
+    numerics <- sapply(x_train, is.numeric)
+    if (!all(numerics)) {
+      print(paste("Warning:", sum(!numerics), "non-numeric variables found, only numerics will be used."))
+    }
+    f <- fold(x_train, y_train, x_test, y_test)
+    f$k <- k
+    f$ndim <- ndim
+    structure(f, class=c("pca", "knn"))
+  }
+}
+
+fit.mca <- function(f) {
+  categorical <- f$x_train[, sapply(f$x_train, is.factor)]
+  res.mca <- FactoMineR::MCA(categorical, ncp=f$ndim, graph=FALSE)
+  res.mca
+}
+
+fit.pca <- function(f) {
+  numerics <- f$x_train[, sapply(f$x_train, is.numeric)]
+  res.pca <- FactoMineR::PCA(numerics, ncp=f$ndim, graph=FALSE)
+  res.pca
+}
+
+predict.mca <- function(f, model) {
+  x_test <- f$x_test[, sapply(f$x_test, is.factor)]
+  var_coords <- t(data.frame(model$var$coord))
+  ndim <- f$ndim
+  to_model_coords <- function(obs) {
+    coord <- rep(0, ndim)
+    for (key in names(obs)) {
+      val <- obs[key]
+      if (! paste(key, val, sep="_") %in% colnames(var_coords)) {
+        print(paste(key, val))
+      }
+      weights <- var_coords[, paste(key, val, sep="_")]
+      coord <- coord + weights
+    }
+    coord
+  }
+  test_coords <- t(apply(x_test, 1, to_model_coords))
+  predict_knn(f, model, test_coords)
+}
+
+predict.pca <- function(f, model) {
+  x_test <- f$x_test[, sapply(f$x_test, is.numeric)]
+  var_coords <- t(data.frame(model$var$coord))
+  ndim <- f$ndim
+  to_model_coords <- function(obs) {
+    coord <- rep(0, ndim)
+    for (key in names(obs)) {
+      val <- obs[key]
+      weights <- val * var_coords[, key]
+      coord <- coord + weights
+    }
+    coord
+  }
+  test_coords <- t(apply(x_test, 1, to_model_coords))
+  predict_knn(f, model, test_coords)
+}
+
+
+predict_knn <- function(f, model, test_coords) {
+  threshold <- f$threshold
+  k <- f$k
+  obs_coords <- model$ind$coord
+  if (is.null(threshold)) {
+    winners <- class::knn(obs_coords, test_coords, 1:nrow(obs_coords))
+    winners <- as.numeric(levels(winners))[as.integer(winners)]
+    f$y_train[winners]
+  }
+  else {
+    class::knn(obs_coords, test_coords, f$y_train < threshold, k=k)
+  }
+}
+
+
 
 # K fold validation ---------------------------
 
