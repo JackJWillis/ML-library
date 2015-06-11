@@ -234,6 +234,55 @@ predict.logistic <- function(f, model) {
 }
 
 
+cTree2 <- function(threshold) {
+  function(x_train, y_train, x_test, y_test) {
+    f <- fold(x_train, y_train, x_test, y_test)
+    f$threshold <- threshold
+    structure(f, class="cTree2")
+  }
+}
+
+transform_ys.cTree2 <- function(f) {
+  threshold <- f$threshold
+  f$y_train <- factor(f$y_train < threshold, levels=c(TRUE, FALSE))
+  f$y_test_raw <- f$y_test
+  f$y_test <- factor(f$y_test < threshold, levels=c(TRUE, FALSE))
+  f
+}
+
+fit.cTree2 <- function(f) {
+  yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
+  names(yx_train_global)[1]<<-"Y"
+  #Setting cp low to ensure trees sufficiently complex
+  tree.first <- rpart::rpart(Y~., method="class", data=yx_train_global, cp=0.001)
+  #Chooses tree size with minimal xerror
+  bestsize <- tree.first$cptable[which.min(tree.first$cptable[,"xerror"]),"CP"]
+  tree.final <- rpart::prune(tree.first, cp = bestsize)  
+}
+
+predict.cTree2 <- predict.rTree2
+
+
+cForest <- function(threshold) {
+  function(x_train, y_train, x_test, y_test) {
+    f <- fold(x_train, y_train, x_test, y_test)
+    f$threshold <- threshold
+    structure(f, class="cforest")
+  }
+}
+
+transform_ys.cforest <- function(f) {
+  threshold <- f$threshold
+  f$y_train <- factor(f$y_train < threshold, levels=c(TRUE, FALSE))
+  f$y_test_raw <- f$y_test
+  f$y_test <- factor(f$y_test < threshold, levels=c(TRUE, FALSE))
+  f
+}
+
+fit.cforest <- fit.forest
+
+predict.cforest <- predict.forest
+
 # K fold validation ---------------------------
 
 kfold_split <- function(k, y, x, seed=NULL) {
