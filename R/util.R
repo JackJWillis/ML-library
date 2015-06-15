@@ -16,6 +16,13 @@ save_models <- function(name, ...) {
 }
 
 
+save_models_ <- function(name, joined) {
+  fname <- paste(name, MODELS_BASE, sep="_")
+  out_path <- paste(TARGETING_DATA_OUT, fname, sep="/")
+  write.csv(joined, file=out_path)
+}
+
+
 load_models <- function(name) {
   fname <- paste(name, MODELS_BASE, sep="_")
   out_path <- paste(TARGETING_DATA_OUT, fname, sep="/")

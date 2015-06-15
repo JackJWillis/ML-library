@@ -298,12 +298,33 @@ predict.forest <- function(f, model) {
 
 # Classification -----------------------------------------
 
+LogisticLasso <- function(threshold) {
+  function(x_train, y_train, x_test, y_test) {
+    f <- fold(x_train, y_train, x_test, y_test)
+    f$threshold <- threshold
+    structure(f, class=c("logistic_lasso", "logistic"))
+  }
+}
+
+
+fit.logistic_lasso <- function(f) {
+  model <- glmnet::glmnet(f$x_train, f$y_train, family="binomial", standardize=FALSE, alpha=1)
+  cv_out <- glmnet::cv.glmnet(f$x_train, f$y_train, family="binomial", standardize=FALSE, alpha=1)
+  model$best_lambda <- cv_out$lambda.min
+  model
+}
+
+predict.logistic_lasso <- function(f, model) {
+  predict(model, f$x_test, type="response", lambda=model$best_lambda)
+}
+
+
 Logistic <- function(threshold) {
-    function(x_train, y_train, x_test, y_test) {
-      f <- fold(x_train, y_train, x_test, y_test)
-      f$threshold <- threshold
-      structure(f, class="logistic")
-    }
+  function(x_train, y_train, x_test, y_test) {
+    f <- fold(x_train, y_train, x_test, y_test)
+    f$threshold <- threshold
+    structure(f, class=c("logistic"))
+  }
 }
 
 transform_ys.logistic <- function(f) {
@@ -315,11 +336,11 @@ transform_ys.logistic <- function(f) {
 }
 
 fit.logistic <- function(f) {
-  glmnet::cv.glmnet(f$x_train, f$y_train, family="binomial")
+  glmnet::glmnet(f$x_train, f$y_train, family="binomial", standardize=FALSE)
 }
 
 predict.logistic <- function(f, model) {
-  predict(model, f$x_test, type="response", lambda=lambda.min)
+  predict(model, f$x_test, type="response", s=0)
 }
 
 # KNN Methods -------------------------------------------

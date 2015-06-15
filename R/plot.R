@@ -23,6 +23,25 @@ join_dfs <- function(dfs) {
   joined
 }
 
+add_dfs <- function(joined, dfs) {
+  stopifnot(!is.null(names(dfs)))
+  for( name in names(dfs)) {
+    stopifnot(!(name %in% joined$method))
+    dfs[[name]]$method <- name
+    dfs[[name]]$true <- as.numeric(dfs[[name]]$true)
+  }
+  new_joined <- do.call("rbind", dfs)
+  rbind(joined, new_joined)
+  }
+
+calculate_mse_ <- function(joined) {
+  joined <- dplyr::filter(joined, method != "true")
+  no_factors <- mutate(joined, predicted = as.numeric(levels(predicted))[predicted])
+  with_mse <- mutate(no_factors, se=(true - predicted)**2)
+  grouped <- group_by(with_mse, method)
+  summarise(grouped, mse=mean(se))
+}
+
 
 plot_residuals_ <- function(joined) {
   joined <- dplyr::filter(joined, method != "true")

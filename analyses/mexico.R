@@ -97,41 +97,76 @@ create_dataset <- function(remove_missing=TRUE) {
 mx <- create_dataset(remove_missing=FALSE)
 mx <- na_indicator(mx)
 mx <- standardize_predictors(mx, "lconsPC")
-save_dataset(NAME, mx)
+# save_dataset(NAME, mx)
 x <- model.matrix(lconsPC ~ .,  mx)
 x_nmm <- select(mx, -one_of("lconsPC"))
 y <- mx[rownames(x), "lconsPC"]
 k <- 5
 
-# print("Running ridge")
-# ridge <- kfold(k, Ridge(), y, x)
-# print("Running lasso")
-# lasso <- kfold(k, Lasso(), y, x)
-# print("Running least squares")
-# least_squares <- kfold(k, LeastSquares(), y, x)
+print("Running ridge")
+ridge <- kfold(k, Ridge(), y, x)
+print("Running lasso")
+lasso <- kfold(k, Lasso(), y, x)
+print("Running least squares")
+least_squares <- kfold(k, LeastSquares(), y, x)
 
-# print("Running rtree")
-# rtree <- kfold(k, rTree2(), y, x_nmm)
+print("Running stepwise")
+stepwise <- kfold(k, Stepwise(300), y, x)
+
+print("Running grouped ridge")
+ridge_muni <- kfold(k, GroupedRidge("muni"), y, x_nmm)
+ridge_state <- kfold(k, GroupedRidge("state"), y, x_nmm)
+
+print("Running rtree")
+rtree <- kfold(k, rTree2(), y, x_nmm)
+
 # print("Running randomForest")
 # forest <- kfold(k, Forest(), y, x_nmm)
 
-# # Rerun with interaction terms
-# x_ix <- model.matrix(lnwelfare ~ . + .:.,  gh)
-# y_ix <- gh[rownames(x_ix), "lnwelfare"]
+print("Running mca")
+mca_knn <- kfold(k, MCA_KNN(ndim=12, k=5), y, x_nmm)
+print("Running pca")
+pca_knn <- kfold(k, PCA_KNN(ndim=12, k=5), y, x_nmm)
 
-# print("Running ridge with interactions")
-# ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
-# print("Running lasso with interactions")
-# lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
-# print("Running least squares with interactions")
-# least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
+mca_pca_avg <- mca_knn
+mca_pca_avg$predicted <- (mca_pca_avg$predicted + pca_knn$predicted) / 2
 
-# save_models(NAME,
-#             ridge=ridge,
-#             lasso=lasso,
-#             least_squares=least_squares,
-#             rtree=rtree,
-#             forest=forest,
-#             ridge_ix=ridge_ix,
-#             lasso_ix=lasso_ix,
-#             least_squares_ix=least_squares_ix)
+
+threshold_20 <- quantile(mx$lconsPC, .2)
+print("Running logistic")
+logistic_20 <- kfold(k, Logistic(threshold_20), y, x)
+print("Running logisitic lasso")
+logistic_lasso_20 <- kfold(k, LogisticLasso(threshold_20), y, x)
+print(" Running ctree")
+ctree_20 <- kfold(k, cTree2(threshold_20), y, x_nmm)
+print("Running randomForest")
+cforest_20 <- kfold(k, cForest(threshold_20), y, x_nmm)
+
+threshold_30 <- quantile(mx$lconsPC, .3)
+print("Running logistic")
+logistic_30 <- kfold(k, Logistic(threshold_30), y, x)
+print("Running logisitic lasso")
+logistic_lasso_30 <- kfold(k, LogisticLasso(threshold_30), y, x)
+print(" Running ctree")
+ctree_30 <- kfold(k, cTree2(threshold_30), y, x_nmm)
+print("Running randomForest")
+cforest_30 <- kfold(k, cForest(threshold_30), y, x_nmm)
+
+save_models(NAME,
+            ridge=ridge,
+            lasso=lasso,
+            least_squares=least_squares,
+            stepwise=stepwise,
+            ridge_muni=ridge_muni,
+            ridge_state=ridge_state,
+            # rtree=rtree,
+            mca_knn=mca_knn,
+            pca_knn=pca_knn,
+            mca_pca_avg=mca_pca_avg,
+            logistic_20=logistic_20,
+            logistic_lasso_20=logistic_lasso_20,
+            ctree_20=ctree_20,
+            cforest_20=cforest_20,
+            logistic_lasso_30=logistic_lasso_30,
+            ctree_30=ctree_30,
+            cforest_30=cforest_30)
