@@ -167,7 +167,6 @@ save_models(NAME,
             logistic_lasso_20=logistic_lasso_20,
             ctree_20=ctree_20,
             cforest_20=cforest_20,
-            logistic_lasso_20=logistic_lasso_30,
-            ctree_20=ctree_30,
-            cforest_20=cforest_30)
-
+            logistic_lasso_30=logistic_lasso_30,
+            ctree_30=ctree_30,
+            cforest_30=cforest_30)
