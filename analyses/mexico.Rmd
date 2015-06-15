@@ -29,7 +29,7 @@ We use the following transforms for missing data:
 Our target variable is log of expenditure per capita.
 
 ```{r load_models, echo=FALSE}
-all_models <- load_models(NAME)
+all_models <- load_models("mexico2")
 ```
 
 
@@ -40,23 +40,27 @@ models <- c("least_squares", "ridge", "lasso", "rtree", "stepwise")
 simple_regression <- filter(all_models, method %in% models)
 ```
 
-```{r plot_simple_regression}
+```{r plot_simple_regression, echo=FALSE}
 plot_swf_(simple_regression)
 plot_reach_vs_waste_(simple_regression)
 plot_reach_vs_waste_(simple_regression, THRESHOLD=.2)
 ```
 
+```{r calculate_mse, echo=TRUE}
+calculate_mse_(simple_regression)
+```
 
 ## Simple Classification
 ```{r select_classifications}
-models <- c("logistic_20", "ctree_20", "cforest_20")
+models <- c("logistic_20", "ctree_20", "cforest_20", "logistic_30", "ctree_30", "cforest_30")
 simple_classification <- filter(all_models, method %in% models | method == "least_squares")
 ```
 
-```{r plot_simple_classification}
+```{r plot_simple_classification, echo=FALSE}
 plot_swf_(simple_classification)
 plot_reach_vs_waste_(simple_classification)
 plot_reach_vs_waste_(simple_classification, THRESHOLD=.2)
+plot_reach_vs_waste_(simple_classification, THRESHOLD=.3)
 ```
 
 ## Compound Methods
@@ -66,7 +70,7 @@ models <- c("ridge_muni", "ridge_state", "mca_knn", "pca_knn", "mca_pca_avg")
 compound <- filter(all_models, method %in% models | method == "least_squares")
 ```
 
-```{r plot_compound}
+```{r plot_compound, echo=FALSE}
 plot_swf_(compound)
 plot_reach_vs_waste_(compound)
 plot_reach_vs_waste_(compound, THRESHOLD=.2)
