@@ -261,7 +261,8 @@ fit.cTree2 <- function(f) {
 }
 
 predict.cTree2 <- function(f, model) {
-  predict(model, f$x_test, type = "vector")
+  temp<-predict(model, f$x_test, type = "prob")
+  prob_non_poor <- temp[,2]
 }
 
 
@@ -283,7 +284,10 @@ transform_ys.cforest <- function(f) {
 
 fit.cforest <- fit.forest
 
-predict.cforest <- predict.forest
+predict.cforest <- function(f, model) {
+  temp<-predict(model, f$x_test, type = "prob")
+  prob_non_poor <- temp[,2]
+}
 
 # K fold validation ---------------------------
 
