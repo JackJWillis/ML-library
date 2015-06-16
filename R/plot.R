@@ -141,7 +141,7 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
   p <- ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
     ggplot2::geom_step() +
     ggplot2::facet_wrap(~ threshold) +
-    ggplot2::labs(y = y_label)
+    ggplot2::labs(y = y_label) +
     ggplot2::labs(x = x_label)
   
   if (show_cutoffs) {
