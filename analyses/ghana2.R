@@ -94,7 +94,8 @@ print("Running stepwise")
 stepwise <- kfold(k, Stepwise(300), y, x)
 
 print("Running grouped ridge")
-#ridge_rural <- kfold(k, GroupedRidge("rural"), y, x_nmm)
+x_nmm$rural <- as.factor(x_nmm$rural)
+ridge_rural <- kfold(k, GroupedRidge("rural"), y, x_nmm)
 #ERROR: Not sure why.
 #Do this later for zone which Pascale mentioned
 
@@ -106,12 +107,12 @@ rtree <- kfold(k, rTree2(), y, x_nmm)
 # forest <- kfold(k, Forest(), y, x_nmm)
 
 print("Running mca")
-#mca_knn <- kfold(k, MCA_KNN(ndim=12, k=5), y, x_nmm)
+mca_knn <- kfold(k, MCA_KNN(ndim=12, k=5), y, x_nmm)
 print("Running pca")
-#pca_knn <- kfold(k, PCA_KNN(ndim=12, k=5), y, x_nmm)
+pca_knn <- kfold(k, PCA_KNN(ndim=12, k=5), y, x_nmm)
 
-#mca_pca_avg <- mca_knn
-#mca_pca_avg$predicted <- (mca_pca_avg$predicted + pca_knn$predicted) / 2
+mca_pca_avg <- mca_knn
+mca_pca_avg$predicted <- (mca_pca_avg$predicted + pca_knn$predicted) / 2
 
 
 threshold_20 <- quantile(gh$lnwelfare, .2)
