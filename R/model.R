@@ -315,7 +315,7 @@ fit.logistic_lasso <- function(f) {
 }
 
 predict.logistic_lasso <- function(f, model) {
-  predict(model, f$x_test, type="response", lambda=model$best_lambda)
+  predict(model, f$x_test, type="response", s=model$best_lambda)
 }
 
 
