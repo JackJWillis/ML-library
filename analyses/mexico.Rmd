@@ -29,7 +29,7 @@ We use the following transforms for missing data:
 Our target variable is log of expenditure per capita.
 
 ```{r load_models, echo=FALSE}
-all_models <- load_models("mexico2")
+all_models <- load_models(NAME)
 ```
 
 
