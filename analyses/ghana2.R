@@ -47,7 +47,7 @@ add_covariates <- function(output_df, ghana) {
   output_df[, c(covariates_categorical)] <- lapply(output_df[, c(covariates_categorical)], as.factor)
   output_df[, c(covariates_cardinal)] <- lapply(output_df[, c(covariates_cardinal)], as.numeric)
   # Note, may wish to recode some of the categoricals as ordered and the yes/no as categorical.
-  output_df[, c(covariates_yesno)] <- lapply(output_df[, c(covariates_yesno)], as.logical)
+  output_df[, c(covariates_yesno)] <- lapply(output_df[, c(covariates_yesno)], as.factor)
   
   output_df
 }
@@ -94,7 +94,7 @@ print("Running stepwise")
 stepwise <- kfold(k, Stepwise(300), y, x)
 
 print("Running grouped ridge")
-x_nmm$rural <- as.factor(x_nmm$rural)
+x_nmm$rural <- as.character(x_nmm$rural)
 ridge_rural <- kfold(k, GroupedRidge("rural"), y, x_nmm)
 #ERROR: Not sure why.
 #Do this later for zone which Pascale mentioned
@@ -104,15 +104,15 @@ print("Running rtree")
 rtree <- kfold(k, rTree2(), y, x_nmm)
 
 # print("Running randomForest")
-# forest <- kfold(k, Forest(), y, x_nmm)
+forest <- kfold(k, Forest(), y, x_nmm)
 
 print("Running mca")
 mca_knn <- kfold(k, MCA_KNN(ndim=12, k=5), y, x_nmm)
 print("Running pca")
-pca_knn <- kfold(k, PCA_KNN(ndim=12, k=5), y, x_nmm)
+# pca_knn <- kfold(k, PCA_KNN(ndim=12, k=5), y, x_nmm)
 
-mca_pca_avg <- mca_knn
-mca_pca_avg$predicted <- (mca_pca_avg$predicted + pca_knn$predicted) / 2
+# mca_pca_avg <- mca_knn
+# mca_pca_avg$predicted <- (mca_pca_avg$predicted + pca_knn$predicted) / 2
 
 
 threshold_20 <- quantile(gh$lnwelfare, .2)
@@ -140,10 +140,10 @@ save_models(NAME,
             lasso=lasso,
             least_squares=least_squares,
             stepwise=stepwise,
-            #ridge_muni=ridge_muni,
-            #ridge_state=ridge_state,
-            # rtree=rtree,
-            #mca_knn=mca_knn,
+            ridge_rural=ridge_rural,
+            rtree=rtree,
+            forest=forest,
+            mca_knn=mca_knn,
             #pca_knn=pca_knn,
             #mca_pca_avg=mca_pca_avg,
             logistic_20=logistic_20,

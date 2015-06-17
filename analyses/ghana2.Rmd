@@ -33,7 +33,7 @@ all_models <- load_models("mexico2")
 ## Simple Regression
 
 ```{r select_regression}
-models <- c("least_squares", "ridge", "lasso", "rtree", "stepwise")
+models <- c("least_squares", "ridge", "lasso", "rtree", "stepwise", "forest")
 simple_regression <- filter(all_models, method %in% models)
 ```
 
