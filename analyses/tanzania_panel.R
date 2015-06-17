@@ -83,6 +83,8 @@ create_dataset <- function() {
     data.frame() %>%
     add_covariates(tanzania_panel) %>%
     add_target(tanzania_panel)
+  df$locality <- as.character(df$locality)
+  df$district <- as.character(df$district)
   df$year <- tanzania_panel$year
   df[, YEAR_IDS[1]] <- tanzania_panel$y1_hhid
   df[, YEAR_IDS[2]] <- tanzania_panel$y2_hhid
@@ -119,36 +121,36 @@ create_dataset_split <- function(y1, y2, remove_missing=TRUE) {
 
 
 run_all <- function(name, df, ksplit, ksplit_nmm) {
-  save_dataset(NAME, df)
+  save_dataset(name, df)
   
   print("Running ridge")
   ridge <- kfold_(Ridge(), ksplit)
   print("Running lasso")
-  lasso <- kfold(Lasso(), ksplit)
+  lasso <- kfold_(Lasso(), ksplit)
   print("Running lasso 15")
-  lasso_15 <- kfold(Lasso(max_covariates=15), ksplit)
+  lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
   print("Running least squares")
-  least_squares <- kfold(LeastSquares(), ksplit)
+  least_squares <- kfold_(LeastSquares(), ksplit)
   
   print("Running stepwise")
-  stepwise <- kfold(Stepwise(300), ksplit)
+  stepwise <- kfold_(Stepwise(300), ksplit)
   print("Running stepwise 15")
-  stepwise_15 <- kfold(Stepwise(15), ksplit)
+  stepwise_15 <- kfold_(Stepwise(15), ksplit)
   
   print("Running grouped ridge")
-  ridge_muni <- kfold(GroupedRidge("muni"), ksplit_nmm)
-  ridge_state <- kfold(GroupedRidge("state"), ksplit_nmm)
+  ridge_district <- kfold_(GroupedRidge("district"), ksplit_nmm)
+  ridge_locality <- kfold_(GroupedRidge("locality"), ksplit_nmm)
   
   print("Running rtree")
-  rtree <- kfold(rTree2(), ksplit_nmm)
+  rtree <- kfold_(rTree2(), ksplit_nmm)
   
-  print("Running randomForest")
-  forest <- kfold(Forest(), ksplit_nmm)
+#   print("Running randomForest")
+#   forest <- kfold_(Forest(), ksplit_nmm)
   
   print("Running mca")
-  mca_knn <- kfold(MCA_KNN(ndim=12, k=5), ksplit_nmm)
+  mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit_nmm)
   print("Running pca")
-  pca_knn <- kfold(PCA_KNN(ndim=12, k=5), ksplit_nmm)
+  pca_knn <- kfold_(PCA_KNN(ndim=12, k=5), ksplit_nmm)
   
   mca_pca_avg <- mca_knn
   mca_pca_avg$predicted <- (mca_pca_avg$predicted + pca_knn$predicted) / 2
@@ -156,48 +158,48 @@ run_all <- function(name, df, ksplit, ksplit_nmm) {
   
   threshold_20 <- quantile(df[, TARGET], .2)
   print("Running logistic")
-  logistic_20 <- kfold(Logistic(threshold_20), ksplit)
+  logistic_20 <- kfold_(Logistic(threshold_20), ksplit)
   print("Running logisitic lasso")
-  logistic_lasso_20 <- kfold(k, LogisticLasso(threshold_20), ksplit)
+  logistic_lasso_20 <- kfold_(k, LogisticLasso(threshold_20), ksplit)
   print(" Running ctree")
-  ctree_20 <- kfold(k, cTree2(threshold_20), ksplit_nmm)
+  ctree_20 <- kfold_(k, cTree2(threshold_20), ksplit_nmm)
   print("Running randomForest")
-  cforest_20 <- kfold(cForest(threshold_20), ksplit_nmm)
+  cforest_20 <- kfold_(cForest(threshold_20), ksplit_nmm)
   
   threshold_30 <- quantile(df[, TARGET], .3)
   print("Running logistic")
-  logistic_30 <- kfold(Logistic(threshold_30), ksplit)
+  logistic_30 <- kfold_(Logistic(threshold_30), ksplit)
   print("Running logisitic lasso")
-  logistic_lasso_30 <- kfold(LogisticLasso(threshold_30), ksplit)
+  logistic_lasso_30 <- kfold_(LogisticLasso(threshold_30), ksplit)
   print(" Running ctree")
-  ctree_30 <- kfold(cTree2(threshold_30), ksplit_nmm)
+  ctree_30 <- kfold_(cTree2(threshold_30), ksplit_nmm)
   print("Running randomForest")
-  cforest_30 <- kfold(cForest(threshold_30), ksplit_nmm)
+  cforest_30 <- kfold_(cForest(threshold_30), ksplit_nmm)
   
 #   # Rerun with interaction terms
 #   x_ix <- model.matrix(lconsPC ~ . + .:.,  df)
 #   y_ix <- tz08[rownames(x_ix), "lconsPC"]
 #   
 #   print("Running ridge with interactions")
-#   ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
+#   ridge_ix <- kfold_(k, Ridge(), y_ix, x_ix)
 #   print("Running lasso with interactions")
-#   lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
+#   lasso_ix <- kfold_(k, Lasso(), y_ix, x_ix)
 #   print("Running least squares with interactions")
-#   least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
+#   least_squares_ix <- kfold_(k, LeastSquares(), y_ix, x_ix)
 #   print("Running logistic with interactions")
-#   logistic_30_ix <- kfold(k, Logistic(threshold_30), y_ix, xi_ix)
+#   logistic_30_ix <- kfold_(k, Logistic(threshold_30), y_ix, xi_ix)
 #   print("Running logisitic lasso with interactions")
-#   logistic_lasso_30_ix <- kfold(k, LogisticLasso(threshold_30), y_ix, x_ix)
+#   logistic_lasso_30_ix <- kfold_(k, LogisticLasso(threshold_30), y_ix, x_ix)
   
-  save_models(NAME,
+  save_models(name,
               ridge=ridge,
               lasso=lasso,
-              lasso_15=lasso_15
+              lasso_15=lasso_15,
               least_squares=least_squares,
               stepwise=stepwise,
               stepwise_15=stepwise_15,
-              ridge_muni=ridge_muni,
-              ridge_state=ridge_state,
+              ridge_district=ridge_district,
+              ridge_locality=ridge_locality,
               rtree=rtree,
               mca_knn=mca_knn,
               pca_knn=pca_knn,
@@ -206,6 +208,7 @@ run_all <- function(name, df, ksplit, ksplit_nmm) {
               logistic_lasso_20=logistic_lasso_20,
               ctree_20=ctree_20,
               cforest_20=cforest_20,
+              logistic_30=logistic_30,
               logistic_lasso_30=logistic_lasso_30,
               ctree_30=ctree_30,
               cforest_30=cforest_30)
@@ -213,12 +216,13 @@ run_all <- function(name, df, ksplit, ksplit_nmm) {
 
 tz08_10 <- create_dataset_joined(1, 2, remove_missing=TRUE)
 tz08_10 <- standardize_predictors(tz08_10, TARGET)
+tz08_10 <- tz08_10[sample(1:nrow(tz08_10), 500), ]
 save_dataset(NAME, tz08_10)
 x <- model.matrix(lconsPC ~ .,  tz08_10)
 x_nmm <- select(tz08_10,-one_of(TARGET))
 y <- tz08_10[rownames(x), TARGET]
-k <- 5
-ksplit <- kfold_split(k, y, x)
-ksplit_nmm <- kfold_split(k, y, x_nmm)
+k <- 2
+ksplit <- kfold_split(k, y, x, seed=1)
+ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
 run_all("tanzania_10_from_08", tz08_10, ksplit, ksplit_nmm)
 

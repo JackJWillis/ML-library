@@ -529,8 +529,8 @@ kfold_predict <- function(kfold_fits) {
   df
 }
 
-kfold_ <- function(model_class, ksplit) {
-  kfold_fits - kfold_fit(kfold_splits, model_class)
+kfold_ <- function(model_class, kfold_splits) {
+  kfold_fits <- kfold_fit(kfold_splits, model_class)
   kfold_predict(kfold_fits)
 }
 
