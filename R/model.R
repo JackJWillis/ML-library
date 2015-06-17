@@ -378,7 +378,10 @@ fit.mca <- function(f) {
 }
 
 fit.pca <- function(f) {
-  numerics <- f$x_train[, sapply(f$x_train, is.numeric)]
+  if (class(f$x_train) == "data.frame") {
+    numerics <- f$x_train[, sapply(f$x_train, is.numeric)]
+  }
+  else {numerics <- f$x_train}
   res.pca <- FactoMineR::PCA(numerics, ncp=f$ndim, graph=FALSE)
   res.pca
 }
@@ -404,13 +407,16 @@ predict.mca <- function(f, model) {
 }
 
 predict.pca <- function(f, model) {
-  x_test <- f$x_test[, sapply(f$x_test, is.numeric)]
+  if (class(f$x_test) == "data.frame") {
+    x_test <- f$x_test[, sapply(f$x_test, is.numeric)]
+  }
+  else { x_test <- f$x_test}
   var_coords <- t(data.frame(model$var$coord))
-  ndim <- f$ndim
+  ndim <- nrow(var_coords)
   to_model_coords <- function(obs) {
     coord <- rep(0, ndim)
     for (key in names(obs)) {
-      val <- obs[key]
+      val <- obs[[key]]
       weights <- val * var_coords[, key]
       coord <- coord + weights
     }
