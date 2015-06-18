@@ -296,12 +296,13 @@ predict.forest <- function(f, model) {
   predict(model, f$x_test)
 }
 
-BoostedTrees <- function(n.trees=500, interaction.depth=4, shrinkage=.001) {
+BoostedTrees <- function(n.trees=500, interaction.depth=4, shrinkage=.001, distribution="gaussian") {
   function(x_train, y_train, x_test, y_test) {
     f <- structure(fold(x_train, y_train, x_test, y_test), class="btrees")
     f$n.trees <- n.trees
     f$interaction.depth <- interaction.depth
     f$shrinkage <- shrinkage
+    f$distribution <- distribution
     f
   }
 }
@@ -313,7 +314,7 @@ fit.btrees <- function(f) {
            interaction.depth=f$interaction.depth,
            n.trees=f$n.trees,
            shrinkage=f$shrinkage,
-           distribution="gaussian")
+           distribution=f$distribution)
 }
 
 predict.btrees <- function(f, model) {
@@ -522,14 +523,24 @@ predict.cforest <- function(f, model) {
   prob_non_poor <- temp[,2]
 }
 
-cBoostedTrees <- function(n.trees=500, interaction.depth=4, shrinkage=.001) {
+cBoostedTrees <- function(threshold, n.trees=500, interaction.depth=4, shrinkage=.001, distribution="bernoulli") {
   function(x_train, y_train, x_test, y_test) {
     f <- structure(fold(x_train, y_train, x_test, y_test), class="cbtrees")
+    f$threshold <- threshold
     f$n.trees <- n.trees
     f$interaction.depth <- interaction.depth
     f$shrinkage <- shrinkage
+    f$distribution <- distribution
     f
   }
+}
+
+transform_ys.cbtrees <- function(f) {
+  threshold <- f$threshold
+  f$y_train <- factor(as.integer(f$y_train < threshold), levels=c(1, 0))
+  f$y_test_raw <- f$y_test
+  f$y_test <- factor(as.integer(f$y_test < threshold), levels=c(1, 0))
+  f
 }
 
 fit.cbtrees <- function(f) {
@@ -539,11 +550,11 @@ fit.cbtrees <- function(f) {
            interaction.depth=f$interaction.depth,
            n.trees=f$n.trees,
            shrinkage=f$shrinkage,
-           distribution="bernoulli")
+           distribution=f$distribution)
 }
 
 predict.cbtrees <- function(f, model) {
-  predict(model, newdata=f$x_test, n.trees=f$n.trees)
+  predict(model, newdata=f$x_test, n.trees=f$n.trees, type="response")
 }
 
 # K fold validation ---------------------------

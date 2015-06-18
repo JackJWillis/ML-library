@@ -83,8 +83,8 @@ create_dataset <- function() {
     data.frame() %>%
     add_covariates(tanzania_panel) %>%
     add_target(tanzania_panel)
-  df$locality <- as.character(df$locality)
-  df$district <- as.character(df$district)
+  df$locality <- as.factor(as.character(df$locality))
+  df$district <- as.factor(as.character(df$district))
   df$year <- tanzania_panel$year
   df[, YEAR_IDS[1]] <- tanzania_panel$y1_hhid
   df[, YEAR_IDS[2]] <- tanzania_panel$y2_hhid
