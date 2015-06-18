@@ -296,6 +296,30 @@ predict.forest <- function(f, model) {
   predict(model, f$x_test)
 }
 
+BoostedTrees <- function(n.trees=500, interaction.depth=4, shrinkage=.001) {
+  function(x_train, y_train, x_test, y_test) {
+    f <- structure(fold(x_train, y_train, x_test, y_test), class="btrees")
+    f$n.trees <- n.trees
+    f$interaction.depth <- interaction.depth
+    f$shrinkage <- shrinkage
+    f
+  }
+}
+
+fit.btrees <- function(f) {
+  yx_train <- data.frame(Y=f$y_train, f$x_train)
+  gbm::gbm(Y ~ .,
+           data=yx_train,
+           interaction.depth=f$interaction.depth,
+           n.trees=f$n.trees,
+           shrinkage=f$shrinkage,
+           distribution="gaussian")
+}
+
+predict.btrees <- function(f, model) {
+  predict(model, newdata=f$x_test, n.trees=f$n.trees)
+}
+
 # Classification -----------------------------------------
 
 LogisticLasso <- function(threshold) {
@@ -496,6 +520,30 @@ fit.cforest <- fit.forest
 predict.cforest <- function(f, model) {
   temp<-predict(model, f$x_test, type = "prob")
   prob_non_poor <- temp[,2]
+}
+
+cBoostedTrees <- function(n.trees=500, interaction.depth=4, shrinkage=.001) {
+  function(x_train, y_train, x_test, y_test) {
+    f <- structure(fold(x_train, y_train, x_test, y_test), class="cbtrees")
+    f$n.trees <- n.trees
+    f$interaction.depth <- interaction.depth
+    f$shrinkage <- shrinkage
+    f
+  }
+}
+
+fit.cbtrees <- function(f) {
+  yx_train <- data.frame(Y=f$y_train, f$x_train)
+  gbm::gbm(Y ~ .,
+           data=yx_train,
+           interaction.depth=f$interaction.depth,
+           n.trees=f$n.trees,
+           shrinkage=f$shrinkage,
+           distribution="bernoulli")
+}
+
+predict.cbtrees <- function(f, model) {
+  predict(model, newdata=f$x_test, n.trees=f$n.trees)
 }
 
 # K fold validation ---------------------------
