@@ -13,13 +13,14 @@ knitr::opts_knit$set(root.dir="../")
 library(MLlibrary)
 library(dplyr)
 
-NAME <- "tanzania_10_from_08"
+NAME <- "tanzania_10_from_08_joined"
 ```
 
 ```{r load_models, echo=FALSE}
 all_models <- load_models(NAME)
 ```
 
+# Predict future consumption using current covariates
 
 ## Simple Regression
 
@@ -54,11 +55,63 @@ plot_reach_vs_waste_(simple_classification, THRESHOLD=.3)
 ## Compound Methods
 
 ```{r select_compound}
-models <- c("ridge_muni", "ridge_state", "mca_knn", "pca_knn", "mca_pca_avg")
+models <- c("ridge_locality", "ridge_district", "mca_knn", "pca_knn", "pca_knn_all", "mca_pca_avg")
 compound <- filter(all_models, method %in% models | method == "least_squares")
 ```
 
 ```{r plot_compound, echo=FALSE}
+plot_swf_(compound)
+plot_reach_vs_waste_(compound)
+plot_reach_vs_waste_(compound, THRESHOLD=.2)
+```
+
+
+# Using current models in the future
+
+
+```{r load_models_2, echo=FALSE}
+all_models <- load_models("tanzania_10_from_08_split")
+```
+
+
+## Simple Regression
+
+```{r select_regression_2}
+models <- c("least_squares", "ridge", "lasso", "rtree", "stepwise")
+simple_regression <- filter(all_models, method %in% models)
+```
+
+```{r plot_simple_regression_2, echo=FALSE}
+plot_swf_(simple_regression)
+plot_reach_vs_waste_(simple_regression)
+plot_reach_vs_waste_(simple_regression, THRESHOLD=.2)
+```
+
+```{r calculate_mse_2, echo=TRUE}
+calculate_mse_(simple_regression)
+```
+
+## Simple Classification
+```{r select_classification_2}
+models <- c("logistic_20", "logistic_lasso_20", "ctree_20", "cforest_20", "logistic_30", "logistic_lasso_30", "ctree_30", "cforest_30")
+simple_classification <- filter(all_models, method %in% models | method == "least_squares")
+```
+
+```{r plot_simple_classification_2, echo=FALSE}
+plot_swf_(simple_classification)
+plot_reach_vs_waste_(simple_classification)
+plot_reach_vs_waste_(simple_classification, THRESHOLD=.2)
+plot_reach_vs_waste_(simple_classification, THRESHOLD=.3)
+```
+
+## Compound Methods
+
+```{r select_compound_2}
+models <- c("ridge_locality", "ridge_district", "mca_knn", "pca_knn", "pca_knn_all", "mca_pca_avg")
+compound <- filter(all_models, method %in% models | method == "least_squares")
+```
+
+```{r plot_compound_2, echo=FALSE}
 plot_swf_(compound)
 plot_reach_vs_waste_(compound)
 plot_reach_vs_waste_(compound, THRESHOLD=.2)

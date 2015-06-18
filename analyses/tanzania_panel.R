@@ -93,7 +93,7 @@ create_dataset <- function() {
 }
 
 create_dataset_joined <- function(y1, y2, remove_missing=TRUE) {
-  stopifnot(y1 < y2)
+  stopifnot(y1 <= y2)
   year1 <- YEARS[y1]
   year1_id <- YEAR_IDS[y1]
   year2 <- YEARS[y2]
@@ -106,14 +106,31 @@ create_dataset_joined <- function(y1, y2, remove_missing=TRUE) {
   df
 }
 
-create_dataset_split <- function(y1, y2, remove_missing=TRUE) {
-  stopifnot(y1 < y2)
+create_dataset_split <- function(y1, y2) {
+  stopifnot(y1 <= y2)
   year1 <- YEARS[y1]
   year1_id <- YEAR_IDS[y1]
   year2 <- YEARS[y2]
   year2_id <- YEAR_IDS[y2]
   panel <- create_dataset()
-  train <- df1 %>% select(-one_of("year")) %>% select(-contains("hhid"))
+  panel <- remove_missing_data(panel)
+  
+  clean <- panel %>% select(-one_of("year")) %>% select(-contains("hhid"))
+  x <- model.matrix(lconsPC ~ .,  clean)
+  x_nmm <- select(clean, -one_of(TARGET))
+  y <- clean[rownames(x), TARGET]
+  
+  x_train <- x[panel$year == year1, ]
+  x_train_nmm <- x_nmm[panel$year == year1, ]
+  y_train <- y[panel$year == year1]
+  
+  x_test <- x[panel$year == year2, ]
+  x_test_nmm <- x_nmm[panel$year == year2, ]
+  y_test <- y[panel$year == year2]
+  
+  ksplit <- list(x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
+  ksplit_nmm <- list(x_train=x_train_nmm, y_train=y_train, x_test=x_test_nmm, y_test=y_test)
+  list(ksplit=list(splits=list(ksplit), assignments=1), ksplit_nmm=list(splits=list(ksplit_nmm), assignments=1))
 }
 
 
@@ -144,29 +161,28 @@ run_all <- function(name, df, ksplit, ksplit_nmm) {
   print("Running rtree")
   rtree <- kfold_(rTree2(), ksplit_nmm)
   
-#   print("Running randomForest")
-#   forest <- kfold_(Forest(), ksplit_nmm)
+  print("Running randomForest")
+  forest <- kfold_(Forest(), ksplit)
   
-  print("Running mca")
-  mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit_nmm)
+#   print("Running mca")
+#   mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit_nmm)
   print("Running pca")
-  pca_knn <- kfold_(PCA_KNN(ndim=12, k=5), ksplit_nmm)
+  pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit_nmm)
+  print("Running pca all")
+  pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit)
   
-  mca_pca_avg <- mca_knn
-  mca_pca_avg$predicted <- (mca_pca_avg$predicted + pca_knn$predicted) / 2
   
-  
-  threshold_20 <- quantile(df[, TARGET], .2)
+  threshold_20 <- quantile(df[, TARGET], .2, na.rm=TRUE)
   print("Running logistic")
   logistic_20 <- kfold_(Logistic(threshold_20), ksplit)
   print("Running logisitic lasso")
-  logistic_lasso_20 <- kfold_(k, LogisticLasso(threshold_20), ksplit)
+  logistic_lasso_20 <- kfold_(LogisticLasso(threshold_20), ksplit)
   print(" Running ctree")
-  ctree_20 <- kfold_(k, cTree2(threshold_20), ksplit_nmm)
+  ctree_20 <- kfold_(cTree2(threshold_20), ksplit_nmm)
   print("Running randomForest")
-  cforest_20 <- kfold_(cForest(threshold_20), ksplit_nmm)
+  cforest_20 <- kfold_(cForest(threshold_20), ksplit)
   
-  threshold_30 <- quantile(df[, TARGET], .3)
+  threshold_30 <- quantile(df[, TARGET], .3, na.rm=TRUE)
   print("Running logistic")
   logistic_30 <- kfold_(Logistic(threshold_30), ksplit)
   print("Running logisitic lasso")
@@ -174,7 +190,7 @@ run_all <- function(name, df, ksplit, ksplit_nmm) {
   print(" Running ctree")
   ctree_30 <- kfold_(cTree2(threshold_30), ksplit_nmm)
   print("Running randomForest")
-  cforest_30 <- kfold_(cForest(threshold_30), ksplit_nmm)
+  cforest_30 <- kfold_(cForest(threshold_30), ksplit)
   
 #   # Rerun with interaction terms
 #   x_ix <- model.matrix(lconsPC ~ . + .:.,  df)
@@ -201,9 +217,9 @@ run_all <- function(name, df, ksplit, ksplit_nmm) {
               ridge_district=ridge_district,
               ridge_locality=ridge_locality,
               rtree=rtree,
-              mca_knn=mca_knn,
+              forest=forest,
               pca_knn=pca_knn,
-              mca_pca_avg=mca_pca_avg,
+              pca_knn_all=pca_knn_all,
               logistic_20=logistic_20,
               logistic_lasso_20=logistic_lasso_20,
               ctree_20=ctree_20,
@@ -214,15 +230,19 @@ run_all <- function(name, df, ksplit, ksplit_nmm) {
               cforest_30=cforest_30)
 }
 
-tz08_10 <- create_dataset_joined(1, 2, remove_missing=TRUE)
+tz08_10 <- create_dataset_joined(1, 1, remove_missing=TRUE)
 tz08_10 <- standardize_predictors(tz08_10, TARGET)
-tz08_10 <- tz08_10[sample(1:nrow(tz08_10), 500), ]
-save_dataset(NAME, tz08_10)
 x <- model.matrix(lconsPC ~ .,  tz08_10)
 x_nmm <- select(tz08_10,-one_of(TARGET))
 y <- tz08_10[rownames(x), TARGET]
-k <- 2
+k <- 4
 ksplit <- kfold_split(k, y, x, seed=1)
 ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
-run_all("tanzania_10_from_08", tz08_10, ksplit, ksplit_nmm)
+run_all("tanzania_10_from_08_joined", tz08_10, ksplit, ksplit_nmm)
 
+tz08_10_split <- create_dataset_split(1, 1)
+panel <- create_dataset()
+df1 <- filter(panel, year==YEARS[1])
+ksplit <- tz08_10_split$ksplit
+ksplit_nmm <- tz08_10_split$ksplit_nmm
+run_all("tanzania_10_from_08_split", df1, ksplit, ksplit_nmm)
