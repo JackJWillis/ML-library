@@ -213,15 +213,27 @@ predict.least_squares <- function(f, model) {
   predict(model, data.frame(f$x_test))
 }
 
+# Quantile regression
+
+QuantileRegression <- function(tau=0.5) {
+  function(x_train, y_train, x_test, y_test) {
+    f <- structure(fold(x_train, y_train, x_test, y_test), class="quantile_regression")
+    f$tau <- tau
+    f
+  }
+}
+
+fit.quantile_regression <- function(f) {
+  yx_train <- data.frame(Y=f$y_train, f$x_train)
+  quantreg::rq(Y ~ ., yx_train, tau=f$tau)
+}
+
+predict.quantile_regression <- function(f, model) {
+  predict(model, newdata=f$x_test)
+}
 
 # Subset selection linear models ---------------------------
 
-predict.regsubsets=function(object, newdata, ...){
-  id <- which.min(summary(object)$rss)
-  coefficients <- coef(object, id=id)
-  xvars <- names(coefficients)
-  newdata[, xvars] %*% coefficients
-}
 
 Stepwise <- function(max_covariates=100) {
   function(x_train, y_train, x_test, y_test) {
