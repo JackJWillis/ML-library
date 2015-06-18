@@ -13,6 +13,7 @@ Imports:
   dplyr,
   leaps,
   gam,
+  gbm,
   glmnet,
   GGally,
   ggmap,
