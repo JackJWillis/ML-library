@@ -133,10 +133,22 @@ plot_roc <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
 }
 
 
-plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count, x_label="percent_population_included") {
+plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count, x_label="percent_population_included", base=NULL) {
+  
+  if (!is.null(base)) {
+    df <- mutate(df, i=row_number())
+    base_df <- filter(df, method == base) %>% 
+      ungroup() %>%
+      select(one_of("value", "i")) %>%
+      rename(base_value=value)
+    df <- merge(df, base_df, on=i)
+    df <- mutate(df, value=value-base_value)
+    df <- filter(df, method != base)
+  }
+
   cut <- df %>%
     slice(seq(1, n(), n() / point_count))
-    
+
   p <- ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
     ggplot2::geom_step() +
     ggplot2::facet_wrap(~ threshold) +
@@ -263,7 +275,7 @@ plot_accuracy_dollars <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=F
 }
 
 
-plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_swf_ <- function(joined, BASE=NULL, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- dplyr::filter(joined, method!="true")
   joined$threshold <- ""
   marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
@@ -286,6 +298,7 @@ plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
+                  base=BASE,
                   y_label="welfare",
                   show_cutoffs=FALSE,
                   show_folds=SHOW_FOLDS,
@@ -294,13 +307,13 @@ plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
 }
 
 
-plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_swf <- function(..., BASE=NULL, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_swf_(joined, GAMMA, SHOW_FOLDS, POINT_COUNT)
+  plot_swf_(joined, BASE, GAMMA, SHOW_FOLDS, POINT_COUNT)
 }
 
-plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_reach_vs_waste_ <- function(joined, BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   joined <- dplyr::filter(joined, method!="true")
@@ -324,6 +337,7 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
+                  base=BASE,
                   y_label="number of poor targeted / N",
                   x_label="number of rich targeted / N",
                   show_cutoffs=SHOW_CUTOFFS,
@@ -332,8 +346,8 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
                   point_count=POINT_COUNT)
 }
 
-plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_reach_vs_waste <- function(..., BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_reach_vs_waste_(joined, THRESHOLD, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
+  plot_reach_vs_waste_(joined, BASE, THRESHOLD, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
