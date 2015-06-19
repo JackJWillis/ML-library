@@ -36,8 +36,7 @@ add_dfs <- function(joined, dfs) {
 
 calculate_mse_ <- function(joined) {
   joined <- dplyr::filter(joined, method != "true")
-  no_factors <- mutate(joined, predicted = as.numeric(levels(predicted))[predicted])
-  with_mse <- mutate(no_factors, se=(true - predicted)**2)
+  with_mse <- mutate(joined, se=(true - predicted)**2)
   grouped <- group_by(with_mse, method)
   summarise(grouped, mse=mean(se))
 }
@@ -180,7 +179,7 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
 }
 
 
-plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   if(!SHOW_TRUE) {
@@ -215,14 +214,14 @@ plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE
 #' If we target N people, what fraction of the true poor would receive funds?
 #' True Positives / Total Positives
 #' Note that this is a reparameterization of the ROC curve
-plot_accuracy <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   plot_accuracy_(joined, THRESHOLD, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
 
 
-plot_accuracy_dollars_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy_dollars_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   if (!SHOW_TRUE) {
@@ -257,14 +256,14 @@ plot_accuracy_dollars_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TR
 
 #' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
 #' True Positives / (True Positives + False Positives)
-plot_accuracy_dollars <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy_dollars <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   plot_accuracy_dollars_(joined, THRESHOLD, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
 
 
-plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- dplyr::filter(joined, method!="true")
   joined$threshold <- ""
   marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
@@ -295,13 +294,13 @@ plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
 }
 
 
-plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   plot_swf_(joined, GAMMA, SHOW_FOLDS, POINT_COUNT)
 }
 
-plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   joined <- dplyr::filter(joined, method!="true")
@@ -333,7 +332,7 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
                   point_count=POINT_COUNT)
 }
 
-plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   plot_reach_vs_waste_(joined, THRESHOLD, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
