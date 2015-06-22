@@ -134,23 +134,32 @@ plot_roc <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
 
 
 plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count, x_label="percent_population_included", base=NULL) {
-  
   if (!is.null(base)) {
-    df <- mutate(df, i=row_number())
-    base_df <- filter(df, method == base) %>% 
-      ungroup() %>%
-      select(one_of("value", "i")) %>%
-      rename(base_value=value)
-    df <- merge(df, base_df, on=i)
-    df <- mutate(df, value=value-base_value)
-    df <- filter(df, method != base)
+    # assumes that methods are all the same size so check if they are not
+    method_counts <- summarise(df, count=n())$count
+    stopifnot(first(method_counts) == method_counts)
+    subtract_base <- function(df) {
+      df <- mutate(df, i=row_number())
+      base_df <- filter(df, method == base) %>% 
+        ungroup() %>%
+        group_by(i) %>%
+        summarise(value=mean(value)) %>%
+        select(one_of("value", "i")) %>%
+        rename(base_value=value)
+      df <- merge(df, base_df, on=i)
+      df <- mutate(df, value=value-base_value)
+      df <- filter(df, method != base)
+      df
+    }
+    df <- subtract_base(df)
+    folded <- subtract_base(folded)
   }
 
   cut <- df %>%
     slice(seq(1, n(), n() / point_count))
 
   p <- ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
-    ggplot2::geom_step() +
+    ggplot2::geom_line() +
     ggplot2::facet_wrap(~ threshold) +
     ggplot2::labs(y = y_label) +
     ggplot2::labs(x = x_label)
@@ -183,9 +192,22 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
       ggplot2::geom_segment(data=threshold.df, mapping=vertical_mapping)
   }
   if (show_folds) {
+    # assumes that folds are all the same size so check if they are not
+    fold_counts <- summarise(folded, count=n())
+    method_fold_stats <- summarise(fold_counts, max=max(count), min=min(count))
+    one_size <- method_fold_stats$max == method_fold_stats$min
+    stopifnot(all(one_size))
+    folded <- folded %>%
+      group_by(method, fold) %>%
+      mutate(i=row_number()) %>%
+      ungroup() %>%
+      group_by(method, i) %>%
+      summarise(ymax=max(value), ymin=min(value), x=first(percent_population_included))
     folded_cut <- folded %>% slice(seq(1, n(), n() / point_count))
-    aes <- ggplot2::aes(x=percent_population_included, y=value, color=method, group=fold)
-    p <- p + ggplot2::geom_step(data=folded_cut, mapping=aes, alpha=0.3)
+    aes_min <- ggplot2::aes(x=x, y=ymin, color=method)
+    aes_max <- ggplot2::aes(x=x, y=ymax, color=method)
+    p <- p + ggplot2::geom_line(data=folded_cut, mapping=aes_min, alpha=0.5, linetype="dashed")
+    p <- p + ggplot2::geom_line(data=folded_cut, mapping=aes_max, alpha=0.5, linetype="dashed")
   }
   p
 }
