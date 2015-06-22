@@ -191,7 +191,7 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
 }
 
 
-plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_accuracy_ <- function(joined, BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   if(!SHOW_TRUE) {
@@ -215,6 +215,7 @@ plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
+                  base=BASE,
                   y_label="coverage",
                   show_cutoffs=SHOW_CUTOFFS,
                   show_folds=SHOW_FOLDS,
@@ -226,10 +227,10 @@ plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE
 #' If we target N people, what fraction of the true poor would receive funds?
 #' True Positives / Total Positives
 #' Note that this is a reparameterization of the ROC curve
-plot_accuracy <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_accuracy <- function(..., BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_accuracy_(joined, THRESHOLD, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
+  plot_accuracy_(joined, BASE, THRESHOLD, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
 
 
@@ -313,7 +314,7 @@ plot_swf <- function(..., BASE=NULL, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200)
   plot_swf_(joined, BASE, GAMMA, SHOW_FOLDS, POINT_COUNT)
 }
 
-plot_reach_vs_waste_ <- function(joined, BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   joined <- dplyr::filter(joined, method!="true")
@@ -337,7 +338,7 @@ plot_reach_vs_waste_ <- function(joined, BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
-                  base=BASE,
+                  base=NULL,
                   y_label="number of poor targeted / N",
                   x_label="number of rich targeted / N",
                   show_cutoffs=SHOW_CUTOFFS,
@@ -346,7 +347,7 @@ plot_reach_vs_waste_ <- function(joined, BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS
                   point_count=POINT_COUNT)
 }
 
-plot_reach_vs_waste <- function(..., BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   plot_reach_vs_waste_(joined, BASE, THRESHOLD, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
