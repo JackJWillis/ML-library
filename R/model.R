@@ -224,12 +224,15 @@ QuantileRegression <- function(tau=0.5) {
 }
 
 fit.quantile_regression <- function(f) {
+  rowc <- nrow(f$x_train)
+  colc <- ncol(f$x_train)
+  f$x_train <- f$x_train + matrix(rnorm(rowc * colc, mean=0, sd=.05), nrow=rowc, ncol=colc)
   yx_train <- data.frame(Y=f$y_train, f$x_train)
   quantreg::rq(Y ~ ., yx_train, tau=f$tau)
 }
 
 predict.quantile_regression <- function(f, model) {
-  predict(model, newdata=f$x_test)
+  predict(model, newdata=data.frame(f$x_test))
 }
 
 # Subset selection linear models ---------------------------
