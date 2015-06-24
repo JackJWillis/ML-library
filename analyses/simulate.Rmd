@@ -1,0 +1,127 @@
+---
+title: "Simulation tests"
+output:
+  html_document
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir="../")
+```
+
+```{r constansts}
+library(MLlibrary)
+library(dplyr)
+library(doMC)
+registerDoMC(cores=3)
+K = 5
+```
+
+```{r data_generation}
+gaussian <- function(mean, sd) {
+  function(response) {response + rnorm(length(response), mean=mean, sd=sd)}
+}
+
+linear <- function(nvar=10, nrow=100, noise=function(response) {response}) {
+  variables <- as.character(seq_len(nvar))
+  coefficients <- seq_along(variables)
+  X <- matrix(rnorm(nvar * nrow), nrow=nrow, ncol=nvar)
+  y <- 2 * (X %*% coefficients) + 10
+  y <- noise(y)
+  list(y=y, X=X)
+}
+```
+
+```{r model_running}
+run_linear <- function(ksplit) {
+  ls <- kfold_(LeastSquares(), ksplit)
+  ridge <- kfold_(Ridge(), ksplit)
+  lasso <- kfold_(Lasso(), ksplit)
+  join_dfs(list(ls=ls, ridge=ridge, lasso=lasso))
+}
+
+run_trees <- function(ksplit, ksplit_nmm) {
+  rtree <- kfold_(rTree2(), ksplit_nmm)
+  rforest <- kfold_(Forest(), ksplit)
+  btrees <- kfold_(BoostedTrees(n.trees=500), ksplit_nmm)
+  btrees_laplace <- kfold_(BoostedTrees(n.trees=500, distribution="laplace"), ksplit_nmm)
+  join_dfs(list(rtree=rtree, rforest=rforest, btrees=btrees, btrees_laplace=btrees_laplace))
+}
+
+run_all_linear <- function(dataset) {
+  X <- dataset$X
+  y <- dataset$y
+  ksplit <- kfold_split(K, y, X, seed=1)
+  linears <- run_linear(ksplit)
+  linears
+}
+run_all <- function(dataset) {
+  X <- dataset$X
+  y <- dataset$y
+  ksplit <- kfold_split(K, y, X, seed=1)
+  ksplit_nmm <- kfold_split(K, y, data.frame(X), seed=1)
+  linears <- run_linear(ksplit)
+  trees <- run_trees(ksplit, ksplit_nmm)
+  rbind(linears, filter(trees, method != "true"))
+}
+
+plot_all <- function(res) {
+  plot(plot_swf_(res))
+  plot(plot_accuracy_(res))
+  plot(plot_accuracy_(res, THRESHOLD=0.3))
+  plot(plot_accuracy_(res, THRESHOLD=0.3, BASE="ls"))
+}
+```
+
+## Linear Data
+
+### No noise
+```{r linear_no_noise}
+dataset <- linear(nvar=10, nrow=1000)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+## Linear + Zero Mean Gaussian
+
+### +10%
+```{r gaussian_10}
+noise <- gaussian(0, 1)
+dataset <- linear(nvar=10, nrow=1000, noise=noise)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+### +50%
+```{r gaussian_50}
+noise <- gaussian(0, 5)
+dataset <- linear(nvar=10, nrow=1000, noise=noise)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+
+### +90%
+```{r gaussian_90}
+noise <- gaussian(0, 9)
+dataset <- linear(nvar=10, nrow=1000, noise=noise)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+
+### Wide
+```{r wide}
+dataset <- linear(nvar=500, nrow=100)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+
+### Extraneous
+```{r extraneous}
+dataset <- linear(nvar=10, nrow=500)
+dataset$X <- cbind(matrix(rnorm(1000 * 500, mean=10, sd=5), nrow=500, ncol=1000), dataset$X)
+res <- run_all(dataset)
+plot_all(res)
+```
