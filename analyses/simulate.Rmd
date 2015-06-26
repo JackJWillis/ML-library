@@ -11,6 +11,7 @@ knitr::opts_knit$set(root.dir="../")
 
 ```{r constansts}
 library(MLlibrary)
+library(ggplot2)
 library(dplyr)
 library(doMC)
 registerDoMC(cores=3)
@@ -55,22 +56,51 @@ run_all_linear <- function(dataset) {
   linears <- run_linear(ksplit)
   linears
 }
-run_all <- function(dataset) {
+
+run_all <- function(dataset, ix=TRUE) {
   X <- dataset$X
   y <- dataset$y
   ksplit <- kfold_split(K, y, X, seed=1)
   ksplit_nmm <- kfold_split(K, y, data.frame(X), seed=1)
   linears <- run_linear(ksplit)
   trees <- run_trees(ksplit, ksplit_nmm)
-  rbind(linears, filter(trees, method != "true"))
+  joined <- rbind(linears, filter(trees, method != "true"))
+  
+  if (ix) {
+    X_ix <- model.matrix(y ~ . + .:., data=data.frame(y=y, X))
+    ksplit_ix <- kfold_split(K, y, X_ix, seed=1)
+    ksplit_nmm_ix <- kfold_split(K, y, data.frame(X_ix), seed=1)
+    linears_ix <- run_linear(ksplit_ix)
+    trees_ix <- run_trees(ksplit_ix, ksplit_nmm_ix)
+    joined_ix <- rbind(linears_ix, trees_ix)
+    joined_ix <- filter(joined_ix, method != "true")
+    joined_ix <- mutate(joined_ix, method=paste(method, "ix", sep="_"))
+    joined <- rbind(joined, filter(joined_ix, method != "true"))
+  }
+  joined
 }
 
 plot_all <- function(res) {
-  plot(plot_swf_(res))
-  plot(plot_accuracy_(res))
-  plot(plot_accuracy_(res, THRESHOLD=0.3))
-  plot(plot_accuracy_(res, THRESHOLD=0.3, BASE="ls"))
+  ix <- nrow(filter(res, grepl("_ix", method))) > 0
+  res_ix <- filter(res, grepl("_ix", method) | method == "ls")
+  res <- filter(res, !grepl("_ix", method))
+  
+  plot(plot_accuracy_(res) + scale_color_brewer(palette="Set2"))
+  if (ix) {
+    plot(plot_accuracy_(res_ix) + scale_color_brewer(palette="Set2"))
+  }
+  
+  plot(plot_accuracy_(res, THRESHOLD=0.3) + scale_color_brewer(palette="Set2"))
+  if (ix) {
+    plot(plot_accuracy_(res_ix, THRESHOLD=0.3) + scale_color_brewer(palette="Set2"))
+  }
+  
+  plot(plot_accuracy_(res, THRESHOLD=0.3, BASE="ls") + scale_color_brewer(palette="Set2"))
+  if (ix) {
+    plot(plot_accuracy_(res_ix, THRESHOLD=0.3, BASE="ls") + scale_color_brewer(palette="Set2"))
+  }
 }
+
 ```
 
 ## Linear Data
@@ -109,19 +139,52 @@ res <- run_all(dataset)
 plot_all(res)
 ```
 
+### Heteroskedasticity
 
-### Wide
-```{r wide}
-dataset <- linear(nvar=500, nrow=100)
+```{r heteroskedasticity}
+noise <- function(response) {
+  rnorm(length(response), mean=response, sd=exp(response / 10))
+}
+dataset <- linear(nvar=10, nrow=1000, noise=noise)
 res <- run_all(dataset)
 plot_all(res)
 ```
 
+## Lognormal noise
 
-### Extraneous
+### Mean 0
+
+```{r lognormal}
+noise <- function(response) {
+  response + rlnorm(length(response), meanlog=0, sdlog=3)
+}
+dataset <- linear(nvar=10, nrow=1000, noise=noise)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+### Heteroskedastic
+```{r lognormal_het}
+noise <- function(response) {
+  response + rlnorm(length(response), meanlog=0, sdlog=exp(response / 100))
+}
+dataset <- linear(nvar=10, nrow=1000, noise=noise)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+## Wide
+```{r wide}
+dataset <- linear(nvar=500, nrow=100)
+res <- run_all(dataset, ix=FALSE)
+plot_all(res)
+```
+
+
+## Extraneous
 ```{r extraneous}
 dataset <- linear(nvar=10, nrow=500)
 dataset$X <- cbind(matrix(rnorm(1000 * 500, mean=10, sd=5), nrow=500, ncol=1000), dataset$X)
-res <- run_all(dataset)
+res <- run_all(dataset, ix=FALSE)
 plot_all(res)
 ```
