@@ -230,7 +230,7 @@ plot_accuracy_ <- function(joined, BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW
     grouped %>%
       mutate(response=raw < quantile(raw, threshold)) %>%
       arrange(predicted) %>%
-      mutate(value=cumsum(response) / sum(response)) %>%
+      mutate(value=cumsum(response) / n()) %>%
       mutate(percent_population_included=row_number() / n())
   }
 
