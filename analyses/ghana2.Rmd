@@ -14,7 +14,7 @@ library(MLlibrary)
 library(dplyr)
 
 NAME <- "ghana"
-mx <- load_dataset(NAME)
+gh <- load_dataset(NAME)
 ```
 
 ## Data
@@ -26,7 +26,7 @@ Least squares can be considered the benchmark method upon which the PMT from the
 Our target variable is log of (price adjusted) per (equivalence scale) capita consumption.
 
 ```{r load_models, echo=FALSE}
-all_models <- load_models("mexico2")
+all_models <- load_models("ghana")
 ```
 
 
@@ -63,12 +63,12 @@ plot_reach_vs_waste_(simple_classification, THRESHOLD=.3)
 ## Compound Methods
 
 ```{r select_compound}
-# models <- c("ridge_rural" "mca_knn", "pca_knn", "mca_pca_avg")
-# compound <- filter(all_models, method %in% models | method == "least_squares")
-# ```
-# 
-# ```{r plot_compound, echo=FALSE}
-# plot_swf_(compound)
-# plot_reach_vs_waste_(compound)
-# plot_reach_vs_waste_(compound, THRESHOLD=.2)
+models <- c("ridge_rural", "mca_knn", "pca_knn", "mca_pca_avg")
+compound <- filter(all_models, method %in% models | method == "least_squares")
+```
+
+```{r plot_compound, echo=FALSE}
+plot_swf_(compound)
+plot_reach_vs_waste_(compound)
+plot_reach_vs_waste_(compound, THRESHOLD=.2)
 ```
