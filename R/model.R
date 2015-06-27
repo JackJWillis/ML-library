@@ -501,8 +501,8 @@ kfold_split <- function(k, y, x, id, seed=NULL) {
   
   #Generating a sorted id variable to add back at the end of prediction
   assignments <- sample(rep(1:k, length.out=nrow(x)))
-  temp <- data.frame(id=id,assignments=assignments)
-  id_sorted <- temp$id[order(temp$assignments)]
+  id_sorted <- data.frame(id)
+  id_sorted <- id_sorted[order(assignments),]
   
   splits <- lapply(1:k, function (k) { 
      list(
