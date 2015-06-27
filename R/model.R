@@ -494,18 +494,23 @@ predict.cforest <- function(f, model) {
 
 # K fold validation ---------------------------
 
-kfold_split <- function(k, y, x, seed=NULL) {
+kfold_split <- function(k, y, x, id, seed=NULL) {
   if (!is.null(seed)) {
     set.seed(seed)
   }
+  
+  #Generating a sorted id variable to add back at the end of prediction
   assignments <- sample(rep(1:k, length.out=nrow(x)))
+  temp <- data.frame(id=id,assignments=assignments)
+  id_sorted <- temp$id[order(temp$assignments)]
+  
   splits <- lapply(1:k, function (k) { 
      list(
        x_train=x[assignments != k, ],
        y_train=y[assignments != k],
        x_test=x[assignments == k, ],
        y_test=y[assignments == k])})
-  list(splits=splits, assignments=assignments)
+  list(splits=splits, assignments=assignments, id_sorted=id_sorted)
 }
 
 kfold_fit <- function(kfold_splits, model_class) {
@@ -529,10 +534,10 @@ kfold_predict <- function(kfold_fits) {
   df
 }
 
-kfold <- function(k, model_class, y, x, seed=0) {
-  kfold_splits <- kfold_split(k, y, x, seed)
+kfold <- function(k, model_class, y, x, id, seed=0) {
+  kfold_splits <- kfold_split(k, y, x, id, seed)
   kfold_fits <- kfold_fit(kfold_splits, model_class)
-  kfold_predict(kfold_fits)
+  data.frame(kfold_predict(kfold_fits), id_sorted=kfold_splits$id_sorted)
 }
 
 
