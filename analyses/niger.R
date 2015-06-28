@@ -133,14 +133,14 @@ k <- 5
 
 # Function to run all models -------------------
 
-run_models = function(y,x,x_nmm,NAME) {
+run_models = function(y,x,x_nmm,id,NAME) {
   
   print("Running ridge")
-  ridge <- kfold(k, Ridge(), y, x)
+  ridge <- kfold(k, Ridge(), y, x,id)
   print("Running lasso")
-  lasso <- kfold(k, Lasso(), y, x)
+  lasso <- kfold(k, Lasso(), y, x,id)
   print("Running least squares")
-  least_squares <- kfold(k, LeastSquares(), y, x)
+  least_squares <- kfold(k, LeastSquares(), y, x,id)
   
 #   x_ix <- model.matrix(~ . + .:.,  x_nmm)
 #   y_ix <- y
@@ -203,14 +203,12 @@ run_models = function(y,x,x_nmm,NAME) {
 
 TARGETING_DATA_OUT <- "data"
 
-niger_p_models <- run_models(y_p,x_p,x_p_nmm,"niger_pastoral")
-niger_p_models$hhweight <- niger_p_weight
+niger_p_models <- run_models(y_p,x_p,x_p_nmm,niger_p_id,"niger_pastoral")
 niger_p_models <- data.frame(niger_p_models,niger_p_id)
 out_path <- paste(TARGETING_DATA_OUT, "niger_p_wide.csv", sep="/")
 write.csv(niger_p_models, file=out_path)
 
-niger_a_models <- run_models(y_a,x_a,x_a_nmm,"niger_agricultural")
-niger_a_models$hhweight <- niger_a_weight
+niger_a_models <- run_models(y_a,x_a,x_a_nmm,niger_a_id,"niger_agricultural")
 niger_a_models <- data.frame(niger_a_models,niger_a_id)
 out_path <- paste(TARGETING_DATA_OUT, "niger_a_wide.csv", sep="/")
 write.csv(niger_a_models, file=out_path)
