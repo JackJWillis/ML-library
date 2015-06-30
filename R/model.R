@@ -40,8 +40,8 @@ na_indicator <- function(df) {
 }
 
 
-fold <- function(x_train, y_train, x_test, y_test) {
-  list(x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
+fold <- function(x_train, y_train, w_train, x_test, y_test, w_test) {
+  list(x_train=x_train, y_train=y_train, w_train=w_train, x_test=x_test, y_test=y_test, w_test=w_test)
 }
 
 
@@ -57,15 +57,15 @@ transform_ys.default <- function(f) {
 # Regularized linear models ---------------------------
 
 Ridge <- function() {
-  function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="ridge")
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="ridge")
   }
 }
 
 
 fit.ridge <- function(f) {
-  ridge_model <- glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0)
-  cv_ridge <- glmnet::cv.glmnet(f$x_train, f$y_train, standardize=FALSE, alpha=0, parallel=TRUE)
+  ridge_model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=FALSE, alpha=0)
+  cv_ridge <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=FALSE, alpha=0, parallel=TRUE)
   ridge_model$best_lambda <- cv_ridge$lambda.min
   ridge_model
 }
@@ -166,8 +166,8 @@ predict.grouped_ridge <- function(f, model) {
 
 
 Lasso <- function(max_covariates=NULL) {
-  function(x_train, y_train, x_test, y_test) {
-    f <- structure(fold(x_train, y_train, x_test, y_test), class="lasso")
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="lasso")
     f$max_covariates <- max_covariates
     f
   }
@@ -175,8 +175,8 @@ Lasso <- function(max_covariates=NULL) {
 
 
 fit.lasso <- function(f) {
-  lasso_model <- glmnet::glmnet(f$x_train, f$y_train, alpha=1, standardize=TRUE)
-  cv_lasso <- glmnet::cv.glmnet(f$x_train, f$y_train, alpha=1, standardize=TRUE, parallel=TRUE)
+  lasso_model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, alpha=1, standardize=TRUE)
+  cv_lasso <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, alpha=1, standardize=TRUE, parallel=TRUE)
   max_covariates <- f$max_covariates
   if (is.null(max_covariates)) {
     s <- cv_lasso$lambda.min
@@ -195,8 +195,8 @@ predict.lasso <- function(f, model) {
 
 
 LeastSquares <- function() {
-  function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="least_squares")
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="least_squares")
   }
 }
 
@@ -205,7 +205,7 @@ fit.least_squares <- function(f) {
   #glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
   yx_train_global <- data.frame(Y=f$y_train,f$x_train)
   names(yx_train_global)[1] <-"Y"
-  lm(Y ~ ., data=yx_train_global)
+  lm(Y ~ ., data=yx_train_global, weights=f$w_train)
 }
 
 
@@ -213,6 +213,27 @@ predict.least_squares <- function(f, model) {
   predict(model, data.frame(f$x_test))
 }
 
+# Quantile regression
+
+QuantileRegression <- function(tau=0.5) {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="quantile_regression")
+    f$tau <- tau
+    f
+  }
+}
+
+fit.quantile_regression <- function(f) {
+  rowc <- nrow(f$x_train)
+  colc <- ncol(f$x_train)
+  f$x_train <- f$x_train + matrix(rnorm(rowc * colc, mean=0, sd=.05), nrow=rowc, ncol=colc)
+  yx_train <- data.frame(Y=f$y_train, f$x_train)
+  quantreg::rq(Y ~ ., yx_train, tau=f$tau,weights=f$w_train)
+}
+
+predict.quantile_regression <- function(f, model) {
+  predict(model, newdata=data.frame(f$x_test))
+}
 
 # Subset selection linear models ---------------------------
 
@@ -224,15 +245,15 @@ predict.regsubsets=function(object, newdata, ...){
 }
 
 Stepwise <- function(max_covariates=100) {
-  function(x_train, y_train, x_test, y_test) {
-    f <- structure(fold(x_train, y_train, x_test, y_test), class="stepwise")
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="stepwise")
     f$max_covariates <- max_covariates
     f
   }
 }
 
 fit.stepwise <- function(f) {
-  leaps::regsubsets(f$x_train, f$y_train, method="forward", nvmax=f$max_covariates)
+  leaps::regsubsets(f$x_train, f$y_train, weights=f$w_train, method="forward", nvmax=f$max_covariates)
 }
 
 predict.stepwise <- function(f, model) {
@@ -242,15 +263,15 @@ predict.stepwise <- function(f, model) {
 # Tree based models --------------------------------------
 
 rTree <- function() {
-  function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="rTree")
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="rTree")
   }
 }
 
 fit.rTree <- function(f) {
   yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
   names(yx_train_global)[1]<<-"Y"
-  tree.first <- tree::tree(Y~.,yx_train_global)
+  tree.first <- tree::tree(Y~.,yx_train_global, weights=f$w_train)
   cv.trees <- tree::cv.tree(tree.first)
   #Chooses tree size with minimal deviance
   bestsize <- cv.trees$size[which.min(cv.trees$dev)]
@@ -262,8 +283,8 @@ predict.rTree <- function(f, model) {
 }
 
 rTree2 <- function() {
-  function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="rTree2")
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="rTree2")
   }
 }
 
@@ -271,7 +292,7 @@ fit.rTree2 <- function(f) {
   yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
   names(yx_train_global)[1]<<-"Y"
   #Setting cp low to ensure trees sufficiently complex
-  tree.first <- rpart::rpart(Y~., method="anova", data=yx_train_global, cp=0.001)
+  tree.first <- rpart::rpart(Y~., weights=f$w_train , method="anova", data=yx_train_global, cp=0.001)
   #Chooses tree size with minimal xerror
   bestsize <- tree.first$cptable[which.min(tree.first$cptable[,"xerror"]),"CP"]
   tree.final <- rpart::prune(tree.first, cp = bestsize)  
@@ -281,9 +302,10 @@ predict.rTree2 <- function(f, model) {
   predict(model, data.frame(f$x_test))
 }
 
+#No simple way to add weights to randomforest
 Forest <- function() {
-  function(x_train, y_train, x_test, y_test) {
-    structure(fold(x_train, y_train, x_test, y_test), class="forest")
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="forest")
   }
 }
 
@@ -296,11 +318,36 @@ predict.forest <- function(f, model) {
   predict(model, f$x_test)
 }
 
+BoostedTrees <- function(n.trees=500, interaction.depth=4, shrinkage=.001, distribution="gaussian") {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="btrees")
+    f$n.trees <- n.trees
+    f$interaction.depth <- interaction.depth
+    f$shrinkage <- shrinkage
+    f$distribution <- distribution
+    f
+  }
+}
+
+fit.btrees <- function(f) {
+  yx_train <- data.frame(Y=f$y_train, f$x_train)
+  gbm::gbm(Y ~ .,
+           data=yx_train,
+           interaction.depth=f$interaction.depth,
+           n.trees=f$n.trees,
+           shrinkage=f$shrinkage,
+           distribution=f$distribution)
+}
+
+predict.btrees <- function(f, model) {
+  predict(model, newdata=data.frame(f$x_test), n.trees=f$n.trees)
+}
+
 # Classification -----------------------------------------
 
 LogisticLasso <- function(threshold) {
-  function(x_train, y_train, x_test, y_test) {
-    f <- fold(x_train, y_train, x_test, y_test)
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
     structure(f, class=c("logistic_lasso", "logistic"))
   }
@@ -308,8 +355,8 @@ LogisticLasso <- function(threshold) {
 
 
 fit.logistic_lasso <- function(f) {
-  model <- glmnet::glmnet(f$x_train, f$y_train, family="binomial", standardize=FALSE, alpha=1)
-  cv_out <- glmnet::cv.glmnet(f$x_train, f$y_train, family="binomial", standardize=FALSE, alpha=1)
+  model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=FALSE, alpha=1)
+  cv_out <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=FALSE, alpha=1)
   model$best_lambda <- cv_out$lambda.min
   model
 }
@@ -320,8 +367,8 @@ predict.logistic_lasso <- function(f, model) {
 
 
 Logistic <- function(threshold) {
-  function(x_train, y_train, x_test, y_test) {
-    f <- fold(x_train, y_train, x_test, y_test)
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
     structure(f, class=c("logistic"))
   }
@@ -336,7 +383,7 @@ transform_ys.logistic <- function(f) {
 }
 
 fit.logistic <- function(f) {
-  glmnet::glmnet(f$x_train, f$y_train, family="binomial", standardize=FALSE)
+  glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=FALSE)
 }
 
 predict.logistic <- function(f, model) {
@@ -358,13 +405,14 @@ MCA_KNN <- function(ndim=5, k=1, threshold=NULL) {
   }
 }
 
+#Haven't yes incorporated weights
 PCA_KNN <- function(ndim=5, k=1, threshold=NULL) {
-  function(x_train, y_train, x_test, y_test) {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
     numerics <- sapply(x_train, is.numeric)
     if (!all(numerics)) {
       print(paste("Warning:", sum(!numerics), "non-numeric variables found, only numerics will be used."))
     }
-    f <- fold(x_train, y_train, x_test, y_test)
+    f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$k <- k
     f$ndim <- ndim
     structure(f, class=c("pca", "knn"))
@@ -438,8 +486,8 @@ predict_knn <- function(f, model, test_coords) {
 
 
 cTree2 <- function(threshold) {
-  function(x_train, y_train, x_test, y_test) {
-    f <- fold(x_train, y_train, x_test, y_test)
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
     structure(f, class="cTree2")
   }
@@ -457,21 +505,21 @@ fit.cTree2 <- function(f) {
   yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
   names(yx_train_global)[1]<<-"Y"
   #Setting cp low to ensure trees sufficiently complex
-  tree.first <- rpart::rpart(Y~., method="class", data=yx_train_global, cp=0.001)
+  tree.first <- rpart::rpart(Y~., weights=f$w_train, method="class", data=yx_train_global, cp=0.001)
   #Chooses tree size with minimal xerror
   bestsize <- tree.first$cptable[which.min(tree.first$cptable[,"xerror"]),"CP"]
   tree.final <- rpart::prune(tree.first, cp = bestsize)  
 }
 
 predict.cTree2 <- function(f, model) {
-  temp<-predict(model, f$x_test, type = "prob")
+  temp<-predict(model, data.frame(f$x_test), type = "prob")
   prob_non_poor <- temp[,2]
 }
 
 
 cForest <- function(threshold) {
-  function(x_train, y_train, x_test, y_test) {
-    f <- fold(x_train, y_train, x_test, y_test)
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
     structure(f, class="cforest")
   }
@@ -492,9 +540,44 @@ predict.cforest <- function(f, model) {
   prob_non_poor <- temp[,2]
 }
 
+
+cBoostedTrees <- function(threshold, n.trees=500, interaction.depth=4, shrinkage=.001, distribution="bernoulli") {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="cbtrees")
+    f$threshold <- threshold
+    f$n.trees <- n.trees
+    f$interaction.depth <- interaction.depth
+    f$shrinkage <- shrinkage
+    f$distribution <- distribution
+    f
+  }
+}
+
+transform_ys.cbtrees <- function(f) {
+  threshold <- f$threshold
+  f$y_train <- factor(as.integer(f$y_train < threshold), levels=c(1, 0))
+  f$y_test_raw <- f$y_test
+  f$y_test <- factor(as.integer(f$y_test < threshold), levels=c(1, 0))
+  f
+}
+
+fit.cbtrees <- function(f) {
+  yx_train <- data.frame(Y=f$y_train, f$x_train)
+  gbm::gbm(Y ~ .,
+           data=yx_train,
+           interaction.depth=f$interaction.depth,
+           n.trees=f$n.trees,
+           shrinkage=f$shrinkage,
+           distribution=f$distribution)
+}
+
+predict.cbtrees <- function(f, model) {
+  predict(model, newdata=data.frame(f$x_test), n.trees=f$n.trees, type="response")
+}
+
 # K fold validation ---------------------------
 
-kfold_split <- function(k, y, x, id, seed=NULL) {
+kfold_split <- function(k, y, x, id, weight, seed=NULL) {
   if (!is.null(seed)) {
     set.seed(seed)
   }
@@ -508,8 +591,10 @@ kfold_split <- function(k, y, x, id, seed=NULL) {
      list(
        x_train=x[assignments != k, ],
        y_train=y[assignments != k],
+       w_train=weight[assignments != k],
        x_test=x[assignments == k, ],
-       y_test=y[assignments == k])})
+       y_test=y[assignments == k],
+       w_test=weight[assignments == k])})
   list(splits=splits, assignments=assignments, id_sorted=id_sorted)
 }
 
@@ -530,12 +615,13 @@ kfold_predict <- function(kfold_fits) {
   preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
   trues <- unlist(lapply(folds, function(f) f$y_test))
   raws <- unlist(lapply(folds, function(f) f$y_test_raw))
-  df <- data.frame(predicted=preds, true=trues, raw=raws, fold=assignments)
+  weight <- unlist(lapply(folds, function(f) f$w_test))
+  df <- data.frame(predicted=preds, true=trues, raw=raws, weight=weight, fold=assignments)
   df
 }
 
-kfold <- function(k, model_class, y, x, id, seed=0) {
-  kfold_splits <- kfold_split(k, y, x, id, seed)
+kfold <- function(k, model_class, y, x, id, weight, seed=0) {
+  kfold_splits <- kfold_split(k, y, x, id, weight, seed)
   kfold_fits <- kfold_fit(kfold_splits, model_class)
   data.frame(kfold_predict(kfold_fits), kfold_splits$id_sorted)
 }
