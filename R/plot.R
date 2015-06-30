@@ -34,8 +34,7 @@ add_dfs <- function(joined, dfs) {
 
 calculate_mse_ <- function(joined) {
   joined <- dplyr::filter(joined, method != "true")
-  no_factors <- mutate(joined, predicted = as.numeric(levels(predicted))[predicted])
-  with_mse <- mutate(no_factors, se=(true - predicted)**2)
+  with_mse <- mutate(joined, se=(true - predicted)**2)
   grouped <- group_by(with_mse, method)
   summarise(grouped, mse=mean(se))
 }
@@ -132,12 +131,33 @@ plot_roc <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_FOLDS=FALSE) {
 }
 
 
-plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count, x_label="percent_population_included") {
+plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count, x_label="percent_population_included", base=NULL) {
+  if (!is.null(base)) {
+    # assumes that methods are all the same size so check if they are not
+    method_counts <- summarise(df, count=n())$count
+    stopifnot(first(method_counts) == method_counts)
+    subtract_base <- function(df) {
+      df <- mutate(df, i=row_number())
+      base_df <- filter(df, method == base) %>% 
+        ungroup() %>%
+        group_by(i) %>%
+        summarise(value=mean(value)) %>%
+        select(one_of("value", "i")) %>%
+        rename(base_value=value)
+      df <- merge(df, base_df, on=i)
+      df <- mutate(df, value=value-base_value)
+      df <- filter(df, method != base)
+      df
+    }
+    df <- subtract_base(df)
+    folded <- subtract_base(folded)
+  }
+
   cut <- df %>%
     slice(seq(1, n(), n() / point_count))
-    
+
   p <- ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
-    ggplot2::geom_step() +
+    ggplot2::geom_line() +
     ggplot2::facet_wrap(~ threshold) +
     ggplot2::labs(y = y_label) +
     ggplot2::labs(x = x_label)
@@ -170,15 +190,28 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
       ggplot2::geom_segment(data=threshold.df, mapping=vertical_mapping)
   }
   if (show_folds) {
+    # assumes that folds are all the same size so check if they are not
+    fold_counts <- summarise(folded, count=n())
+    method_fold_stats <- summarise(fold_counts, max=max(count), min=min(count))
+    one_size <- method_fold_stats$max == method_fold_stats$min
+    stopifnot(all(one_size))
+    folded <- folded %>%
+      group_by(method, fold) %>%
+      mutate(i=row_number()) %>%
+      ungroup() %>%
+      group_by(method, i) %>%
+      summarise(ymax=max(value), ymin=min(value), x=first(percent_population_included))
     folded_cut <- folded %>% slice(seq(1, n(), n() / point_count))
-    aes <- ggplot2::aes(x=percent_population_included, y=value, color=method, group=fold)
-    p <- p + ggplot2::geom_step(data=folded_cut, mapping=aes, alpha=0.3)
+    aes_min <- ggplot2::aes(x=x, y=ymin, color=method)
+    aes_max <- ggplot2::aes(x=x, y=ymax, color=method)
+    p <- p + ggplot2::geom_line(data=folded_cut, mapping=aes_min, alpha=0.5, linetype="dashed")
+    p <- p + ggplot2::geom_line(data=folded_cut, mapping=aes_max, alpha=0.5, linetype="dashed")
   }
   p
 }
 
 
-plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy_ <- function(joined, BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   if(!SHOW_TRUE) {
@@ -195,13 +228,14 @@ plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE
     grouped %>%
       mutate(response=raw < quantile(raw, threshold)) %>%
       arrange(predicted) %>%
-      mutate(value=cumsum(response) / sum(response)) %>%
+      mutate(value=cumsum(response) / n()) %>%
       mutate(percent_population_included=row_number() / n())
   }
 
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
+                  base=BASE,
                   y_label="coverage",
                   show_cutoffs=SHOW_CUTOFFS,
                   show_folds=SHOW_FOLDS,
@@ -213,14 +247,14 @@ plot_accuracy_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE
 #' If we target N people, what fraction of the true poor would receive funds?
 #' True Positives / Total Positives
 #' Note that this is a reparameterization of the ROC curve
-plot_accuracy <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy <- function(..., BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_accuracy_(joined, THRESHOLD, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
+  plot_accuracy_(joined, BASE, THRESHOLD, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
 
 
-plot_accuracy_dollars_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy_dollars_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   if (!SHOW_TRUE) {
@@ -255,14 +289,14 @@ plot_accuracy_dollars_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TR
 
 #' With a fixed amount of money, if we target N people, what fraction would go to the true poor?
 #' True Positives / (True Positives + False Positives)
-plot_accuracy_dollars <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_accuracy_dollars <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   plot_accuracy_dollars_(joined, THRESHOLD, SHOW_TRUE, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
 
 
-plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_swf_ <- function(joined, BASE=NULL, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- dplyr::filter(joined, method!="true")
   joined$threshold <- ""
   marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
@@ -285,6 +319,7 @@ plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
+                  base=BASE,
                   y_label="welfare",
                   show_cutoffs=FALSE,
                   show_folds=SHOW_FOLDS,
@@ -293,10 +328,10 @@ plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
 }
 
 
-plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_swf <- function(..., BASE=NULL, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_swf_(joined, GAMMA, SHOW_FOLDS, POINT_COUNT)
+  plot_swf_(joined, BASE, GAMMA, SHOW_FOLDS, POINT_COUNT)
 }
 
 plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
@@ -323,6 +358,7 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
+                  base=NULL,
                   y_label="number of poor targeted / N",
                   x_label="number of rich targeted / N",
                   show_cutoffs=SHOW_CUTOFFS,
@@ -334,5 +370,5 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
 plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_reach_vs_waste_(joined, THRESHOLD, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
+  plot_reach_vs_waste_(joined, BASE, THRESHOLD, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }

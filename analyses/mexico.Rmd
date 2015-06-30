@@ -29,7 +29,7 @@ We use the following transforms for missing data:
 Our target variable is log of expenditure per capita.
 
 ```{r load_models, echo=FALSE}
-all_models <- load_models("mexico2")
+all_models <- load_models(NAME)
 ```
 
 
@@ -52,7 +52,7 @@ calculate_mse_(simple_regression)
 
 ## Simple Classification
 ```{r select_classifications}
-models <- c("logistic_20", "ctree_20", "cforest_20", "logistic_30", "ctree_30", "cforest_30")
+models <- c("logistic_20", "logistic_lasso_20", "ctree_20", "cforest_20", "logistic_30", "logistic_lasso_30", "ctree_30", "cforest_30")
 simple_classification <- filter(all_models, method %in% models | method == "least_squares")
 ```
 

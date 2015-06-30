@@ -237,12 +237,6 @@ predict.quantile_regression <- function(f, model) {
 
 # Subset selection linear models ---------------------------
 
-predict.regsubsets=function(object, newdata, ...){
-  id <- which.min(summary(object)$rss)
-  coefficients <- coef(object, id=id)
-  xvars <- names(coefficients)
-  newdata[, xvars] %*% coefficients
-}
 
 Stepwise <- function(max_covariates=100) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
@@ -426,7 +420,10 @@ fit.mca <- function(f) {
 }
 
 fit.pca <- function(f) {
-  numerics <- f$x_train[, sapply(f$x_train, is.numeric)]
+  if (class(f$x_train) == "data.frame") {
+    numerics <- f$x_train[, sapply(f$x_train, is.numeric)]
+  }
+  else {numerics <- f$x_train}
   res.pca <- FactoMineR::PCA(numerics, ncp=f$ndim, graph=FALSE)
   res.pca
 }
@@ -452,13 +449,16 @@ predict.mca <- function(f, model) {
 }
 
 predict.pca <- function(f, model) {
-  x_test <- f$x_test[, sapply(f$x_test, is.numeric)]
+  if (class(f$x_test) == "data.frame") {
+    x_test <- f$x_test[, sapply(f$x_test, is.numeric)]
+  }
+  else { x_test <- f$x_test}
   var_coords <- t(data.frame(model$var$coord))
-  ndim <- f$ndim
+  ndim <- nrow(var_coords)
   to_model_coords <- function(obs) {
     coord <- rep(0, ndim)
     for (key in names(obs)) {
-      val <- obs[key]
+      val <- obs[[key]]
       weights <- val * var_coords[, key]
       coord <- coord + weights
     }
@@ -540,7 +540,6 @@ predict.cforest <- function(f, model) {
   prob_non_poor <- temp[,2]
 }
 
-
 cBoostedTrees <- function(threshold, n.trees=500, interaction.depth=4, shrinkage=.001, distribution="bernoulli") {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="cbtrees")
@@ -618,6 +617,11 @@ kfold_predict <- function(kfold_fits) {
   weight <- unlist(lapply(folds, function(f) f$w_test))
   df <- data.frame(predicted=preds, true=trues, raw=raws, weight=weight, fold=assignments)
   df
+}
+
+kfold_ <- function(model_class, kfold_splits) {
+  kfold_fits <- kfold_fit(kfold_splits, model_class)
+  kfold_predict(kfold_fits)
 }
 
 kfold <- function(k, model_class, y, x, id, weight, seed=0) {
