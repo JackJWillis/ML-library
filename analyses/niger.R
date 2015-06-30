@@ -134,65 +134,90 @@ k <- 5
 # Function to run all models -------------------
 
 run_models = function(y,x,x_nmm,id,NAME) {
-  
+
   print("Running ridge")
-  ridge <- kfold(k, Ridge(), y, x,id)
+  ridge <- kfold(k, Ridge(), y, x, id)
   print("Running lasso")
-  lasso <- kfold(k, Lasso(), y, x,id)
+  lasso <- kfold(k, Lasso(), y, x, id)
   print("Running least squares")
-  least_squares <- kfold(k, LeastSquares(), y, x,id)
+  least_squares <- kfold(k, LeastSquares(), y, x, id)
   
-#   x_ix <- model.matrix(~ . + .:.,  x_nmm)
-#   y_ix <- y
-#   print("Running ridge with interactions")
-#   ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
-#   print("Running lasso with interactions")
-#   lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
-#   print("Running least squares with interactions")
-#   least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
+  x_ix <- model.matrix(~ . + .:.,  x_nmm)
+  y_ix <- y
+  print("Running ridge with interactions")
+  ridge_ix <- kfold(k, Ridge(), y_ix, x_ix, id)
+  print("Running lasso with interactions")
+  lasso_ix <- kfold(k, Lasso(), y_ix, x_ix, id)
+  print("Running least squares with interactions")
+  least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix, id)
   
-#   print("Running rtree")
-#   rtree <- kfold(k, rTree2(), y, x_nmm)  
-#   print("Running randomForest")
-#   forest <- kfold(k, Forest(), y, x_nmm)
-# #   print("Running mca")
-# #   mca_knn <- kfold(k, MCA_KNN(ndim=12, k=5), y, x_nmm)
-# 
-#   threshold_20 <- quantile(y, .2)
-#   print("Running logistic")
-#   logistic_20 <- kfold(k, Logistic(threshold_20), y, x)
-#   print("Running logisitic lasso")
-#   logistic_lasso_20 <- kfold(k, LogisticLasso(threshold_20), y, x)
-#   print(" Running ctree")
-#   # ctree_20 <- kfold(k, cTree2(threshold_20), y, x_nmm)
-#   print("Running randomForest")
-#   cforest_20 <- kfold(k, cForest(threshold_20), y, x_nmm)
-#   
-#   threshold_30 <- quantile(y, .3)
-#   print("Running logistic")
-#   logistic_30 <- kfold(k, Logistic(threshold_30), y, x)
-#   print("Running logisitic lasso")
-#   logistic_lasso_30 <- kfold(k, LogisticLasso(threshold_30), y, x)
-#   print(" Running ctree")
-#   # ctree_30 <- kfold(k, cTree2(threshold_30), y, x_nmm)
-#   print("Running randomForest")
-#   cforest_30 <- kfold(k, cForest(threshold_30), y, x_nmm)
+  print("Running rtree")
+  rtree <- kfold(k, rTree2(), y, x_nmm, id)  
+  print("Running randomForest")
+  forest <- kfold(k, Forest(), y, x_nmm, id)
+#   print("Running mca")
+#   mca_knn <- kfold(k, MCA_KNN(ndim=12, k=5), y, x_nmm, id)
+  print("Running pca")
+  pca_knn <- kfold(k, PCA_KNN(ndim=12, k=5), y, x_nmm, id)
+
+
+  threshold_30 <- quantile(y, .3)
+  print("Running logistic")
+  logistic_30 <- kfold(k, Logistic(threshold_30), y, x, id)
+  print("Running logisitic lasso")
+  logistic_lasso_30 <- kfold(k, LogisticLasso(threshold_30), y, x, id)
+  #print(" Running ctree")
+  #ctree_30 <- kfold(k, cTree2(threshold_30), y, x_nmm, id)
+  print("Running randomForest")
+  cforest_30 <- kfold(k, cForest(threshold_30), y, x_nmm, id)
+
+  threshold_40 <- quantile(y, .4)
+  print("Running logistic")
+  logistic_40 <- kfold(k, Logistic(threshold_40), y, x, id)
+  print("Running logisitic lasso")
+  logistic_lasso_40 <- kfold(k, LogisticLasso(threshold_40), y, x, id)
+  #print(" Running ctree")
+  #ctree_40 <- kfold(k, cTree2(threshold_40), y, x_nmm, id)
+  print("Running randomForest")
+  cforest_40 <- kfold(k, cForest(threshold_40), y, x_nmm, id)
   
-#   save_models(NAME,
-#               least_squares=least_squares,
-#               ridge=ridge,
-#               lasso=lasso,
-#               rtree=rtree,
-#               forest=forest,
-#               ridge_ix=ridge_ix,
-#               lasso_ix=lasso_ix,
-#               least_squares_ix=least_squares_ix)
-  
-  output_wide <- data.frame(y_real = y)
+  save_models(NAME,
+              least_squares=least_squares,
+              ridge=ridge,
+              lasso=lasso,
+              rtree=rtree,
+              forest=forest,
+              pca_knn=pca_knn,
+              ridge_ix=ridge_ix,
+              lasso_ix=lasso_ix,
+              least_squares_ix=least_squares_ix,
+              logistic_30 = logistic_30,
+              logistic_lasso_30 = logistic_lasso_30,
+              cforest_30 = cforest_30,
+              logistic_40 = logistic_40,
+              logistic_lasso_40 = logistic_lasso_40,
+              cforest_40 = cforest_40)
+
+
+  output_wide <- data.frame(y_real = y, ridge[,names(id)])
   models <- list(least_squares=least_squares,
                  ridge=ridge,
-                 lasso=lasso)
+                 lasso=lasso,
+                 rtree=rtree,
+                 forest=forest,
+                 pca_knn=pca_knn,                 
+                 ridge_ix=ridge_ix,
+                 lasso_ix=lasso_ix,
+                 least_squares_ix=least_squares_ix, 
+                 logistic_30 = logistic_30,
+                 logistic_lasso_30 = logistic_lasso_30,
+                 cforest_30 = cforest_30,
+                 logistic_40 = logistic_40,
+                 logistic_lasso_40 = logistic_lasso_40,
+                 cforest_40 = cforest_40)
+
   for( name in names(models)) {
+  #  CHANGE THIS TO MERGE BY ID
     output_wide <- data.frame(output_wide,models[[name]]$predicted)
     colnames(output_wide)[ncol(output_wide)] <- name
   }
@@ -204,12 +229,10 @@ run_models = function(y,x,x_nmm,id,NAME) {
 TARGETING_DATA_OUT <- "data"
 
 niger_p_models <- run_models(y_p,x_p,x_p_nmm,niger_p_id,"niger_pastoral")
-niger_p_models <- data.frame(niger_p_models,niger_p_id)
 out_path <- paste(TARGETING_DATA_OUT, "niger_p_wide.csv", sep="/")
 write.csv(niger_p_models, file=out_path)
 
 niger_a_models <- run_models(y_a,x_a,x_a_nmm,niger_a_id,"niger_agricultural")
-niger_a_models <- data.frame(niger_a_models,niger_a_id)
 out_path <- paste(TARGETING_DATA_OUT, "niger_a_wide.csv", sep="/")
 write.csv(niger_a_models, file=out_path)
 

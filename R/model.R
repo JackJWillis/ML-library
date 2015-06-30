@@ -537,7 +537,7 @@ kfold_predict <- function(kfold_fits) {
 kfold <- function(k, model_class, y, x, id, seed=0) {
   kfold_splits <- kfold_split(k, y, x, id, seed)
   kfold_fits <- kfold_fit(kfold_splits, model_class)
-  data.frame(kfold_predict(kfold_fits), id_sorted=kfold_splits$id_sorted)
+  data.frame(kfold_predict(kfold_fits), kfold_splits$id_sorted)
 }
 
 

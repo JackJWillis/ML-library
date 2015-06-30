@@ -12,12 +12,10 @@ join_dfs <- function(dfs) {
     dfs[[name]]$true <- as.numeric(dfs[[name]]$true)
   }
   joined <- do.call("rbind", dfs)
-  true_df <- data.frame(
-    true=dfs[[1]]$true,
-    predicted=dfs[[1]]$raw,
-    raw=dfs[[1]]$raw,
-    method="true",
-    fold=1)
+  true_df <- dfs[[1]]
+  true_df$predicted <- true_df$raw
+  true_df$method <- "true"
+  true_df$fold <- 1
   joined <- rbind(true_df, joined)
   joined$fold <- factor(joined$fold)
   joined
@@ -141,7 +139,7 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
   p <- ggplot2::ggplot(cut, ggplot2::aes(x=percent_population_included, y=value, color=method)) +
     ggplot2::geom_step() +
     ggplot2::facet_wrap(~ threshold) +
-    ggplot2::labs(y = y_label)
+    ggplot2::labs(y = y_label) +
     ggplot2::labs(x = x_label)
   
   if (show_cutoffs) {
@@ -264,7 +262,7 @@ plot_accuracy_dollars <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=F
 }
 
 
-plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- dplyr::filter(joined, method!="true")
   joined$threshold <- ""
   marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
@@ -295,13 +293,13 @@ plot_swf_ <- function(joined, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
 }
 
 
-plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_swf <- function(..., GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   plot_swf_(joined, GAMMA, SHOW_FOLDS, POINT_COUNT)
 }
 
-plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   joined <- dplyr::filter(joined, method!="true")
@@ -333,7 +331,7 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
                   point_count=POINT_COUNT)
 }
 
-plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=20) {
+plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
   plot_reach_vs_waste_(joined, THRESHOLD, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
