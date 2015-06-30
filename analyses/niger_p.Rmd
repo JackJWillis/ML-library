@@ -79,6 +79,11 @@ The following is the same graph with a subset of the methods:
 plot_reach_vs_waste_(filter(joined,method=="least_squares" | method=="ridge" | method=="forest"
 |  method=="lasso_ix" | method=="logistic_40" | method=="logistic_lasso_40" | method=="cforest_40"), POINT_COUNT=1000, THRESHOLD = 0.4)
 ```
+The following is the same graph with a new subset of methods:
+```{r reach_vs_waste_0.4_new, echo=FALSE}
+plot_reach_vs_waste_(filter(joined,method=="least_squares" | method=="quantile" | method=="Btree"
+|  method=="cBtree_30" | method=="cBtree_40" | method=="ctree_30" | method=="ctree_40"), POINT_COUNT=1000, THRESHOLD = 0.4)
+```
 
 ### Social welfare (gamma = 2)
 
