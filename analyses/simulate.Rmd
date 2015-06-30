@@ -23,13 +23,24 @@ gaussian <- function(mean, sd) {
   function(response) {response + rnorm(length(response), mean=mean, sd=sd)}
 }
 
-linear <- function(nvar=10, nrow=100, noise=function(response) {response}) {
+linear_ <- function(nvar=10, nrow=100) {
   variables <- as.character(seq_len(nvar))
   coefficients <- seq_along(variables)
   X <- matrix(rnorm(nvar * nrow), nrow=nrow, ncol=nvar)
   y <- 2 * (X %*% coefficients) + 10
-  y <- noise(y)
   list(y=y, X=X)
+}
+
+linear <- function(nvar=10, nrow=100, noise=function(response) {response}) {
+  d <- linear_(nvar, nrow)
+  d$y <- noise(d$y)
+  d
+}
+
+exponential <- function(nvar=10, nrow=100) {
+ d <- linear_(nvar, nrow)
+ d$y <- exp(d$y / 20)
+ d
 }
 ```
 
@@ -159,8 +170,6 @@ noise <- function(response) {
   response + rlnorm(length(response), meanlog=0, sdlog=3)
 }
 dataset <- linear(nvar=10, nrow=1000, noise=noise)
-res <- run_all(dataset)
-plot_all(res)
 ```
 
 ### Heteroskedastic
@@ -186,5 +195,12 @@ plot_all(res)
 dataset <- linear(nvar=10, nrow=500)
 dataset$X <- cbind(matrix(rnorm(1000 * 500, mean=10, sd=5), nrow=500, ncol=1000), dataset$X)
 res <- run_all(dataset, ix=FALSE)
+plot_all(res)
+```
+
+## Exponential data
+```{r exponential}
+dataset <- exponential(nvar=10, nrow=1000)
+res <- run_all(dataset)
 plot_all(res)
 ```
