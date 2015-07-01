@@ -576,9 +576,15 @@ predict.cbtrees <- function(f, model) {
 
 # K fold validation ---------------------------
 
-kfold_split <- function(k, y, x, id, weight, seed=NULL) {
+kfold_split <- function(k, y, x, id=NULL, weight=NULL, seed=NULL) {
   if (!is.null(seed)) {
     set.seed(seed)
+  }
+  if (is.null(weight)) {
+    weight <- rep(1,length(y))
+  }
+  if (is.null(id)) {
+    id <- 1:length(y)
   }
   
   #Generating a sorted id variable to add back at the end of prediction
@@ -624,7 +630,7 @@ kfold_ <- function(model_class, kfold_splits) {
   kfold_predict(kfold_fits)
 }
 
-kfold <- function(k, model_class, y, x, id, weight, seed=0) {
+kfold <- function(k, model_class, y, x, id=NULL, weight=NULL, seed=0) {
   kfold_splits <- kfold_split(k, y, x, id, weight, seed)
   kfold_fits <- kfold_fit(kfold_splits, model_class)
   data.frame(kfold_predict(kfold_fits), kfold_splits$id_sorted)
