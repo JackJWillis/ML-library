@@ -18,6 +18,7 @@ Imports:
   GGally,
   ggmap,
   ggplot2,
+  Hmisc,
   magrittr,
   maptools,
   pROC,
