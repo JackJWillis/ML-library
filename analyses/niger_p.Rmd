@@ -11,6 +11,7 @@ knitr::opts_knit$set(root.dir="../")
 ```{r load_data, echo=FALSE}
 library(MLlibrary)
 library(dplyr)
+library(Hmisc)
 
 NAME <- "niger_pastoral"
 ng <- load_dataset(NAME)

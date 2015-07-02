@@ -166,7 +166,7 @@ run_models = function(y,x,x_nmm,id,w,NAME) {
   print("Running Boostedtree")
   Btree <- kfold(k, BoostedTrees(), y, x_nmm, id, w)  
 
-
+# Update to weighted
   threshold_30 <- quantile(y, .3)
   print("Running logistic")
   logistic_30 <- kfold(k, Logistic(threshold_30), y, x, id, w)
@@ -179,6 +179,7 @@ run_models = function(y,x,x_nmm,id,w,NAME) {
   print("Running cBoostedtree")
   cBtree_30 <- kfold(k, cBoostedTrees(threshold_30), y, x_nmm, id, w)
 
+# Update to weighted
   threshold_40 <- quantile(y, .4)
   print("Running logistic")
   logistic_40 <- kfold(k, Logistic(threshold_40), y, x, id, w)
