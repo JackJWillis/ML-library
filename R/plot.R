@@ -347,8 +347,8 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
       grouped <- group_by(df, method, threshold)
     }
     grouped %>%
-      mutate(response1=weight*as.numeric(raw < quantile(raw, threshold))) %>%
-      mutate(response2=weight*as.numeric(raw >= quantile(raw, threshold))) %>%  
+      mutate(response1=weight*as.numeric(raw < wtd.quantile(raw, weights=weight, probs=threshold))) %>%
+      mutate(response2=weight*as.numeric(raw >= wtd.quantile(raw, weights=weight, probs=threshold))) %>%  
       arrange(predicted) %>%
       mutate(value=cumsum(response1) / sum(weight)) %>%
       #Note this is number rich included, might wish to change later
