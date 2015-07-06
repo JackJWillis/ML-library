@@ -12,12 +12,10 @@ join_dfs <- function(dfs) {
     dfs[[name]]$true <- as.numeric(dfs[[name]]$true)
   }
   joined <- do.call("rbind", dfs)
-  true_df <- data.frame(
-    true=dfs[[1]]$true,
-    predicted=dfs[[1]]$raw,
-    raw=dfs[[1]]$raw,
-    method="true",
-    fold=1)
+  true_df <- dfs[[1]]
+  true_df$predicted <- true_df$raw
+  true_df$method <- "true"
+  true_df$fold <- 1
   joined <- rbind(true_df, joined)
   joined$fold <- factor(joined$fold)
   joined
@@ -349,12 +347,12 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
       grouped <- group_by(df, method, threshold)
     }
     grouped %>%
-      mutate(response1=raw < quantile(raw, threshold)) %>%
-      mutate(response2=raw >= quantile(raw, threshold)) %>%  
+      mutate(response1=weight*as.numeric(raw < wtd.quantile(raw, weights=weight, probs=threshold))) %>%
+      mutate(response2=weight*as.numeric(raw >= wtd.quantile(raw, weights=weight, probs=threshold))) %>%  
       arrange(predicted) %>%
-      mutate(value=cumsum(response1) / n()) %>%
+      mutate(value=cumsum(response1) / sum(weight)) %>%
       #Note this is number rich included, might wish to change later
-      mutate(percent_population_included=cumsum(response2) / n())
+      mutate(percent_population_included=cumsum(response2) / sum(weight))
   }
   
   df <- make_df(joined, FALSE)

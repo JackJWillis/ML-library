@@ -1,0 +1,74 @@
+---
+title: "Ghana prediction"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir="../")
+```
+
+```{r load_data, echo=FALSE}
+library(MLlibrary)
+library(dplyr)
+
+NAME <- "ghana"
+gh <- load_dataset(NAME)
+```
+
+## Data
+
+This is a sample analysis of the ghana dataset from 2006. We are just using the `r ncol(gh)` variables which went into a PMT which was recently developed by the WB. The dataset has `r nrow(gh)` households which have no missing data.
+
+Least squares can be considered the benchmark method upon which the PMT from the WB was based.
+
+Our target variable is log of (price adjusted) per (equivalence scale) capita consumption.
+
+```{r load_models, echo=FALSE}
+all_models <- load_models("ghana")
+```
+
+
+## Simple Regression
+
+```{r select_regression}
+models <- c("least_squares", "ridge", "lasso", "rtree", "stepwise", "forest")
+simple_regression <- filter(all_models, method %in% models)
+```
+
+```{r plot_simple_regression, echo=FALSE}
+plot_swf_(simple_regression)
+plot_reach_vs_waste_(simple_regression)
+plot_reach_vs_waste_(simple_regression, THRESHOLD=.2)
+```
+
+```{r calculate_mse, echo=TRUE}
+calculate_mse_(simple_regression)
+```
+
+## Simple Classification
+```{r select_classifications}
+models <- c("logistic_20", "ctree_20", "cforest_20", "logistic_30", "ctree_30", "cforest_30")
+simple_classification <- filter(all_models, method %in% models | method == "least_squares")
+```
+
+```{r plot_simple_classification, echo=FALSE}
+plot_swf_(simple_classification)
+plot_reach_vs_waste_(simple_classification)
+plot_reach_vs_waste_(simple_classification, THRESHOLD=.2)
+plot_reach_vs_waste_(simple_classification, THRESHOLD=.3)
+```
+
+## Compound Methods
+
+```{r select_compound}
+models <- c("ridge_rural", "mca_knn", "pca_knn", "mca_pca_avg")
+compound <- filter(all_models, method %in% models | method == "least_squares")
+```
+
+```{r plot_compound, echo=FALSE}
+plot_swf_(compound)
+plot_reach_vs_waste_(compound)
+plot_reach_vs_waste_(compound, THRESHOLD=.2)
+```

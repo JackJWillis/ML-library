@@ -13,8 +13,8 @@ knitr::opts_knit$set(root.dir="../")
 library(MLlibrary)
 library(ggplot2)
 library(dplyr)
-library(doMC)
-registerDoMC(cores=3)
+#library(doMC)
+#registerDoMC(cores=3)
 K = 5
 ```
 
@@ -41,6 +41,40 @@ exponential <- function(nvar=10, nrow=100) {
  d <- linear_(nvar, nrow)
  d$y <- exp(d$y / 20)
  d
+}
+
+cuts_ <- function(nvar=10, nrow=100) {
+  X <- matrix(rnorm(nvar * nrow), nrow=nrow, ncol=nvar)
+  cuts <- rnorm(nvar)
+  cuts <- matrix(cuts, nrow=nrow, ncol=nvar, byrow = TRUE)
+  X_transformed <- X<cuts
+  variables <- as.character(seq_len(nvar))
+  coefficients <- seq_along(variables)
+  y <- as.vector(2 * (X_transformed %*% coefficients) + 10)
+  list(y=y, X=X)
+}
+
+cuts <- function(nvar=10, nrow=100, noise=function(response) {response}) {
+  d <- cuts_(nvar, nrow)
+  d$y <- noise(d$y)
+  d
+}
+
+cuts_and_linear_ <- function(nvar=10, nrow=100, alpha=0.5) {
+  X <- matrix(rnorm(nvar * nrow), nrow=nrow, ncol=nvar)
+  cuts <- rnorm(nvar)
+  cuts <- matrix(cuts, nrow=nrow, ncol=nvar, byrow = TRUE)
+  X_transformed <- X<cuts
+  variables <- as.character(seq_len(nvar))
+  coefficients <- seq_along(variables)
+  y <- 2*(alpha*as.vector((X_transformed %*% coefficients) + (1-alpha)*(X %*% coefficients))) + 10
+  list(y=y, X=X)
+}
+
+cuts_and_linear <- function(nvar=10, nrow=100, alpha = 0.5, noise=function(response) {response}) {
+  d <- cuts_and_linear_(nvar, nrow, alpha)
+  d$y <- noise(d$y)
+  d
 }
 ```
 
@@ -96,10 +130,10 @@ plot_all <- function(res) {
   res_ix <- filter(res, grepl("_ix", method) | method == "ls")
   res <- filter(res, !grepl("_ix", method))
   
-  plot(plot_accuracy_(res) + scale_color_brewer(palette="Set2"))
-  if (ix) {
-    plot(plot_accuracy_(res_ix) + scale_color_brewer(palette="Set2"))
-  }
+#   plot(plot_accuracy_(res) + scale_color_brewer(palette="Set2"))
+#   if (ix) {
+#     plot(plot_accuracy_(res_ix) + scale_color_brewer(palette="Set2"))
+#   }
   
   plot(plot_accuracy_(res, THRESHOLD=0.3) + scale_color_brewer(palette="Set2"))
   if (ix) {
@@ -154,7 +188,7 @@ plot_all(res)
 
 ```{r heteroskedasticity}
 noise <- function(response) {
-  rnorm(length(response), mean=response, sd=exp(response / 10))
+  rnorm(length(response), mean=response, sd=abs(response / 10))
 }
 dataset <- linear(nvar=10, nrow=1000, noise=noise)
 res <- run_all(dataset)
@@ -170,12 +204,14 @@ noise <- function(response) {
   response + rlnorm(length(response), meanlog=0, sdlog=3)
 }
 dataset <- linear(nvar=10, nrow=1000, noise=noise)
+res <- run_all(dataset)
+plot_all(res)
 ```
 
-### Heteroskedastic
+### Heteroskedastic lognormal
 ```{r lognormal_het}
 noise <- function(response) {
-  response + rlnorm(length(response), meanlog=0, sdlog=exp(response / 100))
+  response + rlnorm(length(response), meanlog=0, sdlog=abs(response / 10))
 }
 dataset <- linear(nvar=10, nrow=1000, noise=noise)
 res <- run_all(dataset)
@@ -201,6 +237,35 @@ plot_all(res)
 ## Exponential data
 ```{r exponential}
 dataset <- exponential(nvar=10, nrow=1000)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+## Cuts data
+```{r cuts}
+dataset <- cuts(nvar=10, nrow=1000)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+## Cuts data + Gaussian 50%
+```{r cuts+noise}
+noise <- gaussian(0, 5)
+dataset <- cuts(nvar=10, nrow=1000, noise=noise)
+res <- run_all(dataset)
+plot_all(res)
+```
+
+## 0.3 Cuts + 0.7 linear data
+```{r cuts + linear 0.3}
+  dataset <- cuts_and_linear(nvar=10, nrow=1000, alpha=0.3)
+  res <- run_all(dataset)
+  plot_all(res)
+```
+
+## 0.7 Cuts + 0.3 linear data
+```{r cuts + linear 0.7}
+dataset <- cuts_and_linear(nvar=10, nrow=1000, alpha=0.7)
 res <- run_all(dataset)
 plot_all(res)
 ```
