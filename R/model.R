@@ -203,9 +203,8 @@ LeastSquares <- function() {
 
 fit.least_squares <- function(f) {
   #glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
-  yx_train_global <- data.frame(Y=f$y_train,f$x_train)
-  names(yx_train_global)[1] <-"Y"
-  lm(Y ~ ., data=yx_train_global, weights=f$w_train)
+  yx_train <- data.frame(Y=f$y_train, f$x_train)
+  lm(Y ~ ., data=yx_train, weights=f$w_train)
 }
 
 
@@ -263,9 +262,8 @@ rTree <- function() {
 }
 
 fit.rTree <- function(f) {
-  yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
-  names(yx_train_global)[1]<<-"Y"
-  tree.first <- tree::tree(Y~.,yx_train_global, weights=f$w_train)
+  yx_train <- data.frame(Y=f$y_train, f$x_train)
+  tree.first <- tree::tree(Y~.,yx_train, weights=f$w_train)
   cv.trees <- tree::cv.tree(tree.first)
   #Chooses tree size with minimal deviance
   bestsize <- cv.trees$size[which.min(cv.trees$dev)]
@@ -283,10 +281,9 @@ rTree2 <- function() {
 }
 
 fit.rTree2 <- function(f) {
-  yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
-  names(yx_train_global)[1]<<-"Y"
+  yx_train <- data.frame(Y=f$y_train,f$x_train)
   #Setting cp low to ensure trees sufficiently complex
-  tree.first <- rpart::rpart(Y~., weights=f$w_train , method="anova", data=yx_train_global, cp=0.001)
+  tree.first <- rpart::rpart(Y~., weights=f$w_train , method="anova", data=yx_train, cp=0.001)
   #Chooses tree size with minimal xerror
   bestsize <- tree.first$cptable[which.min(tree.first$cptable[,"xerror"]),"CP"]
   tree.final <- rpart::prune(tree.first, cp = bestsize)  
@@ -483,7 +480,7 @@ predict_knn <- function(f, model, test_coords) {
   }
 }
 
-
+# Classification trees ----------------------------------
 
 cTree2 <- function(threshold) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
@@ -502,10 +499,9 @@ transform_ys.cTree2 <- function(f) {
 }
 
 fit.cTree2 <- function(f) {
-  yx_train_global <<- data.frame(Y=f$y_train,f$x_train)
-  names(yx_train_global)[1]<<-"Y"
+  yx_train <- data.frame(Y=f$y_train,f$x_train)
   #Setting cp low to ensure trees sufficiently complex
-  tree.first <- rpart::rpart(Y~., weights=f$w_train, method="class", data=yx_train_global, cp=0.001)
+  tree.first <- rpart::rpart(Y~., weights=f$w_train, method="class", data=yx_train, cp=0.001)
   #Chooses tree size with minimal xerror
   bestsize <- tree.first$cptable[which.min(tree.first$cptable[,"xerror"]),"CP"]
   tree.final <- rpart::prune(tree.first, cp = bestsize)  
