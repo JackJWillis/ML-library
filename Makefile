@@ -1,7 +1,9 @@
 all: tanzania
 
-tanzania: data/tanzania_cv_out.csv data/tanzania.csv
-	R -e "rmarkdown::render('analyses/tanzania.Rmd')"
+tanzania: analyses/tanzania.html
+
+analyses/tanzania.html: data/tanzania_cv_out.csv data/tanzania.csv
+	cd analyses; Rscript report.R tanzania; cd ..
 
 data/tanzania_cv_out.csv: analyses/tanzania.R R/model.R
 	Rscript analyses/tanzania.R
