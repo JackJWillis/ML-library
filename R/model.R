@@ -54,6 +54,14 @@ transform_ys.default <- function(f) {
   f
 }
 
+transform_ys.classification <- function(f) {
+  threshold <- f$threshold
+  f$y_train <- factor(f$y_train < threshold, levels=c(TRUE, FALSE))
+  f$y_test_raw <- f$y_test
+  f$y_test <- factor(f$y_test < threshold, levels=c(TRUE, FALSE))
+  f
+}
+
 # Regularized linear models ---------------------------
 
 Ridge <- function() {
@@ -361,17 +369,10 @@ Logistic <- function(threshold) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
-    structure(f, class=c("logistic"))
+    structure(f, class=c("logistic", "classification"))
   }
 }
 
-transform_ys.logistic <- function(f) {
-  threshold <- f$threshold
-  f$y_train <- factor(f$y_train < threshold, levels=c(TRUE, FALSE))
-  f$y_test_raw <- f$y_test
-  f$y_test <- factor(f$y_test < threshold, levels=c(TRUE, FALSE))
-  f
-}
 
 fit.logistic <- function(f) {
   glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=FALSE)
@@ -486,16 +487,8 @@ cTree2 <- function(threshold) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
-    structure(f, class="cTree2")
+    structure(f, class=c("cTree2", "classification"))
   }
-}
-
-transform_ys.cTree2 <- function(f) {
-  threshold <- f$threshold
-  f$y_train <- factor(f$y_train < threshold, levels=c(TRUE, FALSE))
-  f$y_test_raw <- f$y_test
-  f$y_test <- factor(f$y_test < threshold, levels=c(TRUE, FALSE))
-  f
 }
 
 fit.cTree2 <- function(f) {
@@ -517,16 +510,8 @@ cForest <- function(threshold) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
-    structure(f, class="cforest")
+    structure(f, class=c("cforest", "classification"))
   }
-}
-
-transform_ys.cforest <- function(f) {
-  threshold <- f$threshold
-  f$y_train <- factor(f$y_train < threshold, levels=c(TRUE, FALSE))
-  f$y_test_raw <- f$y_test
-  f$y_test <- factor(f$y_test < threshold, levels=c(TRUE, FALSE))
-  f
 }
 
 fit.cforest <- fit.forest
@@ -538,7 +523,7 @@ predict.cforest <- function(f, model) {
 
 cBoostedTrees <- function(threshold, n.trees=500, interaction.depth=4, shrinkage=.001, distribution="bernoulli") {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
-    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="cbtrees")
+    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class=c("cbtrees", "classification"))
     f$threshold <- threshold
     f$n.trees <- n.trees
     f$interaction.depth <- interaction.depth
@@ -548,13 +533,6 @@ cBoostedTrees <- function(threshold, n.trees=500, interaction.depth=4, shrinkage
   }
 }
 
-transform_ys.cbtrees <- function(f) {
-  threshold <- f$threshold
-  f$y_train <- factor(as.integer(f$y_train < threshold), levels=c(1, 0))
-  f$y_test_raw <- f$y_test
-  f$y_test <- factor(as.integer(f$y_test < threshold), levels=c(1, 0))
-  f
-}
 
 fit.cbtrees <- function(f) {
   yx_train <- data.frame(Y=f$y_train, f$x_train)
@@ -631,5 +609,3 @@ kfold <- function(k, model_class, y, x, id=NULL, weight=NULL, seed=0) {
   kfold_fits <- kfold_fit(kfold_splits, model_class)
   data.frame(kfold_predict(kfold_fits), kfold_splits$id_sorted)
 }
-
-
