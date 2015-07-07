@@ -1,0 +1,90 @@
+---
+title: "Targeting results"
+output: html_document
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir="../")
+```
+
+```{r load_data, echo=FALSE}
+library(MLlibrary)
+library(dplyr)
+library(Hmisc)
+
+dataset <- load_dataset(NAME)
+```
+
+## Data
+
+This is a sample analysis using the variables which are being used in the PMT. The dataset has `r nrow(dataset)` households.
+
+Least squares can be considered the benchmark method upon which the PMT from the WB was based.
+
+## Models
+
+```{r load_models, echo=FALSE}
+joined <- load_models(NAME)
+k <- nrow(distinct(joined, fold))
+```
+
+We trained a number of different models on the raw data.
+We use `r k` fold cross validation for testing predictive accuracy.
+
+The models trained are:
+
+* **Regression**
+* least_squares: Simple least squares
+* lasso: Lasso using cross validated regularization parameter 
+* ridge: Ridge using cross validated regularization parameter 
+* rtree: Regression tree using cross validated pruning extent
+* forest: Random forests for regression
+* least_squares_ix: Least squares using all pairwise interaction terms
+* lasso_ix: Lasso using all pairwise interaction terms and cross validated regularization parameter
+* ridge_ix: Ridge using all pairwise interaction terms and cross validated regularization parameter
+* pca_knn: Principal components analysis followed by k-nearest neighbors
+* **Classification**
+* logistic_k: Logistic regression with a poverty line at kth percentile
+* logistic_lasso_k: Logistic regression with cross validated regularization paremeter, under L1 norm, with a poverty line at kth percentile 
+* cforest_k: Classification random forests with a poverty line at kth percentile
+
+### Density
+
+The following shows the density plots across the regression methods. rtree is not displayed since it is a set of point masses. 
+```{r density_r, echo=FALSE}
+methods <- c('least_squares', 'ridge', 'lasso', 'forest', 'lasso_ix', 'ridge_ix', 'pca_knn', 'true')
+plot_density_(filter(joined, method %in% methods))
+```
+
+The following shows the density plots across the classification methods. 
+```{r density_c, echo=FALSE}
+methods <- c("logistic_30", "logistic_lasso_30", "cforest_30", "logistic_40", "logistic_lasso_40", "cforest_40")
+plot_density_(filter(joined, method %in% methods))
+```
+
+### Reach vs waste
+The following shows, for different poverty thresholds (as quantiles of the population, given by the graph title), how the number of poor included increases compared to how the number of rich included increases as the eligibility cutoff increases.
+```{r reach_vs_waste, echo=FALSE}
+plot_reach_vs_waste_(joined, POINT_COUNT=100)
+```
+The following is the same graph, for a poverty line at the 40% percentile of the distribution.
+```{r reach_vs_waste_0.4, echo=FALSE}
+plot_reach_vs_waste_(joined, POINT_COUNT=1000, THRESHOLD = 0.4)
+```
+
+### Social welfare (gamma = 2)
+
+The following shows, as the coverage of the program is increased, the social welfare using a targeting rule based on our prediction, divided by the social welfare of using a perfect targeting rule. The social welfare is the sum of the marginal utilities of consumption of recipients, using a CRRA utility function with coefficient of relative risk aversion = gamma.
+
+```{r swf_2, echo=FALSE}
+plot_swf_(joined, POINT_COUNT=1000, GAMMA = 2)
+```
+
+### Social welfare (gamma = 4)
+
+This is the same graph but with a higher CRRA.
+
+```{r swf_4, echo=FALSE}
+plot_swf_(joined, POINT_COUNT=1000, GAMMA = 4)
+```
