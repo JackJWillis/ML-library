@@ -26,7 +26,7 @@ transform_ys.classification <- function(f) {
   f
 }
 
-# Regularized linear models ---------------------------
+# Linear models ---------------------------
 
 Ridge <- function() {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
@@ -184,8 +184,6 @@ predict.least_squares <- function(f, model) {
   predict(model, data.frame(f$x_test))
 }
 
-# Quantile regression
-
 QuantileRegression <- function(tau=0.5) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="quantile_regression")
@@ -205,9 +203,6 @@ fit.quantile_regression <- function(f) {
 predict.quantile_regression <- function(f, model) {
   predict(model, newdata=data.frame(f$x_test))
 }
-
-# Subset selection linear models ---------------------------
-
 
 Stepwise <- function(max_covariates=100) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
