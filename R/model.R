@@ -229,25 +229,6 @@ rTree <- function() {
 }
 
 fit.rTree <- function(f) {
-  yx_train <- data.frame(Y=f$y_train, f$x_train)
-  tree.first <- tree::tree(Y~.,yx_train, weights=f$w_train)
-  cv.trees <- tree::cv.tree(tree.first)
-  #Chooses tree size with minimal deviance
-  bestsize <- cv.trees$size[which.min(cv.trees$dev)]
-  tree.final <- tree::prune.tree(tree.first, best = bestsize)  
-}
-
-predict.rTree <- function(f, model) {
-  predict(model, f$x_test)
-}
-
-rTree2 <- function() {
-  function(x_train, y_train, w_train, x_test, y_test, w_test) {
-    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="rTree2")
-  }
-}
-
-fit.rTree2 <- function(f) {
   yx_train <- data.frame(Y=f$y_train,f$x_train)
   #Setting cp low to ensure trees sufficiently complex
   tree.first <- rpart::rpart(Y~., weights=f$w_train , method="anova", data=yx_train, cp=0.001)
@@ -256,7 +237,7 @@ fit.rTree2 <- function(f) {
   tree.final <- rpart::prune(tree.first, cp = bestsize)  
 }
 
-predict.rTree2 <- function(f, model) {
+predict.rTree <- function(f, model) {
   predict(model, data.frame(f$x_test))
 }
 
@@ -442,15 +423,15 @@ predict_knn <- function(f, model, test_coords) {
 
 # Classification trees ----------------------------------
 
-cTree2 <- function(threshold) {
+cTree <- function(threshold) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
-    structure(f, class=c("cTree2", "classification"))
+    structure(f, class=c("cTree", "classification"))
   }
 }
 
-fit.cTree2 <- function(f) {
+fit.cTree <- function(f) {
   yx_train <- data.frame(Y=f$y_train,f$x_train)
   #Setting cp low to ensure trees sufficiently complex
   tree.first <- rpart::rpart(Y~., weights=f$w_train, method="class", data=yx_train, cp=0.001)
@@ -459,7 +440,7 @@ fit.cTree2 <- function(f) {
   tree.final <- rpart::prune(tree.first, cp = bestsize)  
 }
 
-predict.cTree2 <- function(f, model) {
+predict.cTree <- function(f, model) {
   temp<-predict(model, data.frame(f$x_test), type = "prob")
   prob_non_poor <- temp[,2]
 }
