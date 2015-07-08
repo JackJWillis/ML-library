@@ -84,26 +84,27 @@ plot_density <- function(..., SHOW_FOLDS=FALSE) {
   plot_density_(joined, SHOW_FOLDS)
 }
 
+subtract_base <- function(df, base) {
+  df <- mutate(df, i=row_number())
+  base_df <- filter(df, method == base) %>% 
+    ungroup() %>%
+    group_by(i) %>%
+    summarise(y=mean(y)) %>%
+    select(one_of("y", "i")) %>%
+    rename(base_y=y)
+  df <- merge(df, base_df, on=i)
+  df <- mutate(df, y=y-base_y)
+  df <- filter(df, method != base)
+  df
+}
+
 plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point_count, x_label="percent_population_included", base=NULL) {
   if (!is.null(base)) {
     # assumes that methods are all the same size so check if they are not
     method_counts <- summarise(df, count=n())$count
     stopifnot(first(method_counts) == method_counts)
-    subtract_base <- function(df) {
-      df <- mutate(df, i=row_number())
-      base_df <- filter(df, method == base) %>% 
-        ungroup() %>%
-        group_by(i) %>%
-        summarise(y=mean(y)) %>%
-        select(one_of("y", "i")) %>%
-        rename(base_y=y)
-      df <- merge(df, base_df, on=i)
-      df <- mutate(df, y=y-base_y)
-      df <- filter(df, method != base)
-      df
-    }
-    df <- subtract_base(df)
-    folded <- subtract_base(folded)
+    df <- subtract_base(df, base)
+    folded <- subtract_base(folded, base)
   }
 
   cut <- df %>%
@@ -287,30 +288,35 @@ plot_swf <- function(..., BASE=NULL, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200)
   plot_swf_(joined, BASE, GAMMA, SHOW_FOLDS, POINT_COUNT)
 }
 
-# TODO: normalize by ls
 calculate_reach_vs_waste_ <- function(df, folds) {
- if (folds) {
-   grouped <- group_by(df, method, fold, threshold)
- }
- else {
-   grouped <- group_by(df, method, threshold)
- }
- grouped %>%
-   mutate(response1=weight*as.numeric(raw < wtd.quantile(raw, weights=weight, probs=threshold))) %>%
-   mutate(response2=weight*as.numeric(raw >= wtd.quantile(raw, weights=weight, probs=threshold))) %>%  
-   arrange(predicted) %>%
-   mutate(x=cumsum(response1) / sum(weight)) %>%
-   mutate(y=cumsum(response2) / sum(weight)) %>%
-   mutate(percent_pop_included=cumsum(weight) / weight)
+  if (folds) {
+    grouped <- group_by(df, method, fold, threshold)
+  }
+  else {
+    grouped <- group_by(df, method, threshold)
+  }
+  wtd.quantile <- Hmisc::wtd.quantile
+  grouped %>%
+    mutate(response1=weight*as.numeric(raw < wtd.quantile(raw, weights=weight, probs=threshold))) %>%
+    mutate(response2=weight*as.numeric(raw >= wtd.quantile(raw, weights=weight, probs=threshold))) %>%  
+    arrange(predicted) %>%
+    mutate(x=cumsum(response1) / sum(weight)) %>%
+    mutate(y=cumsum(response2) / sum(weight)) %>%
+    mutate(percent_pop_included=cumsum(weight) / sum(weight))
 }
 
-calculate_reach_ <- function(joined, poverty_threshold=.4, target_threshold=.4) {
+calculate_reach_ <- function(joined, poverty_threshold=.4, target_threshold=.4, base=NULL) {
   joined <- mutate(joined, threshold=poverty_threshold)
-  calculate_reach_vs_waste_(joined) %>%
-    mutate(y=y / n())
+  rvw <- calculate_reach_vs_waste_(joined, FALSE)
+  reach_df <- rvw %>%
     filter(percent_pop_included < target_threshold) %>%
-    arrange(percent_pop_included) %>%
-    summarize(reach_divided_by_n=first(y))
+    arrange(desc(percent_pop_included)) %>%
+    summarize(reach=first(x))
+  if (!is.null(base)) {
+    base_reach <- reach_df[reach_df$method == base,e]$reach
+    reach_df <- mutate(reach_df, reach=reach-base_reach) %>% filter(method != base)
+  }
+  reach
 }
 
 plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
