@@ -13,7 +13,6 @@ library(MLlibrary)
 library(dplyr)
 library(Hmisc)
 
-dataset <- load_dataset(NAME)
 ```
 
 ## Data
@@ -25,7 +24,6 @@ Least squares can be considered the benchmark method upon which the PMT from the
 ## Models
 
 ```{r load_models, echo=FALSE}
-joined <- load_models(NAME)
 k <- nrow(distinct(joined, fold))
 ```
 
