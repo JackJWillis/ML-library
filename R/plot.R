@@ -287,6 +287,7 @@ plot_swf <- function(..., BASE=NULL, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200)
   plot_swf_(joined, BASE, GAMMA, SHOW_FOLDS, POINT_COUNT)
 }
 
+# TODO: normalize by ls
 calculate_reach_vs_waste_ <- function(df, folds) {
  if (folds) {
    grouped <- group_by(df, method, fold, threshold)
