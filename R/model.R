@@ -553,79 +553,71 @@ kfold <- function(k, model_class, y, x, id=NULL, weight=NULL, seed=0) {
   data.frame(kfold_predict(kfold_fits), kfold_splits$id_sorted)
 }
 
-run_all_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variable) {
+run_all_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variable=NULL) {
   save_dataset(name, df)
+  results <- list()
+  
+  print("Running ridge")
+  results$ridge <- kfold_(Ridge(), ksplit)
+  print("Running lasso")
+  results$lasso <- kfold_(Lasso(), ksplit)
+  print("Running lasso 15")
+  results$lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
+  print("Running least squares")
+  results$least_squares <- kfold_(LeastSquares(), ksplit)
   
   print('Running grouped ridge')
-  grouped_ridge <- kfold_(GroupedRidge(grouping_variable), ksplit_nmm)
-  print("Running ridge")
-  ridge <- kfold_(Ridge(), ksplit)
-  print("Running lasso")
-  lasso <- kfold_(Lasso(), ksplit)
-  print("Running lasso 15")
-  lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
-  print("Running least squares")
-  least_squares <- kfold_(LeastSquares(), ksplit)
+  try(results$grouped_ridge <- kfold_(GroupedRidge(grouping_variable), ksplit_nmm))
   
   print("Running stepwise")
-  stepwise <- kfold_(Stepwise(300), ksplit)
+  results$stepwise <- kfold_(Stepwise(300), ksplit)
   print("Running stepwise 15")
-  stepwise_15 <- kfold_(Stepwise(15), ksplit)
+  results$stepwise_15 <- kfold_(Stepwise(15), ksplit)
   
   
   print("Running rtree")
-  rtree <- kfold_(rTree(), ksplit_nmm)
-  
+  results$rtree <- kfold_(rTree(), ksplit_nmm)
   print("Running randomForest")
-  forest <- kfold_(Forest(), ksplit)
+  results$forest <- kfold_(Forest(), ksplit)
+  print("Running Boostedtree")
+  results$btree <- kfold(k, BoostedTrees(ntrees=500), y, x_nmm, id, w)  
+  results$btree_laplace <- kfold(k, BoostedTrees(ntrees=500, distribution="laplace"), y, x_nmm, id, w)  
+  results$btree_adaboost <- kfold(k, BoostedTrees(ntrees=500, distribution="adaboost"), y, x_nmm, id, w)  
+  results$btree_huberized <- kfold(k, BoostedTrees(ntrees=500, distribution="huberized"), y, x_nmm, id, w)  
   
-#   print("Running mca")
-#   mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit_nmm)
+  print("Running mca")
+  try(results$mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit_nmm))
   print("Running pca")
-  pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit_nmm)
+  try(results$pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit_nmm))
   print("Running pca all")
-  pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit)
+  try(results$pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit))
   
   
   threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
   print("Running logistic")
-  logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
+  results$logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
   print("Running logisitic lasso")
-  logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
+  results$logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
   print(" Running ctree")
-  ctree_40 <- kfold_(cTree(threshold_40), ksplit_nmm)
+  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit_nmm)
   print("Running randomForest")
-  cforest_40 <- kfold_(cForest(threshold_40), ksplit)
+  results$cforest_40 <- kfold_(cForest(threshold_40), ksplit)
+  print("Running cBoostedtree")
+  results$cbtree_30 <- kfold(k, cBoostedTrees(threshold_30, ntrees=500), y, x_nmm, id, w)
   
   threshold_30 <- quantile(df[, target], .3, na.rm=TRUE)
   print("Running logistic")
-  logistic_30 <- kfold_(Logistic(threshold_30), ksplit)
+  results$logistic_30 <- kfold_(Logistic(threshold_30), ksplit)
   print("Running logisitic lasso")
-  logistic_lasso_30 <- kfold_(LogisticLasso(threshold_30), ksplit)
+  results$logistic_lasso_30 <- kfold_(LogisticLasso(threshold_30), ksplit)
   print(" Running ctree")
-  ctree_30 <- kfold_(cTree(threshold_30), ksplit_nmm)
+  results$ctree_30 <- kfold_(cTree(threshold_30), ksplit_nmm)
   print("Running randomForest")
-  cforest_30 <- kfold_(cForest(threshold_30), ksplit)
+  results$cforest_30 <- kfold_(cForest(threshold_30), ksplit)
+  print("Running cBoostedtree")
+  results$cbtree_40 <- kfold(k, cBoostedTrees(threshold_40, ntrees=500), y, x_nmm, id, w)
   
   
-  save_models(name,
-              ridge=ridge,
-              lasso=lasso,
-              lasso_15=lasso_15,
-              least_squares=least_squares,
-              stepwise=stepwise,
-              stepwise_15=stepwise_15,
-              grouped_ridge=grouped_ridge,
-              rtree=rtree,
-              forest=forest,
-              pca_knn=pca_knn,
-              pca_knn_all=pca_knn_all,
-              logistic_40=logistic_40,
-              logistic_lasso_40=logistic_lasso_40,
-              ctree_40=ctree_40,
-              cforest_40=cforest_40,
-              logistic_30=logistic_30,
-              logistic_lasso_30=logistic_lasso_30,
-              ctree_30=ctree_30,
-              cforest_30=cforest_30)
+  results$name <- NAME
+  do.call(save_models, results)
 }
