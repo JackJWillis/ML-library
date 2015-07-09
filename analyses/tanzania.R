@@ -97,7 +97,6 @@ create_dataset <- function(year, remove_missing=TRUE) {
 
 tz08 <- create_dataset(2008, remove_missing=TRUE)
 tz08 <- standardize_predictors(tz08, "lconsPC")
-tz08 <- tz08[1:100, ]
 save_dataset(NAME, tz08)
 x <- model.matrix(lconsPC ~ .,  tz08)
 x_nmm <- select(tz08,-one_of("lconsPC"))
