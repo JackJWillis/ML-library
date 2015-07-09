@@ -307,14 +307,14 @@ calculate_reach_vs_waste_ <- function(df, folds) {
 
 calculate_reach_ <- function(joined, poverty_threshold=.4, target_threshold=.4, base=NULL) {
   joined <- mutate(joined, threshold=poverty_threshold)
-  rvw <- calculate_reach_vs_waste_(joined, FALSE)
+  rvw <- calculate_reach_vs_waste_(joined, fold=FALSE)
   reach_df <- rvw %>%
     filter(percent_pop_included < target_threshold) %>%
     arrange(desc(percent_pop_included)) %>%
     summarize(reach=first(x))
   if (!is.null(base)) {
     base_reach <- reach_df[reach_df$method == base, ]$reach
-    reach_df <- mutate(reach_df, reach=reach-base_reach) %>% filter(method != base)
+    reach_df <- mutate(reach_df, reach=(reach-base_reach) / base_reach) %>% filter(method != base)
   }
   select(reach_df, -one_of('threshold'))
 }
