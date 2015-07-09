@@ -49,8 +49,8 @@ predict.ridge <- function(f, model) {
 
 
 GroupedRidge <- function(grouping_variable, include_full=TRUE) {
-  function(x_train, y_train, x_test, y_test) {
-    f <- structure(fold(x_train, y_train, x_test, y_test), class="grouped_ridge")
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="grouped_ridge")
     f$grouping_variable <- grouping_variable
     f$include_full <- include_full
     f
@@ -213,11 +213,17 @@ Stepwise <- function(max_covariates=100) {
 }
 
 fit.stepwise <- function(f) {
-  leaps::regsubsets(f$x_train, f$y_train, weights=f$w_train, method="forward", nvmax=f$max_covariates)
+  yx_train <- data.frame(Y=f$y_train, f$x_train)
+  l <- leaps::regsubsets(Y ~ ., data=yx_train, weights=f$w_train, method="forward", nvmax=f$max_covariates)
+  l <- summary(l)
+  bestfeat <- colnames(l$which[which.min(l$Cp),])
+  bestfeat <- bestfeat[bestfeat != "(Intercept)"]
+  print(class(yx_train[, c('Y', bestfeat)]))
+  lm(Y ~ ., data=yx_train[,  c('Y', bestfeat)], weights=f$w_train)
 }
 
 predict.stepwise <- function(f, model) {
-  predict(model, f$x_test)
+  predict(model, data.frame(f$x_test))
 }
 
 # Tree based models --------------------------------------
@@ -288,7 +294,7 @@ LogisticLasso <- function(threshold) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
-    structure(f, class=c("logistic_lasso", "logistic"))
+    structure(f, class=c("logistic_lasso", "classification"))
   }
 }
 
@@ -325,12 +331,12 @@ predict.logistic <- function(f, model) {
 # KNN Methods -------------------------------------------
 
 MCA_KNN <- function(ndim=5, k=1, threshold=NULL) {
-  function(x_train, y_train, x_test, y_test) {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
     factors <- sapply(x_train, is.factor)
     if (!all(factors)) {
       print(paste("Warning:", sum(!factors), "non-factor variables found, only factors will be used."))
     }
-    f <- fold(x_train, y_train, x_test, y_test)
+    f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$k <- k
     f$ndim <- ndim
     structure(f, class=c("mca", "knn"))
@@ -485,4 +491,141 @@ fit.cbtrees <- function(f) {
 
 predict.cbtrees <- function(f, model) {
   predict(model, newdata=data.frame(f$x_test), n.trees=f$n.trees, type="response")
+}
+
+kfold_split <- function(k, y, x, id=NULL, weight=NULL, seed=NULL) {
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+  if (is.null(weight)) {
+    weight <- rep(1,length(y))
+  }
+  if (is.null(id)) {
+    id <- 1:length(y)
+  }
+  
+  #Generating a sorted id variable to add back at the end of prediction
+  assignments <- sample(rep(1:k, length.out=nrow(x)))
+  id_sorted <- data.frame(id)
+  id_sorted <- id_sorted[order(assignments),]
+  
+  splits <- lapply(1:k, function (k) { 
+     list(
+       x_train=x[assignments != k, ],
+       y_train=y[assignments != k],
+       w_train=weight[assignments != k],
+       x_test=x[assignments == k, ],
+       y_test=y[assignments == k],
+       w_test=weight[assignments == k])})
+  list(splits=splits, assignments=assignments, id_sorted=id_sorted)
+}
+
+kfold_fit <- function(kfold_splits, model_class) {
+  splits <- kfold_splits$splits
+  folds <- lapply(splits, function(s) do.call(model_class, s))
+  folds <- lapply(folds, transform_ys)
+  fits <- lapply(folds, fit)
+  list(folds=folds, fits=fits, assignments=kfold_splits$assignments)
+}
+
+kfold_predict <- function(kfold_fits) {
+  folds <- kfold_fits$folds
+  fits <- kfold_fits$fits
+  assignments <- kfold_fits$assignments
+  #Order in df will be ascending in fold number, hence
+  assignments <- sort(assignments)
+  preds <- unlist(mapply(predict, folds, fits, SIMPLIFY=FALSE))
+  trues <- unlist(lapply(folds, function(f) f$y_test))
+  raws <- unlist(lapply(folds, function(f) f$y_test_raw))
+  weight <- unlist(lapply(folds, function(f) f$w_test))
+  df <- data.frame(predicted=preds, true=trues, raw=raws, weight=weight, fold=assignments)
+  df
+}
+
+kfold_ <- function(model_class, kfold_splits) {
+  kfold_fits <- kfold_fit(kfold_splits, model_class)
+  kfold_predict(kfold_fits)
+}
+
+kfold <- function(k, model_class, y, x, id=NULL, weight=NULL, seed=0) {
+  kfold_splits <- kfold_split(k, y, x, id, weight, seed)
+  kfold_fits <- kfold_fit(kfold_splits, model_class)
+  data.frame(kfold_predict(kfold_fits), kfold_splits$id_sorted)
+}
+
+run_all_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variable) {
+  save_dataset(name, df)
+  
+  print('Running grouped ridge')
+  grouped_ridge <- kfold_(GroupedRidge(grouping_variable), ksplit_nmm)
+  print("Running ridge")
+  ridge <- kfold_(Ridge(), ksplit)
+  print("Running lasso")
+  lasso <- kfold_(Lasso(), ksplit)
+  print("Running lasso 15")
+  lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
+  print("Running least squares")
+  least_squares <- kfold_(LeastSquares(), ksplit)
+  
+  print("Running stepwise")
+  stepwise <- kfold_(Stepwise(300), ksplit)
+  print("Running stepwise 15")
+  stepwise_15 <- kfold_(Stepwise(15), ksplit)
+  
+  
+  print("Running rtree")
+  rtree <- kfold_(rTree(), ksplit_nmm)
+  
+  print("Running randomForest")
+  forest <- kfold_(Forest(), ksplit)
+  
+#   print("Running mca")
+#   mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit_nmm)
+  print("Running pca")
+  pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit_nmm)
+  print("Running pca all")
+  pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit)
+  
+  
+  threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
+  print("Running logistic")
+  logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
+  print("Running logisitic lasso")
+  logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
+  print(" Running ctree")
+  ctree_40 <- kfold_(cTree(threshold_40), ksplit_nmm)
+  print("Running randomForest")
+  cforest_40 <- kfold_(cForest(threshold_40), ksplit)
+  
+  threshold_30 <- quantile(df[, target], .3, na.rm=TRUE)
+  print("Running logistic")
+  logistic_30 <- kfold_(Logistic(threshold_30), ksplit)
+  print("Running logisitic lasso")
+  logistic_lasso_30 <- kfold_(LogisticLasso(threshold_30), ksplit)
+  print(" Running ctree")
+  ctree_30 <- kfold_(cTree(threshold_30), ksplit_nmm)
+  print("Running randomForest")
+  cforest_30 <- kfold_(cForest(threshold_30), ksplit)
+  
+  
+  save_models(name,
+              ridge=ridge,
+              lasso=lasso,
+              lasso_15=lasso_15,
+              least_squares=least_squares,
+              stepwise=stepwise,
+              stepwise_15=stepwise_15,
+              grouped_ridge=grouped_ridge,
+              rtree=rtree,
+              forest=forest,
+              pca_knn=pca_knn,
+              pca_knn_all=pca_knn_all,
+              logistic_40=logistic_40,
+              logistic_lasso_40=logistic_lasso_40,
+              ctree_40=ctree_40,
+              cforest_40=cforest_40,
+              logistic_30=logistic_30,
+              logistic_lasso_30=logistic_lasso_30,
+              ctree_30=ctree_30,
+              cforest_30=cforest_30)
 }
