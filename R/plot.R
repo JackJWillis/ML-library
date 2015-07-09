@@ -328,8 +328,8 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
   folded_df <- calculate_reach_vs_waste_(joined, TRUE)
   plot_cumulative(df=df,
                   base=NULL,
-                  y_label="number of poor targeted / N",
-                  x_label="number of rich targeted / N",
+                  y_label="number of rich targeted / N",
+                  x_label="number of poor targeted / N",
                   show_cutoffs=SHOW_CUTOFFS,
                   show_folds=SHOW_FOLDS,
                   folded=folded_df,
