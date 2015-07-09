@@ -201,7 +201,7 @@ fit.quantile_regression <- function(f) {
 }
 
 predict.quantile_regression <- function(f, model) {
-  predict(model, newdata=data.frame(f$x_test))
+  quantreg::predict.rq(model, newdata=data.frame(f$x_test))
 }
 
 Stepwise <- function(max_covariates=100) {
@@ -568,6 +568,10 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variab
   
   print('Running grouped ridge')
   try(results$grouped_ridge <- kfold_(GroupedRidge(grouping_variable), ksplit_nmm))
+
+  print("Running Quantile")
+  results$quantile <- kfold_(QuantileRegression(), ksplit)
+  results$quantile_30 <- kfold_(QuantileRegression(tau=0.3), ksplit)
   
   print("Running stepwise")
   results$stepwise <- kfold_(Stepwise(300), ksplit)
