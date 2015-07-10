@@ -111,10 +111,16 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
     slice(seq(1, n(), n() / point_count))
 
   p <- ggplot2::ggplot(cut, ggplot2::aes(x=x, y=y, color=method)) +
-    ggplot2::geom_line() +
+    ggplot2::geom_line(alpha=0.75) +
     ggplot2::facet_wrap(~ threshold) +
     ggplot2::labs(y = y_label) +
     ggplot2::labs(x = x_label)
+   
+  if ('least_squares' %in% cut$method) {
+    lms <- filter(cut, method=='least_squares')
+    p <- p + 
+      ggplot2::geom_line(data=lms, mapping=ggplot2::aes(x=x, y=y, color=method), size=1.75)
+  }
   
   if (show_cutoffs) {
     # TODO annotate plot
@@ -289,7 +295,7 @@ plot_swf <- function(..., BASE=NULL, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200)
 }
 
 calculate_reach_vs_waste_ <- function(df, folds) {
-  if (folds) {
+  if (folds){
     grouped <- group_by(df, method, fold, threshold)
   }
   else {
@@ -300,22 +306,37 @@ calculate_reach_vs_waste_ <- function(df, folds) {
     mutate(response1=weight*as.numeric(raw < wtd.quantile(raw, weights=weight, probs=threshold))) %>%
     mutate(response2=weight*as.numeric(raw >= wtd.quantile(raw, weights=weight, probs=threshold))) %>%  
     arrange(predicted) %>%
-    mutate(x=cumsum(response1) / sum(weight)) %>%
-    mutate(y=cumsum(response2) / sum(weight)) %>%
+    mutate(y=cumsum(response1) / sum(weight)) %>%
+    mutate(x=cumsum(response2) / sum(weight)) %>%
     mutate(percent_pop_included=cumsum(weight) / sum(weight))
 }
 
-calculate_reach_ <- function(joined, poverty_threshold=.4, target_threshold=.4, base=NULL) {
+calculate_reach_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_threshold=.4, base=NULL) {
   joined <- mutate(joined, threshold=poverty_threshold)
-  rvw <- calculate_reach_vs_waste_(joined, fold=FALSE)
+  rvw <- calculate_reach_vs_waste_(joined, folds=fold)
+  folds <- unique(rvw$fold) 
+  true <- filter(rvw, method == 'true')
+  true <- true[rep(1:nrow(true), times=length(folds)), ]
+  true$fold <- folds
+  rvw <- filter(rvw, method != 'true')
+  rvw <- rbind(rvw, true)
   reach_df <- rvw %>%
     filter(percent_pop_included < target_threshold) %>%
-    arrange(desc(percent_pop_included)) %>%
-    summarize(reach=first(x))
+    mutate(reach=y) %>%
+    arrange(desc(percent_pop_included))
   if (!is.null(base)) {
-    base_reach <- reach_df[reach_df$method == base, ]$reach
-    reach_df <- mutate(reach_df, reach=(reach-base_reach) / base_reach) %>% filter(method != base)
+    base_reach <- reach_df %>%
+      filter(method == base) %>%
+      group_by(fold) %>%
+      summarise(reach=first(reach))
+    reach_df <- merge(reach_df, base_reach, by='fold') %>%
+      mutate(reach=reach.x - reach.y) %>%
+      filter(method != base) %>%
+      group_by(method, fold)
   }
+  reach_df <- reach_df %>%
+    arrange(desc(percent_pop_included)) %>%
+    summarise(reach=first(reach))
   select(reach_df, -one_of('threshold'))
 }
 
@@ -328,8 +349,8 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
   folded_df <- calculate_reach_vs_waste_(joined, TRUE)
   plot_cumulative(df=df,
                   base=NULL,
-                  y_label="number of rich targeted / N",
-                  x_label="number of poor targeted / N",
+                  x_label="number of rich targeted / N",
+                  y_label="number of poor targeted / N",
                   show_cutoffs=SHOW_CUTOFFS,
                   show_folds=SHOW_FOLDS,
                   folded=folded_df,
