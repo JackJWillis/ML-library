@@ -74,7 +74,6 @@ create_dataset <- function(remove_missing=TRUE) {
 
 # Run analysis ---------------------------
 
-gh_missing <- create_dataset(remove_missing=FALSE)
 gh <- create_dataset()
 gh <- standardize_predictors(gh, "lnwelfare")
 save_dataset(NAME, gh)
@@ -83,73 +82,6 @@ x_nmm <- select(gh,-one_of("lnwelfare"))
 y <- gh[rownames(x), "lnwelfare"]
 k <- 5
 
-print("Running ridge")
-ridge <- kfold(k, Ridge(), y, x)
-print("Running lasso")
-lasso <- kfold(k, Lasso(), y, x)
-print("Running least squares")
-least_squares <- kfold(k, LeastSquares(), y, x)
-
-print("Running stepwise")
-stepwise <- kfold(k, Stepwise(300), y, x)
-
-print("Running grouped ridge")
-x_nmm$rural <- as.character(x_nmm$rural)
-ridge_rural <- kfold(k, GroupedRidge("rural"), y, x_nmm)
-#ERROR: Not sure why.
-#Do this later for zone which Pascale mentioned
-
-
-print("Running rtree")
-rtree <- kfold(k, rTree2(), y, x_nmm)
-
-# print("Running randomForest")
-forest <- kfold(k, Forest(), y, x_nmm)
-
-print("Running mca")
-mca_knn <- kfold(k, MCA_KNN(ndim=12, k=5), y, x_nmm)
-print("Running pca")
-# pca_knn <- kfold(k, PCA_KNN(ndim=12, k=5), y, x_nmm)
-
-# mca_pca_avg <- mca_knn
-# mca_pca_avg$predicted <- (mca_pca_avg$predicted + pca_knn$predicted) / 2
-
-
-threshold_20 <- quantile(gh$lnwelfare, .2)
-print("Running logistic")
-logistic_20 <- kfold(k, Logistic(threshold_20), y, x)
-print("Running logisitic lasso")
-logistic_lasso_20 <- kfold(k, LogisticLasso(threshold_20), y, x)
-print(" Running ctree")
-ctree_20 <- kfold(k, cTree2(threshold_20), y, x_nmm)
-print("Running randomForest")
-cforest_20 <- kfold(k, cForest(threshold_20), y, x_nmm)
-
-threshold_30 <- quantile(gh$lnwelfare, .3)
-print("Running logistic")
-logistic_30 <- kfold(k, Logistic(threshold_30), y, x)
-print("Running logisitic lasso")
-logistic_lasso_30 <- kfold(k, LogisticLasso(threshold_30), y, x)
-print(" Running ctree")
-ctree_30 <- kfold(k, cTree2(threshold_30), y, x_nmm)
-print("Running randomForest")
-cforest_30 <- kfold(k, cForest(threshold_30), y, x_nmm)
-
-save_models(NAME,
-            ridge=ridge,
-            lasso=lasso,
-            least_squares=least_squares,
-            stepwise=stepwise,
-            ridge_rural=ridge_rural,
-            rtree=rtree,
-            forest=forest,
-            mca_knn=mca_knn,
-            #pca_knn=pca_knn,
-            #mca_pca_avg=mca_pca_avg,
-            logistic_20=logistic_20,
-            logistic_lasso_20=logistic_lasso_20,
-            ctree_20=ctree_20,
-            cforest_20=cforest_20,
-            logistic_lasso_30=logistic_lasso_30,
-            ctree_30=ctree_30,
-            cforest_30=cforest_30)
+ksplit <- kfold_split(k, y, x, seed=1)
+ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
+run_all_models(NAME, gh, "lnwelfare", ksplit, ksplit_nmm, 'rural')

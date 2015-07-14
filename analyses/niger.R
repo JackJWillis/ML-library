@@ -80,17 +80,20 @@ create_dataset <- function(input_df,remove_missing=TRUE) {
 
 # Import data ---------------------------
 
-TARGETING_DATA_IN <- "C:/Users/Jack/Box Sync/Poverty Targeting (DATA)/LSMS_ISA/Niger/Data/tmp"
+# TARGETING_DATA_IN <- "C:/Users/Jack/Box Sync/Poverty Targeting (DATA)/LSMS_ISA/Niger/Data/tmp"
+# DATA_FNAME <- "xxx_no_accents.dta"
+# DATA_PATH <- paste(TARGETING_DATA_IN, DATA_FNAME, sep="/")
+# 
+# VARIABLE_TABLE_FNAME <- "variable_table_niger.xlsx"
+# VARIABLE_TABLE_PATH <- paste("C:/Users/Jack/Box Sync/Poverty Targeting (DATA)/Niger", VARIABLE_TABLE_FNAME, sep="/")
+
 DATA_FNAME <- "xxx_no_accents.dta"
-DATA_PATH <- paste(TARGETING_DATA_IN, DATA_FNAME, sep="/")
-
 VARIABLE_TABLE_FNAME <- "variable_table_niger.xlsx"
-VARIABLE_TABLE_PATH <- paste("C:/Users/Jack/Box Sync/Poverty Targeting (DATA)/Niger", VARIABLE_TABLE_FNAME, sep="/")
 
+DATA_PATH <- paste(TARGETING_DATA_IN, DATA_FNAME, sep="/")
+VARIABLE_TABLE_PATH <- paste(TARGETING_DATA_IN, VARIABLE_TABLE_FNAME, sep="/")
 
 # Just using their variables. Note, different for different agricultural zones
-
-NAME <- "niger_pastoral"
 
 temp <- load_data()
 
@@ -103,13 +106,10 @@ niger_p_id <- data.frame(grappe=niger_p$grappe,menage=niger_p$menage)
 niger_p$grappe <- NULL
 niger_p$menage <- NULL
 niger_p <- standardize_predictors(niger_p, "y_real")
-save_dataset(NAME, niger_p)
 
 x_p <- model.matrix(y_real ~ .,  niger_p)
 x_p_nmm <- select(niger_p,-one_of("y_real"))
 y_p <- niger_p[rownames(x_p), "y_real"]
-
-NAME <- "niger_agricultural"
 
 temp <- load_data()
 #Just keeping Pastorale:
@@ -121,142 +121,16 @@ niger_a_id <- data.frame(grappe=niger_a$grappe,menage=niger_a$menage)
 niger_a$grappe <- NULL
 niger_a$menage <- NULL
 niger_a <- standardize_predictors(niger_a, "y_real")
-save_dataset(NAME, niger_a)
 
 x_a <- model.matrix(y_real ~ .,  niger_a)
 x_a_nmm <- select(niger_a,-one_of("y_real"))
 y_a <- niger_a[rownames(x_a), "y_real"]
 
-# Set k ----------------------------------------
-
 k <- 5
+ksplit_a <- kfold_split(k, y_a, x_a, id=niger_a_id, weight=niger_a_weight, seed=1)
+ksplit_nmm_a <- kfold_split(k, y_a, x_a_nmm, id=niger_a_id, weight=niger_a_weight, seed=1)
+run_all_models('niger_agricultural', niger_a, 'y_real', ksplit_a, ksplit_nmm_a)
 
-# Function to run all models -------------------
-
-run_models = function(y,x,x_nmm,id,w,NAME) {
-
-  print("Running ridge")
-  ridge <- kfold(k, Ridge(), y, x, id, w)
-  print("Running lasso")
-  lasso <- kfold(k, Lasso(), y, x, id, w)
-  print("Running least squares")
-  least_squares <- kfold(k, LeastSquares(), y, x, id, w)
-  
-  x_ix <- model.matrix(~ . + .:.,  x_nmm)
-  y_ix <- y
-  print("Running ridge with interactions")
-  ridge_ix <- kfold(k, Ridge(), y_ix, x_ix, id, w)
-  print("Running lasso with interactions")
-  lasso_ix <- kfold(k, Lasso(), y_ix, x_ix, id, w)
-  print("Running least squares with interactions")
-  least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix, id, w)
-  
-  print("Running rtree")
-  rtree <- kfold(k, rTree2(), y, x_nmm, id, w)  
-  print("Running randomForest")
-  forest <- kfold(k, Forest(), y, x_nmm, id, w)
-  print("Running Quantile")
-  quantile <- kfold(k, QuantileRegression(), y, x, id, w)    
-
-#   print("Running mca")
-#   mca_knn <- kfold(k, MCA_KNN(ndim=12, k=5), y, x_nmm, id)
-
-  print("Running pca")
-  pca_knn <- kfold(k, PCA_KNN(ndim=12, k=5), y, x_nmm, id, w)
-  print("Running Boostedtree")
-  Btree <- kfold(k, BoostedTrees(), y, x_nmm, id, w)  
-
-# Update to weighted
-  threshold_30 <- quantile(y, .3)
-  print("Running logistic")
-  logistic_30 <- kfold(k, Logistic(threshold_30), y, x, id, w)
-  print("Running logisitic lasso")
-  logistic_lasso_30 <- kfold(k, LogisticLasso(threshold_30), y, x, id, w)
-  print(" Running ctree")
-  ctree_30 <- kfold(k, cTree2(threshold_30), y, x_nmm, id, w)
-  print("Running randomForest")
-  cforest_30 <- kfold(k, cForest(threshold_30), y, x_nmm, id, w)
-  print("Running cBoostedtree")
-  cBtree_30 <- kfold(k, cBoostedTrees(threshold_30), y, x_nmm, id, w)
-
-# Update to weighted
-  threshold_40 <- quantile(y, .4)
-  print("Running logistic")
-  logistic_40 <- kfold(k, Logistic(threshold_40), y, x, id, w)
-  print("Running logisitic lasso")
-  logistic_lasso_40 <- kfold(k, LogisticLasso(threshold_40), y, x, id, w)
-  print(" Running ctree")
-  ctree_40 <- kfold(k, cTree2(threshold_40), y, x_nmm, id, w)
-  print("Running randomForest")
-  cforest_40 <- kfold(k, cForest(threshold_40), y, x_nmm, id, w)
-  print("Running cBoostedtree")
-  cBtree_40 <- kfold(k, cBoostedTrees(threshold_40), y, x_nmm, id, w)
-  
-  save_models(NAME,
-              least_squares=least_squares,
-              ridge=ridge,
-              lasso=lasso,
-              quantile=quantile,
-              rtree=rtree,
-              forest=forest,
-              pca_knn=pca_knn,
-              Btree=Btree,
-              ridge_ix=ridge_ix,
-              lasso_ix=lasso_ix,
-              least_squares_ix=least_squares_ix,
-              logistic_30 = logistic_30,
-              logistic_lasso_30 = logistic_lasso_30,
-              ctree_30 = ctree_30,
-              cforest_30 = cforest_30,
-              cBtree_30 = cBtree_30,
-              logistic_40 = logistic_40,
-              logistic_lasso_40 = logistic_lasso_40,
-              ctree_40 = ctree_40,
-              cforest_40 = cforest_40,              
-              cBtree_40 = cBtree_40)
-
-
-  output_wide <- data.frame(y_real = y, ridge[,names(id)], weight = ridge$weight)
-  models <- list(least_squares=least_squares,
-                 ridge=ridge,
-                 lasso=lasso,
-                 quantile=quantile,
-                 rtree=rtree,
-                 Btree=Btree,
-                 forest=forest,
-                 pca_knn=pca_knn,                 
-                 ridge_ix=ridge_ix,
-                 lasso_ix=lasso_ix,
-                 least_squares_ix=least_squares_ix, 
-                 logistic_30 = logistic_30,
-                 logistic_lasso_30 = logistic_lasso_30,
-                 ctree_30 = ctree_30,
-                 cforest_30 = cforest_30,
-                 cBtree_30 = cBtree_30,
-                 logistic_40 = logistic_40,
-                 logistic_lasso_40 = logistic_lasso_40,
-                 ctree_40 = ctree_40,
-                 cforest_40 = cforest_40,
-                 cBtree_40 = cBtree_40)
-
-  for( name in names(models)) {
-  #  CHANGE THIS TO MERGE BY ID
-    output_wide <- data.frame(output_wide,models[[name]]$predicted)
-    colnames(output_wide)[ncol(output_wide)] <- name
-  }
-  output_wide
-} 
-
-# Generate output ---------------------------------
-
-TARGETING_DATA_OUT <- "data"
-
-niger_p_models <- run_models(y_p,x_p,x_p_nmm,niger_p_id,niger_p_weight,"niger_pastoral")
-out_path <- paste(TARGETING_DATA_OUT, "niger_p_wide.csv", sep="/")
-write.csv(niger_p_models, file=out_path)
-
-niger_a_models <- run_models(y_a,x_a,x_a_nmm,niger_a_id,niger_a_weight,"niger_agricultural")
-out_path <- paste(TARGETING_DATA_OUT, "niger_a_wide.csv", sep="/")
-write.csv(niger_a_models, file=out_path)
-
-
+ksplit_p <- kfold_split(k, y_p, x_p, id=niger_p_id, weight=niger_p_weight, seed=1)
+ksplit_nmm_p <- kfold_split(k, y_p, x_p_nmm, id=niger_p_id, weight=niger_p_weight, seed=1)
+run_all_models('niger_pastoral', niger_p, 'y_real', ksplit_p, ksplit_nmm_p)

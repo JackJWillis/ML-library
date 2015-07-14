@@ -103,64 +103,6 @@ x_nmm <- select(tz08,-one_of("lconsPC"))
 y <- tz08[rownames(x), "lconsPC"]
 k <- 5
 
-# Running with missing data removed
-print("Running ridge")
-ridge <- kfold(k, Ridge(), y, x)
-print("Running lasso")
-lasso <- kfold(k, Lasso(), y, x)
-print("Running lasso 15")
-lasso_15 <- kfold(k, Lasso(max_covariates=15), y, x)
-print("Running least squares")
-least_squares <- kfold(k, LeastSquares(), y, x)
-print("Running stepwise")
-stepwise <- kfold(k, Stepwise(), y, x)
-print("Running stepwise 15")
-stepwise_15 <- kfold(k, Stepwise(max_covariates=15), y, x)
-# print("Running logistic")
-# logistic <- kfold(k, Logistic(12.5), y, x)
-print("Running rtree")
-rtree <- kfold(k, rTree(), y, x_nmm)
-print("Running randomForest")
-forest <- kfold(k, Forest(), y, x_nmm)
-
-# Rerun with interaction terms
-# TODO: Handle this with parameters to the model class?
-x_ix <- model.matrix(lconsPC ~ . + .:.,  tz08)
-y_ix <- tz08[rownames(x_ix), "lconsPC"]
-
-print("Running ridge with interactions")
-ridge_ix <- kfold(k, Ridge(), y_ix, x_ix)
-print("Running lasso with interactions")
-lasso_ix <- kfold(k, Lasso(), y_ix, x_ix)
-print("Running least squares with interactions")
-least_squares_ix <- kfold(k, LeastSquares(), y_ix, x_ix)
-# TODO: This fails
-# print("Running stepwise with interactions")
-# stepwise_ix <- kfold(k, Stepwise(), y_ix, x_ix)
-#print("Running logistic with interaction terms")
-#logistic_ix <- kfold(k, Logistic(12.5), y_ix, x_ix)
-
-# Running with missing data and indicators included
-# tz08_missing <- na_indicator(tz08)
-# x <- model.matrix(lconsPC ~ .,  tz08_missing)
-# y <- tz08[rownames(x), "lconsPC"]
-# print("Running ridge with missing")
-# ridge_missing <- kfold(k, Ridge(), y, x)
-# print("Running lasso with missing")
-# lasso_missing <- kfold(k, Lasso(), y, x)
-# print("Running least squares with missing")
-# least_squares_missing <- kfold(k, LeastSquares(), y, x)
-# # TODO: This fails
-# #print("Running stepwise with missing")
-# #stepwise_missing <- kfold(k, Stepwise(), y, x)
-# print("Running logistic with missing")
-# logistic_missing <- kfold(k, Logistic(12.5), y, x)
-
-save_models(NAME,
-  ridge=ridge,
-  lasso=lasso,
-  lasso_15=lasso_15,  
-  least_squares=least_squares,
-  stepwise_15=stepwise_15,
-  ridge_ix=ridge_ix,
-  lasso_ix=lasso_ix)
+ksplit <- kfold_split(k, y, x, seed=1)
+ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
+run_all_models(NAME, tz08, "lconsPC", ksplit, ksplit_nmm, 'locality')

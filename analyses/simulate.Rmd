@@ -87,7 +87,7 @@ run_linear <- function(ksplit) {
 }
 
 run_trees <- function(ksplit, ksplit_nmm) {
-  rtree <- kfold_(rTree2(), ksplit_nmm)
+  rtree <- kfold_(rTree(), ksplit_nmm)
   rforest <- kfold_(Forest(), ksplit)
   btrees <- kfold_(BoostedTrees(n.trees=500), ksplit_nmm)
   btrees_laplace <- kfold_(BoostedTrees(n.trees=500, distribution="laplace"), ksplit_nmm)
