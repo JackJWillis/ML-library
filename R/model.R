@@ -510,6 +510,28 @@ predict.cbtrees <- function(f, model) {
   1 - predict(model, newdata=data.frame(f$x_test), n.trees=f$n.trees, type="response")
 }
 
+
+# Ensemble methods ----------------------------------
+
+Super <- function(SL.library=NULL) {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class=c("super"))
+    if (is.null(SL.library)) {
+      SL.library <- c()
+    }
+    f$SL.library <- SL.library
+    f
+  }
+}
+
+fit.super <- function(f) {
+  model <- SuperLearner(f$y_train, f$x_train, newX=f$x_test, SL.library=f$SL.library)
+}
+
+predict.super <- function(f, model) {
+  model$SL.predict
+}
+
 kfold_split <- function(k, y, x, id=NULL, weight=NULL, seed=NULL) {
   if (!is.null(seed)) {
     set.seed(seed)
@@ -568,6 +590,24 @@ kfold <- function(k, model_class, y, x, id=NULL, weight=NULL, seed=0) {
   kfold_splits <- kfold_split(k, y, x, id, weight, seed)
   kfold_fits <- kfold_fit(kfold_splits, model_class)
   data.frame(kfold_predict(kfold_fits), kfold_splits$id_sorted)
+}
+
+ensemble <- function(joined, k=5) {
+  joined <- dplyr::filter(joined, method != "true")
+  df <- stats::reshape(joined, timevar="method", idvar="raw", direction="wide", drop=c("X", "true", "weight", "fold"))
+  Y <- df$raw
+  X <- model.matrix(raw ~ ., df)
+  kfold_splits <- kfold_split(k, Y, X, id=NULL, weight=NULL, seed=1)
+  kfold_fits <- kfold_fit(kfold_splits, LeastSquares())
+  pred <- kfold_predict(kfold_fits)
+  list(pred=data.frame(pred), fits=kfold_fits$fits)
+}
+
+run_all_models_pca <- function(name, k, y, x, ncomp=20) {
+  x <- prcomp(x, retx=TRUE)$x[, 1:ncomp]
+  ksplit <- kfold_split(k, y, x, seed=1)
+  ksplit_nmm <- kfold_split(k, y, data.frame(x), seed=1)
+  run_all_models(name, data.frame(y=y, x), "y", ksplit, ksplit_nmm)
 }
 
 run_all_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variable=NULL) {
@@ -641,6 +681,13 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variab
   results$cbtree_adaboost_30 <- kfold_(cBoostedTrees(threshold_30, distribution="adaboost"), ksplit)  
   results$cbtree_huberized_30 <- kfold_(cBoostedTrees(threshold_30, distribution="huberized"), ksplit)  
   
+  joined <- join_dfs(results)
+  e <- ensemble(filter(joined, predicted > 2))
+  results$ensemble <- e$pred
+  save_ensemble(name, e)
+  
+  e <- ensemble(joined)
+  results$ensemble_all <- e$pred
   results$name <- name
   do.call(save_models, results)
 }
@@ -693,6 +740,13 @@ run_fast_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_varia
   results$cbtree_adaboost_40 <- kfold_(cBoostedTrees(threshold_40, distribution="adaboost"), ksplit)  
   results$cbtree_huberized_40 <- kfold_(cBoostedTrees(threshold_40, distribution="huberized"), ksplit)  
   
+  joined <- join_dfs(results)
+  e <- ensemble(filter(joined, predicted > 2))
+  results$ensemble <- e$pred
+  save_ensemble(name, e)
+  
+  e <- ensemble(joined)
+  results$ensemble_all <- e$pred
   results$name <- name
   do.call(save_models, results)
 }
