@@ -36,8 +36,8 @@ Ridge <- function() {
 
 
 fit.ridge <- function(f) {
-  ridge_model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=FALSE, alpha=0)
-  cv_ridge <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=FALSE, alpha=0, parallel=TRUE)
+  ridge_model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=TRUE, alpha=0)
+  cv_ridge <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=TRUE, alpha=0, parallel=TRUE)
   ridge_model$best_lambda <- cv_ridge$lambda.min
   ridge_model
 }
@@ -300,8 +300,8 @@ LogisticLasso <- function(threshold) {
 
 
 fit.logistic_lasso <- function(f) {
-  model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=FALSE, alpha=1)
-  cv_out <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=FALSE, alpha=1)
+  model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=TRUE, alpha=1)
+  cv_out <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=TRUE, alpha=1)
   model$best_lambda <- cv_out$lambda.min
   model
 }
@@ -321,7 +321,7 @@ Logistic <- function(threshold) {
 
 
 fit.logistic <- function(f) {
-  glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=FALSE)
+  glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=TRUE)
 }
 
 predict.logistic <- function(f, model) {
