@@ -23,13 +23,15 @@ gaussian_x <- function(mean, sd, random=F) {
   }
 }
 
-add_noise <-function(d, noise_y=function(response) {response}, noise_x=function(response) {response}) {
+add_noise <-function(d, noise_y=function(response) {response}, noise_x=function(response) {response}, seed=1) {
+  set.seed(seed)
   d$y <- noise_y(d$y)
   d$X <- noise_x(d$X)
   d
 }
 
-linear <- function(nvar=10, nrow=100) {
+linear <- function(nvar=10, nrow=100, seed=1) {
+  set.seed(seed)
   variables <- as.character(seq_len(nvar))
   coefficients <- seq_along(variables)
   X <- matrix(rnorm(nvar * nrow), nrow=nrow, ncol=nvar)
@@ -43,7 +45,8 @@ exponential <- function(nvar=10, nrow=100) {
   d
 }
 
-cuts <- function(nvar=10, nrow=100, nest = F) {
+cuts <- function(nvar=10, nrow=100, nest = F, seed=1) {
+  set.seed(seed)
   X <- matrix(rnorm(nvar * nrow), nrow=nrow, ncol=nvar)
   cuts <- rnorm(nvar)
   cuts <- matrix(cuts, nrow=nrow, ncol=nvar, byrow = TRUE)

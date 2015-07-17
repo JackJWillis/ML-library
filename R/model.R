@@ -715,9 +715,9 @@ run_simulation_models <- function(name, df, target, ksplit, ksplit_nmm, ksplit_i
   print("Running rtree")
   results$rtree <- kfold_(rTree(), ksplit_nmm)
   print("Running randomForest")
-  results$forest <- kfold_(Forest(), ksplit)
+  results$forest <- kfold_(Forest(), ksplit_nmm)
   print("Running Boostedtree")
-  results$btree <- kfold_(BoostedTrees(), ksplit)
+  results$btree <- kfold_(BoostedTrees(), ksplit_nmm)
   
   print("Running pca")
   try(results$pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit_nmm))
@@ -732,9 +732,9 @@ run_simulation_models <- function(name, df, target, ksplit, ksplit_nmm, ksplit_i
   print(" Running ctree")
   results$ctree_40 <- kfold_(cTree(threshold_40), ksplit_nmm)
   print("Running randomForest")
-  results$cforest_40 <- kfold_(cForest(threshold_40), ksplit)
+  results$cforest_40 <- kfold_(cForest(threshold_40), ksplit_nmm)
   print("Running cBoostedtree")
-  results$cbtree_40 <- kfold_(cBoostedTrees(threshold_40), ksplit)
+  results$cbtree_40 <- kfold_(cBoostedTrees(threshold_40), ksplit_nmm)
 
   
   results$name <- name
