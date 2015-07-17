@@ -11,22 +11,16 @@ library(xlsx)
 library(dplyr)
 library(MLlibrary)
 
-
-DATA_FNAME <- "model_a_vars1.dta"
-VARIABLE_TABLE_FNAME <- "variable_table_ghana.xlsx"
-
-DATA_PATH <- paste(TARGETING_DATA_IN, DATA_FNAME, sep="/")
-VARIABLE_TABLE_PATH <- paste(TARGETING_DATA_IN, VARIABLE_TABLE_FNAME, sep="/")
 NAME <- "ghana"
 
 # Load data ---------------------------
 
-load_data <- function() {
-  read.dta(DATA_PATH)
+load_data <- function(data_path) {
+  read.dta(data_path)
 }
 
-add_covariates <- function(output_df, ghana) {
-  feature_info <- read.xlsx(VARIABLE_TABLE_PATH, sheetName="Sheet1")
+add_covariates <- function(output_df, ghana, var_table_path) {
+  feature_info <- read.xlsx(var_table_path, sheetName="Sheet1")
   feature_info <- feature_info[!is.na(feature_info$var_name), ]
   select_names_by_type <- function(type) {
     is_desired_type <- feature_info$type == type
@@ -61,22 +55,45 @@ remove_missing_data <- function(output_df) {
   output_df[complete.cases(output_df), ]
 }
 
-create_dataset <- function(remove_missing=TRUE) {
-  ghana <- load_data()
+create_dataset <- function(data_path, var_table_path, remove_missing=TRUE) {
+  ghana <- load_data(data_path)
   df <-
     matrix(nrow=nrow(ghana), ncol=0) %>%
     data.frame() %>%
-    add_covariates(ghana) %>%
+    add_covariates(ghana, var_table_path) %>%
     add_target(ghana) 
   if (remove_missing) df <- remove_missing_data(df)
   df
 }
 
 # Run analysis ---------------------------
+PE_DATA_FNAME <- "pre_feature_extraction.dta"
+PE_VARIABLE_TABLE_FNAME <- "variable_table_ghana_pre_extraction.xlsx"
 
-gh <- create_dataset()
+DATA_FNAME <- "model_a_vars1.dta"
+VARIABLE_TABLE_FNAME <- "variable_table_ghana.xlsx"
+
+data_path <- paste(TARGETING_DATA_IN, DATA_FNAME, sep="/")
+variable_table_path <- paste(TARGETING_DATA_IN, VARIABLE_TABLE_FNAME, sep="/")
+
+pe_data_path <- paste(TARGETING_DATA_IN, PE_DATA_FNAME, sep="/")
+pe_variable_table_path <- paste(TARGETING_DATA_IN, PE_VARIABLE_TABLE_FNAME, sep="/")
+
+# gh <- create_dataset(data_path, variable_table_path)
+# gh <- standardize_predictors(gh, "lnwelfare")
+# save_dataset(NAME, gh)
+# x <- model.matrix(lnwelfare ~ .,  gh)
+# x_nmm <- select(gh,-one_of("lnwelfare"))
+# y <- gh[rownames(x), "lnwelfare"]
+# k <- 5
+# 
+# ksplit <- kfold_split(k, y, x, seed=1)
+# ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
+# run_all_models(NAME, gh, "lnwelfare", ksplit, ksplit_nmm, 'rural')
+
+gh <- create_dataset(pe_data_path, pe_variable_table_path)
 gh <- standardize_predictors(gh, "lnwelfare")
-save_dataset(NAME, gh)
+save_dataset(paste(NAME, 'pe', sep='_'), gh)
 x <- model.matrix(lnwelfare ~ .,  gh)
 x_nmm <- select(gh,-one_of("lnwelfare"))
 y <- gh[rownames(x), "lnwelfare"]
@@ -84,4 +101,4 @@ k <- 5
 
 ksplit <- kfold_split(k, y, x, seed=1)
 ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
-run_all_models(NAME, gh, "lnwelfare", ksplit, ksplit_nmm, 'rural')
+run_all_models(paste(NAME, "pe", sep="_"), gh, "lnwelfare", ksplit, ksplit_nmm, 'rural')

@@ -3,21 +3,33 @@ all: tanzania ghana table
 clean:
 	rm results/*
 
-table: results/scores.csv 
+table: reach mse l1
 
 results: 
 	mkdir -p results
 
-results/scores.csv: $(wildcard results/*.csv)
+reach: $(wildcard results/*_reach.csv)
+	Rscript analyses/join.R $^
+
+mse: $(wildcard results/*_mse.csv)
+	Rscript analyses/join.R $^
+
+l1: $(wildcard results/*_l1.csv)
 	Rscript analyses/join.R $^
 
 ### Ghana ###
-ghana: results/ghana.html
+ghana: results/ghana.html results/ghana_pe.html
+
+results/ghana_pe.html: ddata/ghana_pe_cv_out.csv data/ghana.csv R/plot.R
+	Rscript analyses/report.R ghana_pe
 
 results/ghana.html: data/ghana_cv_out.csv data/ghana.csv R/plot.R
 	Rscript analyses/report.R ghana
 
-data/ghana_cv_out.csv: analyses/ghana.R R/model.R
+data/ghana_pe_cv_out.csv: analyses/ghana2.R/model.R
+	Rscript analyses/ghana2.R
+
+data/ghana_cv_out.csv: analyses/ghana2.R R/model.R
 	Rscript analyses/ghana2.R
 
 ### Mexico ###
