@@ -226,9 +226,9 @@ fit.stepwise <- function(f) {
   yx_train <- data.frame(Y=f$y_train, f$x_train)
   l <- leaps::regsubsets(Y ~ ., data=yx_train, weights=f$w_train, method="forward", nvmax=f$max_covariates)
   l <- summary(l)
-  bestfeat <- colnames(l$which[which.min(l$Cp),])
-  bestfeat <- bestfeat[bestfeat != "(Intercept)"]
-  print(class(yx_train[, c('Y', bestfeat)]))
+  bestfeat <-l$which[which.min(l$bic),]
+  bestfeat <- bestfeat[-1] # remove weird (Intercept) column
+  bestfeat <- names(bestfeat)[bestfeat]
   lm(Y ~ ., data=yx_train[,  c('Y', bestfeat)], weights=f$w_train)
 }
 
