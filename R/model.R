@@ -166,6 +166,16 @@ predict.lasso <- function(f, model) {
 }
 
 
+LeastSquaresPC <- function(ncomp=20) {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    x <- rbind(x_train, x_test)
+    x <- prcomp(x, retx=TRUE)$x[, 1:ncomp]
+    x_train <- x[1:nrow(x_train), ]
+    x_test <- x[(nrow(x_train)+1):(nrow(x_train)+nrow(x_test)), ]
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class=c("least_squares_pc", "least_squares"))
+  }
+}
+  
 LeastSquares <- function() {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="least_squares")
@@ -572,6 +582,7 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variab
   results$lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
   print("Running least squares")
   results$least_squares <- kfold_(LeastSquares(), ksplit)
+  results$least_squares_pc <- kfold_(LeastSquaresPC(), ksplit)
   
   print('Running grouped ridge')
   try(results$grouped_ridge <- kfold_(GroupedRidge(grouping_variable), ksplit_nmm))
@@ -646,6 +657,7 @@ run_fast_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_varia
   results$lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
   print("Running least squares")
   results$least_squares <- kfold_(LeastSquares(), ksplit)
+  results$least_squares_pc <- kfold_(LeastSquaresPC(), ksplit)
   
   print('Running grouped ridge')
   try(results$grouped_ridge <- kfold_(GroupedRidge(grouping_variable), ksplit_nmm))
