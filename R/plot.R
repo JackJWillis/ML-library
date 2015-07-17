@@ -360,7 +360,7 @@ plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTO
 plot_reach_vs_waste <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   dfs <- list(...)
   joined <- join_dfs(dfs)
-  plot_reach_vs_waste_(joined, BASE, THRESHOLD, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
+  plot_reach_vs_waste_(joined, THRESHOLD, SHOW_CUTOFFS, SHOW_FOLDS, POINT_COUNT)
 }
 
 
