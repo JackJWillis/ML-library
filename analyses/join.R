@@ -27,14 +27,24 @@ plot_scores <- function(df, fname) {
   all_names <- c(reg_names, nonlin_names, class_names, ensemble_names)
   df <- filter(df, method %in% all_names)
   
-  levels(df$method)[levels(df$method) %in% reg_names] <- sapply(reg_names,function(response) {paste("1. Linear regularized",response,sep=" -- ")})
-  levels(df$method)[levels(df$method) %in% nonlin_names] <- sapply(nonlin_names,function(response) {paste("3. Non-linear regression",response,sep=" -- ")})
-  levels(df$method)[levels(df$method) %in% class_names] <- sapply(class_names,function(response) {paste("4. Classification",response,sep=" -- ")})
-  levels(df$method)[levels(df$method) %in% ensemble_names] <- sapply(ensemble_names,function(response) {paste("5. Ensemble",response,sep=" -- ")})
+  add_prefix <- function(df, names, prefix) {
+    names_logical <- levels(df$method) %in% names
+    if (!any(names_logical)) {
+      return(df)
+    }
+    levels(df$method)[names_logical] <- sapply(
+      levels(df$method)[names_logical],
+      function(response) {paste(prefix, response, sep=" -- ")})
+    df
+  }
+  df <- add_prefix(df, reg_names, "1. Linear regularized")
+  df <- add_prefix(df, nonlin_names, "2. Non-linear regression")
+  df <- add_prefix(df, class_names, "3. Classification")
+  df <- add_prefix(df, ensemble_names, "4. Ensemble")
   df$method <- as.factor(as.character(df$method))
   p <- ggplot(df, aes(y=value, x=method, color=variable, alpha=alpha)) + 
     geom_point(position=position_dodge(width=0.5)) +
-    scale_fill_brewer(palette = "Set1") + 
+    scale_color_brewer(palette = "Set1") + 
     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
     labs(y = paste(metric, "- lms", metric)) +
     scale_alpha_continuous(range=c(0.3, 1), guide=FALSE) +
