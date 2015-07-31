@@ -21,7 +21,7 @@ for (path in paths[-1]) {
 plot_scores <- function(df, fname) {
   df$method <- as.factor(as.character(df$method))
   reg_names <- c("stepwise","stepwise_15", "lasso", "lasso_15", "ridge", "least_squares_pc")
-  nonlin_names <- c("pca_knn","pca_knn_all","forest","btree","btree_laplace", "rtree")  
+  nonlin_names <- c("pca_knn","pca_knn_all","forest","btree","btree_laplace", "rtree", "spline")
   class_names <- c("logistic_40","logistic_lasso_40","ctree_40","cforest_40", "cbtree_40")
   ensemble_names <- c("ensemble", "ensemble_all")
   all_names <- c(reg_names, nonlin_names, class_names, ensemble_names)
