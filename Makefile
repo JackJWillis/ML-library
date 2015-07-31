@@ -20,13 +20,13 @@ l1: $(wildcard results/*_l1.csv)
 ### Ghana ###
 ghana: results/ghana.html results/ghana_pe.html
 
-results/ghana_pe.html: ddata/ghana_pe_cv_out.csv data/ghana.csv R/plot.R
+results/ghana_pe.html: data/ghana_pe_cv_out.csv data/ghana.csv R/plot.R
 	Rscript analyses/report.R ghana_pe
 
 results/ghana.html: data/ghana_cv_out.csv data/ghana.csv R/plot.R
 	Rscript analyses/report.R ghana
 
-data/ghana_pe_cv_out.csv: analyses/ghana2.R/model.R
+data/ghana_pe_cv_out.csv: analyses/ghana2.R R/model.R
 	Rscript analyses/ghana2.R
 
 data/ghana_cv_out.csv: analyses/ghana2.R R/model.R
