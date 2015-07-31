@@ -79,17 +79,16 @@ variable_table_path <- paste(TARGETING_DATA_IN, VARIABLE_TABLE_FNAME, sep="/")
 pe_data_path <- paste(TARGETING_DATA_IN, PE_DATA_FNAME, sep="/")
 pe_variable_table_path <- paste(TARGETING_DATA_IN, PE_VARIABLE_TABLE_FNAME, sep="/")
 
-# gh <- create_dataset(data_path, variable_table_path)
-# gh <- standardize_predictors(gh, "lnwelfare")
-# save_dataset(NAME, gh)
-# x <- model.matrix(lnwelfare ~ .,  gh)
-# x_nmm <- select(gh,-one_of("lnwelfare"))
-# y <- gh[rownames(x), "lnwelfare"]
-# k <- 5
-# 
-# ksplit <- kfold_split(k, y, x, seed=1)
-# ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
-# run_all_models(NAME, gh, "lnwelfare", ksplit, ksplit_nmm, 'rural')
+gh <- create_dataset(data_path, variable_table_path)
+gh <- standardize_predictors(gh, "lnwelfare")
+save_dataset(NAME, gh)
+x <- model.matrix(lnwelfare ~ .,  gh)
+x_nmm <- select(gh,-one_of("lnwelfare"))
+y <- gh[rownames(x), "lnwelfare"]
+frac <- 0.8
+
+cv_split <- cv_split(y, x, frac, seed=1)
+run_all_heldout(NAME, gh, "lnwelfare", cv_split, 'rural')
 
 gh <- create_dataset(pe_data_path, pe_variable_table_path)
 gh <- standardize_predictors(gh, "lnwelfare")
@@ -97,8 +96,7 @@ save_dataset(paste(NAME, 'pe', sep='_'), gh)
 x <- model.matrix(lnwelfare ~ .,  gh)
 x_nmm <- select(gh,-one_of("lnwelfare"))
 y <- gh[rownames(x), "lnwelfare"]
-k <- 5
+frac <- 0.8
 
-ksplit <- kfold_split(k, y, x, seed=1)
-ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
-run_all_models(paste(NAME, "pe", sep="_"), gh, "lnwelfare", ksplit, ksplit_nmm, 'rural')
+cv_split <- cv_split(y, x, frac, seed=1)
+run_all_heldout(paste(NAME, "pe", sep="_"), gh, "lnwelfare", cv_split, 'rural')
