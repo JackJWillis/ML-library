@@ -108,4 +108,4 @@ k <- 5
 
 ksplit <- kfold_split(k, y, x, seed=1)
 ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
-run_all_models(NAME, mx, "lconsPC", ksplit, ksplit_nmm, 'muni')
+run_fast_models(NAME, mx, "lconsPC", ksplit, ksplit_nmm, 'muni')

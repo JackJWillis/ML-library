@@ -5,6 +5,7 @@ TARGETING_DATA_OUT <- "data"
 
 MODELS_BASE <- "cv_out.csv"
 DATASET_BASE <- ".csv"
+ENSEMBLE_BASE <- "ensemble.csv"
 
 
 save_models <- function(name, ...) {
@@ -22,6 +23,18 @@ save_models_ <- function(name, joined) {
   write.csv(joined, file=out_path)
 }
 
+save_ensemble <- function(name, e) {
+  fname <- paste(name, ENSEMBLE_BASE, sep="_")
+  out_path <- paste(TARGETING_DATA_OUT, fname, sep="/")
+  coefs <- sapply(e$fits, coef)
+  write.csv(coefs, file=out_path)
+}
+
+load_ensemble <- function(name) {
+  fname <- paste(name, ENSEMBLE_BASE, sep="_")
+  out_path <- paste(TARGETING_DATA_OUT, fname, sep="/")
+  read.csv(out_path)  
+}
 
 load_models <- function(name) {
   fname <- paste(name, MODELS_BASE, sep="_")
