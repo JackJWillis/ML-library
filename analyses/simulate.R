@@ -120,18 +120,31 @@ plot_scores_OLD <- function(df, fname) {
 }
 
 plot_scores <- function(df, fname) {
+    add_prefix <- function(df, names, prefix) {
+    names_logical <- levels(df$method) %in% names
+    if (!any(names_logical)) {
+      return(df)
+    }
+    levels(df$method)[names_logical] <- sapply(
+      levels(df$method)[names_logical],
+      function(response) {paste(prefix, response, sep=" -- ")})
+    df
+  }
+    
+  lms <- c("least_squares")
+  reg_names <- c("stepwise","stepwise_15","ridge","lasso", "lasso_15","ridge")
+  inter_names <- c("ridge_ix","lasso_ix", "least_squares_ix")
+  nonlin_names <- c("pca_knn","pca_knn_all","forest","btree","rtree") 
+  class_names <- c("logistic_40","logistic_lasso_40","ctree_40","cforest_40","cbtree_40","ctree_40")
+
+  df <- add_prefix(df, lms, "0. ------")  
+  df <- add_prefix(df, reg_names, "1. Linear regularized")
+  df <- add_prefix(df, inter_names, "2. Linear interactions")
+  df <- add_prefix(df, nonlin_names, "3. Non-linear regression")
+  df <- add_prefix(df, class_names, "4. Classification")
   
-  names <- c("least_squares")
-  levels(df$method)[levels(df$method) %in% names] <- sapply(names,function(response) {paste("0.",response,sep=" -- ")})
-  names <- c("stepwise","stepwise_15","ridge","lasso", "lasso_15","ridge")
-  levels(df$method)[levels(df$method) %in% names] <- sapply(names,function(response) {paste("1. Linear regularized",response,sep=" -- ")})
-  names <- c("ridge_ix","lasso_ix", "least_squares_ix")
-  levels(df$method)[levels(df$method) %in% names] <- sapply(names,function(response) {paste("2. Linear interactions",response,sep=" -- ")})
-  names <- c("pca_knn","pca_knn_all","forest","btree","rtree")  
-  levels(df$method)[levels(df$method) %in% names] <- sapply(names,function(response) {paste("3. Non-linear regression",response,sep=" -- ")})
-  names <- c("logistic_40","logistic_lasso_40","ctree_40","cforest_40","cbtree_40","ctree_40")
-  levels(df$method)[levels(df$method) %in% names] <- sapply(names,function(response) {paste("4. Classification",response,sep=" -- ")})
   df$method <- as.factor(as.character(df$method))
+  
   ggplot(df, aes(y=reach, x=method, color=name)) + 
     geom_point(position=position_dodge(width=0.5)) +
     scale_colour_brewer(palette="RdYlBu") + 

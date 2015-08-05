@@ -23,18 +23,22 @@ gaussian <- function(mean, sd) {
   function(response) {response + rnorm(length(response), mean=mean, sd=sd)}
 }
 
-linear_ <- function(nvar=10, nrow=100) {
+gaussian_x <- function(mean, sd) {
+  function(response) {apply(response,2,gaussian(mean,sd))}
+}
+
+add_noise(d, noise_y=function(response) {response}, noise_x=function(response) {response}) {
+  d$y <- noise_y(d$y)
+  d$X <- noise_x(d$X)
+  d
+}
+
+linear <- function(nvar=10, nrow=100) {
   variables <- as.character(seq_len(nvar))
   coefficients <- seq_along(variables)
   X <- matrix(rnorm(nvar * nrow), nrow=nrow, ncol=nvar)
-  y <- 2 * (X %*% coefficients) + 10
+  y <- (X %*% coefficients) + 10
   list(y=y, X=X)
-}
-
-linear <- function(nvar=10, nrow=100, noise=function(response) {response}) {
-  d <- linear_(nvar, nrow)
-  d$y <- noise(d$y)
-  d
 }
 
 exponential <- function(nvar=10, nrow=100) {
@@ -43,107 +47,44 @@ exponential <- function(nvar=10, nrow=100) {
  d
 }
 
-cuts_ <- function(nvar=10, nrow=100) {
+cuts <- function(nvar=10, nrow=100) {
   X <- matrix(rnorm(nvar * nrow), nrow=nrow, ncol=nvar)
   cuts <- rnorm(nvar)
   cuts <- matrix(cuts, nrow=nrow, ncol=nvar, byrow = TRUE)
   X_transformed <- X<cuts
   variables <- as.character(seq_len(nvar))
   coefficients <- seq_along(variables)
-  y <- as.vector(2 * (X_transformed %*% coefficients) + 10)
+  y <- as.vector((X_transformed %*% coefficients) + 10)
   list(y=y, X=X)
 }
 
-cuts <- function(nvar=10, nrow=100, noise=function(response) {response}) {
-  d <- cuts_(nvar, nrow)
-  d$y <- noise(d$y)
-  d
-}
-
-cuts_and_linear_ <- function(nvar=10, nrow=100, alpha=0.5) {
+cuts_and_linear <- function(nvar=10, nrow=100, alpha=0.5) {
   X <- matrix(rnorm(nvar * nrow), nrow=nrow, ncol=nvar)
   cuts <- rnorm(nvar)
   cuts <- matrix(cuts, nrow=nrow, ncol=nvar, byrow = TRUE)
   X_transformed <- X<cuts
   variables <- as.character(seq_len(nvar))
   coefficients <- seq_along(variables)
-  y <- 2*(alpha*as.vector((X_transformed %*% coefficients) + (1-alpha)*(X %*% coefficients))) + 10
+  y <- (alpha*as.vector((X_transformed %*% coefficients) + (1-alpha)*(X %*% coefficients))) + 10
   list(y=y, X=X)
 }
 
-cuts_and_linear <- function(nvar=10, nrow=100, alpha = 0.5, noise=function(response) {response}) {
-  d <- cuts_and_linear_(nvar, nrow, alpha)
-  d$y <- noise(d$y)
-  d
-}
 ```
 
 ```{r model_running}
-run_linear <- function(ksplit) {
-  ls <- kfold_(LeastSquares(), ksplit)
-  ridge <- kfold_(Ridge(), ksplit)
-  lasso <- kfold_(Lasso(), ksplit)
-  join_dfs(list(ls=ls, ridge=ridge, lasso=lasso))
-}
-
-run_trees <- function(ksplit, ksplit_nmm) {
-  rtree <- kfold_(rTree(), ksplit_nmm)
-  rforest <- kfold_(Forest(), ksplit)
-  btrees <- kfold_(BoostedTrees(n.trees=500), ksplit_nmm)
-  btrees_laplace <- kfold_(BoostedTrees(n.trees=500, distribution="laplace"), ksplit_nmm)
-  join_dfs(list(rtree=rtree, rforest=rforest, btrees=btrees, btrees_laplace=btrees_laplace))
-}
-
-run_all_linear <- function(dataset) {
-  X <- dataset$X
-  y <- dataset$y
-  ksplit <- kfold_split(K, y, X, seed=1)
-  linears <- run_linear(ksplit)
-  linears
-}
-
-run_all <- function(dataset, ix=TRUE) {
+run_all <- function(dataset,NAME) {
   X <- dataset$X
   y <- dataset$y
   ksplit <- kfold_split(K, y, X, seed=1)
   ksplit_nmm <- kfold_split(K, y, data.frame(X), seed=1)
-  linears <- run_linear(ksplit)
-  trees <- run_trees(ksplit, ksplit_nmm)
-  joined <- rbind(linears, filter(trees, method != "true"))
-  
-  if (ix) {
-    X_ix <- model.matrix(y ~ . + .:., data=data.frame(y=y, X))
-    ksplit_ix <- kfold_split(K, y, X_ix, seed=1)
-    ksplit_nmm_ix <- kfold_split(K, y, data.frame(X_ix), seed=1)
-    linears_ix <- run_linear(ksplit_ix)
-    trees_ix <- run_trees(ksplit_ix, ksplit_nmm_ix)
-    joined_ix <- rbind(linears_ix, trees_ix)
-    joined_ix <- filter(joined_ix, method != "true")
-    joined_ix <- mutate(joined_ix, method=paste(method, "ix", sep="_"))
-    joined <- rbind(joined, filter(joined_ix, method != "true"))
-  }
-  joined
+  run_all_models(NAME, dataset, "y", ksplit, ksplit_nmm)
 }
 
-plot_all <- function(res) {
-  ix <- nrow(filter(res, grepl("_ix", method))) > 0
-  res_ix <- filter(res, grepl("_ix", method) | method == "ls")
-  res <- filter(res, !grepl("_ix", method))
-  
-#   plot(plot_accuracy_(res) + scale_color_brewer(palette="Set2"))
-#   if (ix) {
-#     plot(plot_accuracy_(res_ix) + scale_color_brewer(palette="Set2"))
-#   }
-  
-  plot(plot_accuracy_(res, THRESHOLD=0.3) + scale_color_brewer(palette="Set2"))
-  if (ix) {
-    plot(plot_accuracy_(res_ix, THRESHOLD=0.3) + scale_color_brewer(palette="Set2"))
-  }
-  
-  plot(plot_accuracy_(res, THRESHOLD=0.3, BASE="ls") + scale_color_brewer(palette="Set2"))
-  if (ix) {
-    plot(plot_accuracy_(res_ix, THRESHOLD=0.3, BASE="ls") + scale_color_brewer(palette="Set2"))
-  }
+plot_all <- function(NAME) {
+  all_models <- load_models(NAME)
+  plot_swf_(all_models)
+  plot_reach_vs_waste_(all_models)
+  plot_reach_vs_waste_(all_models, THRESHOLD=.4)
 }
 
 ```
@@ -153,8 +94,8 @@ plot_all <- function(res) {
 ### No noise
 ```{r linear_no_noise}
 dataset <- linear(nvar=10, nrow=1000)
-res <- run_all(dataset)
-plot_all(res)
+run_all(dataset, "linear")
+plot_all("linear")
 ```
 
 ## Linear + Zero Mean Gaussian
@@ -163,16 +104,16 @@ plot_all(res)
 ```{r gaussian_10}
 noise <- gaussian(0, 1)
 dataset <- linear(nvar=10, nrow=1000, noise=noise)
-res <- run_all(dataset)
-plot_all(res)
+run_all(dataset, linear_10)
+plot_all(linear_10)
 ```
 
 ### +50%
 ```{r gaussian_50}
 noise <- gaussian(0, 5)
 dataset <- linear(nvar=10, nrow=1000, noise=noise)
-res <- run_all(dataset)
-plot_all(res)
+run_all(dataset, linear_50)
+plot_all(linear_50)
 ```
 
 
@@ -180,8 +121,8 @@ plot_all(res)
 ```{r gaussian_90}
 noise <- gaussian(0, 9)
 dataset <- linear(nvar=10, nrow=1000, noise=noise)
-res <- run_all(dataset)
-plot_all(res)
+run_all(dataset, linear_90)
+plot_all(linear_90)
 ```
 
 ### Heteroskedasticity
