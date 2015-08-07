@@ -678,11 +678,9 @@ ensemble <- function(results, holdout_results, classification=TRUE) {
       ids <- lapply(res, function(r) r$id)
       stopifnot(all(sapply(ids, function(i) all.equal(i, ids[[1]]))))
       
-      new_df <- data.frame(raw=trues[[1]])
-      for (name in names(res)) {
-        new_df[[name]] <- res[name]$predicted
-      }
-      new_df
+      cols <- lapply(res, function(r) r$predicted)
+      cols$r <- trues[[1]]
+      data.frame(cols)
     }
     print('joining results')
     df <- get_prediction_df(res)
