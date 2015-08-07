@@ -26,7 +26,7 @@ save_models_ <- function(name, joined) {
 save_ensemble <- function(name, e) {
   fname <- paste(name, ENSEMBLE_BASE, sep="_")
   out_path <- paste(TARGETING_DATA_OUT, fname, sep="/")
-  coefs <- coef(e$fits)
+  coefs <- sapply(e$fits, coef)
   write.csv(coefs, file=out_path)
 }
 

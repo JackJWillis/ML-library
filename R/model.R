@@ -548,7 +548,7 @@ predict.spline <- function(f, model) {
 }
 
 
-cv_split <- function(y, x, frac=0.8, id=NULL, weight=NULL, seed=NULL) {
+cv_split <- function(y, x, k=10, inner_k=3, id=NULL, weight=NULL, seed=NULL) {
   if (!is.null(seed)) {
     set.seed(seed)
   }
@@ -558,25 +558,27 @@ cv_split <- function(y, x, frac=0.8, id=NULL, weight=NULL, seed=NULL) {
   if (is.null(id)) {
     id <- 1:length(y)
   }
-  assignments <- as.logical(rbinom(length(y), 1, frac))
-  single_split= list(
-    x_train=x[assignments, ],
-    y_train=y[assignments],
-    w_train=weight[assignments],
-    x_test=x[assignments, ],
-    y_test=y[assignments],
-    w_test=weight[assignments])
-
-  list(
-    ksplit=list(
-      splits = list(single_split),
-      assignments=rep(1, sum(assignments)),
-      id_sorted=id[assignments]
-    ),
-    x_holdout=x[!assignments, ],
-    y_holdout=y[!assignments],
-    id_holdout=id[!assignments]
-  )
+  
+  outer_assignments <- sample(rep(1:k, length.out=nrow(x)))
+  lapply(1:k, function(i) {
+    assignments <- outer_assignments != i
+    
+    x_holdout <- x[!assignments, ]
+    y_holdout <- y[!assignments]
+    id_holdout <- id[!assignments]
+    
+    x_train <- x[assignments, ]
+    y_train <- y[assignments]
+    
+    ksplit <- kfold_split(inner_k, y_train, x_train)
+    
+    list(
+      cv=ksplit,
+      nocv=kfold_split(1, y_train, x_train),
+      x_holdout=x_holdout,
+      y_holdout=y_holdout,
+      id_holdout=id_holdout)
+  })
 }
 
 
@@ -593,16 +595,28 @@ kfold_split <- function(k, y, x, id=NULL, weight=NULL, seed=NULL) {
   
   #Generating a sorted id variable to add back at the end of prediction
   assignments <- sample(rep(1:k, length.out=nrow(x)))
-  id_sorted <- id_sorted[order(assignments)]
+  id_sorted <- id[order(assignments)]
   
-  splits <- lapply(1:k, function (k) { 
-     list(
-       x_train=x[assignments != k, ],
-       y_train=y[assignments != k],
-       w_train=weight[assignments != k],
-       x_test=x[assignments == k, ],
-       y_test=y[assignments == k],
-       w_test=weight[assignments == k])})
+  splits <- lapply(1:k, function (i) { 
+    if (k==1) {
+      list(
+        x_train=x,
+        y_train=y,
+        w_train=weight,
+        x_test=x,
+        y_test=y,
+        w_test=weight)
+    }
+    else {
+      list(
+        x_train=x[assignments != i, ],
+        y_train=y[assignments != i],
+        w_train=weight[assignments != i],
+        x_test=x[assignments == i, ],
+        y_test=y[assignments == i],
+        w_test=weight[assignments == i])
+    }
+  })
   list(splits=splits, assignments=assignments, id_sorted=id_sorted)
 }
 
@@ -641,37 +655,55 @@ kfold <- function(k, model_class, y, x, id=NULL, weight=NULL, seed=0) {
 }
 
 ensemble <- function(results, holdout_results, classification=TRUE) {
-  model_names <- intersect(names(results), names(holdout_results))
-  results <- results[model_names]
-  model_names <- results[model_names]
-  get_prediction_df <- function(results) {
-    df <- data.frame(id=numeric())
-    for (name in names(results)) {
-      new_df <- results[[name]]
-      new_df[[name]] <- new_df$predicted
-      raw_colname <- paste(name, 'raw', sep='_')
-      new_df[[raw_colname]] <- new_df$raw
-      # HACK
-      if (all(new_df$predicted > 2) | classification == TRUE) {
-        df <- merge(df, new_df[, c('id', name, raw_colname)], by='id', all.y=TRUE)
+  stopifnot(length(results) == length(holdout_results))
+  k <- length(results)
+  ensemble_list <- lapply(1:k, function(i) {
+    res <- results[[i]]
+    hres <- holdout_results[[i]]
+    model_names <- intersect(names(res), names(hres))
+    res <- res[model_names]
+    get_prediction_df <- function(res) {
+      res <- lapply(res, function(df) {
+        if (all(df$predicted > 2) | classification == TRUE) {
+          df[order(df$id), ]
+        }
+        else {
+          NULL
+        }
+      })
+      res <- res[!sapply(res, is.null)]
+      trues <- lapply(res, function(r) r$raw)
+      stopifnot(all(sapply(trues, function(t) all.equal(t, trues[[1]]))))
+      
+      ids <- lapply(res, function(r) r$id)
+      stopifnot(all(sapply(ids, function(i) all.equal(i, ids[[1]]))))
+      
+      new_df <- data.frame(raw=trues[[1]])
+      for (name in names(res)) {
+        new_df[[name]] <- res[name]$predicted
       }
+      new_df
     }
-    trues_df <- select(df, contains('_raw'))
-    stopifnot(all(sapply(trues_df, function(trues) all.equal(trues, trues_df[[1]]))))
-    df <- select(df, -contains('_raw'))
-    df$raw <- trues_df[[1]]
-    df
-  }
-  df <- get_prediction_df(results)
-  model  <- lm(raw ~ -1 + ., select(df, -one_of('id')))
-  df <- get_prediction_df(holdout_results)
-  pred <- data.frame(predicted=predict(model, select(df, -one_of('id', 'raw'))),
-                     true=df$raw,
-                     raw=df$raw,
-                     id=df$id)
-  pred$weight <- 1
-  pred$fold <- 1
-  list(pred=data.frame(pred), fits=model)
+    print('joining results')
+    df <- get_prediction_df(res)
+    print('fitting model')
+    model  <- lm(raw ~ -1 + ., df)))
+    print('joining holdout results')
+    df <- get_prediction_df(hres)
+    print('making predictions')
+    predicted <- predict(model, select(df, -one_of('id', 'raw')))
+    print('creating data frame')
+    pred <- data.frame(predicted=predicted,
+                       true=df$raw,
+                       raw=df$raw,
+                       id=df$id)
+    pred$weight <- 1
+    pred$fold <- i
+    list(pred=data.frame(pred), fits=model)
+  })
+  pred_list <- lapply(ensemble_list, function(e) e$pred)
+  fits_list <- lapply(ensemble_list, function(e) e$fits)
+  list(pred=do.call(rbind, pred_list), fits=fits_list)
 }
 
 run_all_models_pca <- function(name, k, y, x, ncomp=20) {
@@ -683,22 +715,40 @@ run_all_models_pca <- function(name, k, y, x, ncomp=20) {
 
 run_all_heldout <- function(name, df, target, cv_split, grouping_variable=NULL) {
   results <- run_all_models(name, df, target, cv_split$ksplit, grouping_variable=grouping_variable)
-  holdout_results <- lapply(results, function(res) {
-    kfold_fits <- res$kfold_fits
-    stopifnot(length(kfold_fits$fits) == 1)
-    kfold_fits$folds[[1]]$x_test <- cv_split$x_holdout
-    kfold_fits$folds[[1]]$y_test <- cv_split$y_holdout
-    kfold_fits$folds[[1]]$w_test <- rep(1, length(cv_split$y_holdout))
-    kfold_fits$assignments <- rep(1, length(cv_split$y_holdout))
-    kfold_fits$id <- cv_split$id_holdout
-    kfold_fits$folds <- lapply(kfold_fits$folds, transform_ys)
-    tryCatch(kfold_predict(kfold_fits), error=function(e) NULL)
+  run_heldout(name, cv_split, results)
+}
+
+run_fast_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
+  results <- lapply(cv_splits, function(single_split) {
+    run_fast_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
+  no_cv_results <- lapply(cv_splits, function(single_split) {
+    run_fast_models(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
+  run_heldout(name, cv_split, results, no_cv_results)
+}
+
+run_heldout <- function(name, cv_splits, results, results_no_cv) {
+  holdout_results <- lapply(1:length(results_no_cv), function(trial_index) {
+    cv_split <- cv_splits[[trial_index]]
+    lapply(results_no_cv[[trial_index]], function(method_results) {
+      kfold_fits <- method_results$kfold_fits
+      kfold_fits$assignments <- rep(trial_index, length(cv_split$y_holdout))
+      kfold_fits$id_sorted <- cv_split$id_holdout
+      for (i in 1:length(kfold_fits$folds)) {
+        kfold_fits$folds[[i]]$x_test <- cv_split$x_holdout
+        kfold_fits$folds[[i]]$y_test <- cv_split$y_holdout
+        kfold_fits$folds[[i]]$w_test <- rep(1, length(cv_split$y_holdout))
+      }
+      kfold_fits$folds <- lapply(kfold_fits$folds, transform_ys)
+      tryCatch(kfold_predict(kfold_fits), error=function(e) NULL)
+    })
   })
 
-  results <- lapply(results, function(res) res$pred)
-  is_null <- sapply(holdout_results, is.null)
-  print(names(holdout_results[is_null]))
-  holdout_results <- holdout_results[!is_null]
+  results <- lapply(results, function(res) lapply(res, function(r) r$pred))
+  holdout_results <- lapply(holdout_results, function(hres) {
+    is_null <- sapply(hres, is.null)
+    print(names(hres[is_null]))
+    hres[!is_null]
+  })
   
   e <- ensemble(results, holdout_results)
   holdout_results$ensemble <- e$pred
@@ -796,7 +846,7 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
 }
 
 
-run_fast_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variable=NULL) {
+run_fast_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
   save_dataset(name, df)
   results <- list()
   
@@ -813,7 +863,7 @@ run_fast_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_varia
   print("Running s")
   
   print('Running grouped ridge')
-  try(results$grouped_ridge <- kfold_(GroupedRidge(grouping_variable), ksplit_nmm))
+  try(results$grouped_ridge <- kfold_(GroupedRidge(grouping_variable), ksplit))
 
   print("Running stepwise")
   results$stepwise <- kfold_(Stepwise(300), ksplit)
@@ -822,13 +872,13 @@ run_fast_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_varia
   
   
   print("Running rtree")
-  results$rtree <- kfold_(rTree(), ksplit_nmm)
+  results$rtree <- kfold_(rTree(), ksplit)
   print("Running randomForest")
   
   print("Running mca")
-  try(results$mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit_nmm))
+  try(results$mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit))
   print("Running pca")
-  try(results$pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit_nmm))
+  try(results$pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit))
   print("Running pca all")
   try(results$pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit))
   
@@ -838,7 +888,7 @@ run_fast_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_varia
   print("Running logisitic lasso")
   results$logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
   print(" Running ctree")
-  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit_nmm)
+  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit)
   print("Running randomForest")
   results$cforest_40 <- kfold_(cForest(threshold_40), ksplit)
   print("Running cBoostedtree")
@@ -846,14 +896,9 @@ run_fast_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_varia
   results$cbtree_adaboost_40 <- kfold_(cBoostedTrees(threshold_40, distribution="adaboost"), ksplit)  
   results$cbtree_huberized_40 <- kfold_(cBoostedTrees(threshold_40, distribution="huberized"), ksplit)  
   
-  joined <- join_dfs(results)
-  e <- ensemble(filter(joined, predicted > 2))
-  results$ensemble <- e$pred
-  save_ensemble(name, e)
-  
-  e <- ensemble(joined)
-  results$ensemble_all <- e$pred
-  results$name <- name
-  do.call(save_models, results)
+  prediction_results <- lapply(results, function(res) {res$pred})
+  prediction_results$name <- name
+  do.call(save_models, prediction_results)
+  results
 }
 
