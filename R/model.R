@@ -561,8 +561,9 @@ kfold_split <- function(k, y, x, id=NULL, weight=NULL, seed=NULL) {
 
 kfold_add_importance_weights <- function(kfold_splits, threshold, gamma) {
   n <- length(kfold_splits$splits)
+  marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- gamma)
     for (i in 1:n) {
-      kfold_splits$splits[[i]]$w_train <- (abs(kfold_splits$splits[[i]]$y_train^(-gamma)-threshold^(-gamma)))
+      kfold_splits$splits[[i]]$w_train <- abs(marginal_utility(kfold_splits$splits[[i]]$y_train)-marginal_utility(threshold))
     }
   kfold_splits  
 }
