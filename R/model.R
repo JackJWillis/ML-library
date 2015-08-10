@@ -679,13 +679,14 @@ ensemble <- function(results, holdout_results, classification=TRUE) {
       stopifnot(all(sapply(ids, function(i) all.equal(i, ids[[1]]))))
       
       cols <- lapply(res, function(r) r$predicted)
-      cols$r <- trues[[1]]
+      cols$raw <- trues[[1]]
+      cols$id <- ids[[1]]
       data.frame(cols)
     }
     print('joining results')
     df <- get_prediction_df(res)
     print('fitting model')
-    model  <- lm(raw ~ -1 + ., df)))
+    model  <- lm(raw ~ -1 + ., select(df, -one_of('id')))
     print('joining holdout results')
     df <- get_prediction_df(hres)
     print('making predictions')
@@ -712,20 +713,23 @@ run_all_models_pca <- function(name, k, y, x, ncomp=20) {
 }
 
 run_all_heldout <- function(name, df, target, cv_split, grouping_variable=NULL) {
-  results <- run_all_models(name, df, target, cv_split$ksplit, grouping_variable=grouping_variable)
-  run_heldout(name, cv_split, results)
+  results <- lapply(cv_splits, function(single_split) {
+    run_all_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
+  results_no_cv <- lapply(cv_splits, function(single_split) {
+    run_all_models(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
+  run_heldout(name, cv_splits, results, results_no_cv)
 }
 
 run_fast_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
   results <- lapply(cv_splits, function(single_split) {
     run_fast_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
-  no_cv_results <- lapply(cv_splits, function(single_split) {
+  results_no_cv <- lapply(cv_splits, function(single_split) {
     run_fast_models(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
-  run_heldout(name, cv_split, results, no_cv_results)
+  run_heldout(name, cv_splits, results, results_no_cv)
 }
 
 run_heldout <- function(name, cv_splits, results, results_no_cv) {
-  holdout_results <- lapply(1:length(results_no_cv), function(trial_index) {
+  holdout_predictions <- lapply(1:length(results_no_cv), function(trial_index) {
     cv_split <- cv_splits[[trial_index]]
     lapply(results_no_cv[[trial_index]], function(method_results) {
       kfold_fits <- method_results$kfold_fits
@@ -741,22 +745,28 @@ run_heldout <- function(name, cv_splits, results, results_no_cv) {
     })
   })
 
-  results <- lapply(results, function(res) lapply(res, function(r) r$pred))
-  holdout_results <- lapply(holdout_results, function(hres) {
+  predictions <- lapply(results, function(res) lapply(res, function(r) r$pred))
+  holdout_predictions <- lapply(holdout_predictions, function(hres) {
     is_null <- sapply(hres, is.null)
     print(names(hres[is_null]))
     hres[!is_null]
   })
   
-  e <- ensemble(results, holdout_results)
-  holdout_results$ensemble <- e$pred
+  e <- ensemble(predictions, holdout_predictions)
   save_ensemble(name, e)
-  
-  e <- ensemble(results, holdout_results, classification=FALSE)
-  holdout_results$ensemble_all <- e$pred
-  
-  holdout_results$name <- name
-  do.call(save_models, holdout_results)
+  e_all <- ensemble(predictions, holdout_predictions, classification=FALSE)
+  dfs <- lapply(1:length(holdout_predictions), function(i) {
+    pred <- holdout_predictions[[i]]
+    joined <- join_dfs(pred)
+    joined$fold <- i
+    joined
+  })
+  dfs <- do.call(rbind, dfs)
+  e$pred$method <- 'ensemble'
+  e_all$pred$method <- 'ensemble_all'
+  dfs <- rbind(dfs, e$pred)
+  dfs <- rbind(dfs, e_all$pred)
+  save_models_(name, dfs)
 }
 
 

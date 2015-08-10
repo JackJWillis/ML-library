@@ -101,7 +101,6 @@ save_dataset(NAME, tz08)
 x <- model.matrix(lconsPC ~ .,  tz08)
 x_nmm <- select(tz08,-one_of("lconsPC"))
 y <- tz08[rownames(x), "lconsPC"]
-frac <- 0.8
 
-cv_split <- cv_split(y, x, frac, seed=1)
-run_all_heldout(NAME, tz08, "lconsPC", cv_split, 'locality')
+cv_splits <- cv_split(y, x, k=10, inner_k=5, seed=1)
+run_all_heldout(NAME, tz08, "lconsPC", cv_splits, 'locality')
