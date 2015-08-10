@@ -620,6 +620,15 @@ kfold_split <- function(k, y, x, id=NULL, weight=NULL, seed=NULL) {
   list(splits=splits, assignments=assignments, id_sorted=id_sorted)
 }
 
+kfold_add_importance_weights <- function(kfold_splits, threshold, gamma) {
+  n <- length(kfold_splits$splits)
+  marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- gamma)
+    for (i in 1:n) {
+      kfold_splits$splits[[i]]$w_train <- abs(marginal_utility(kfold_splits$splits[[i]]$y_train)-marginal_utility(threshold))
+    }
+  kfold_splits  
+}
+
 kfold_fit <- function(kfold_splits, model_class) {
   splits <- kfold_splits$splits
   folds <- lapply(splits, function(s) do.call(model_class, s))
@@ -818,7 +827,6 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
   print("Running pca all")
   try(results$pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit))
   
-  
   threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
   print("Running logistic")
   results$logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
@@ -889,7 +897,7 @@ run_fast_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_
   try(results$pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit))
   print("Running pca all")
   try(results$pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit))
-  
+
   threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
   print("Running logistic")
   results$logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
@@ -910,3 +918,91 @@ run_fast_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_
   results
 }
 
+run_simulation_models <- function(name, df, target, ksplit, ksplit_nmm, ksplit_ix) {
+  save_dataset(name, df)
+  results <- list()
+  
+  print("Running ridge")
+  results$ridge <- kfold_(Ridge(), ksplit)
+  print("Running lasso")
+  results$lasso <- kfold_(Lasso(), ksplit)
+  print("Running lasso 15")
+  results$lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
+  print("Running least squares")
+  results$least_squares <- kfold_(LeastSquares(), ksplit)
+  
+  print("Running ridge_ix")
+  results$ridge_ix <- kfold_(Ridge(), ksplit_ix)
+  print("Running lasso_ix")
+  results$lasso_ix <- kfold_(Lasso(), ksplit_ix)
+  print("Running least squares_ix")
+  results$least_squares_ix <- kfold_(LeastSquares(), ksplit_ix)
+  
+  print("Running Quantile")
+  results$quantile <- kfold_(QuantileRegression(), ksplit)
+  
+  print("Running stepwise")
+  results$stepwise <- kfold_(Stepwise(300), ksplit)
+  print("Running stepwise 15")
+  results$stepwise_15 <- kfold_(Stepwise(15), ksplit)
+  
+  print("Running rtree")
+  results$rtree <- kfold_(rTree(), ksplit_nmm)
+  print("Running randomForest")
+  results$forest <- kfold_(Forest(), ksplit_nmm)
+  print("Running Boostedtree")
+  results$btree <- kfold_(BoostedTrees(), ksplit_nmm)
+  
+  print("Running pca")
+  try(results$pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit_nmm))
+  print("Running pca all")
+  try(results$pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit))
+  
+  threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
+  print("Running logistic")
+  results$logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
+  print("Running logisitic lasso")
+  results$logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
+  print(" Running ctree")
+  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit_nmm)
+  print("Running randomForest")
+  results$cforest_40 <- kfold_(cForest(threshold_40), ksplit_nmm)
+  print("Running cBoostedtree")
+  results$cbtree_40 <- kfold_(cBoostedTrees(threshold_40), ksplit_nmm)
+
+  
+  results$name <- name
+  do.call(save_models, results)
+}
+
+run_weighted_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variable=NULL) {
+  save_dataset(name, df)
+  results <- list()
+  
+  theshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
+  gamma <- 2
+  ksplit <- kfold_add_importance_weights(ksplit, threshold_40, gamma)
+  ksplit_nmm <- kfold_add_importance_weights(ksplit_nmm, threshold_40, gamma) 
+    
+  print("Running ridge")
+  results$ridge <- kfold_(Ridge(), ksplit)
+  print("Running lasso")
+  results$lasso <- kfold_(Lasso(), ksplit)
+  print("Running stepwise")
+  results$stepwise <- kfold_(Stepwise(300), ksplit)
+  print("Running least squares")
+  results$least_squares <- kfold_(LeastSquares(), ksplit)
+  print("Running Quantile")
+  results$quantile <- kfold_(QuantileRegression(), ksplit)
+  print("Running rtree")
+  results$rtree <- kfold_(rTree(), ksplit_nmm)
+  print("Running logistic")
+  results$logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
+  print("Running logisitic lasso")
+  results$logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
+  print(" Running ctree")
+  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit_nmm)
+  
+  results$name <- name
+  do.call(save_models, results)
+}
