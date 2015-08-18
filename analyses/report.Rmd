@@ -12,6 +12,7 @@ knitr::opts_knit$set(root.dir="../")
 library(MLlibrary)
 library(dplyr)
 library(Hmisc)
+library(ggplot2)
 
 k <- nrow(distinct(joined, fold))
 ```
@@ -41,6 +42,19 @@ The following shows, as the coverage of the program is increased, the social wel
 
 ```{r swf_2, echo=FALSE}
 plot_swf_(joined, POINT_COUNT=1000, GAMMA = 3)
+```
+
+
+### Just ensembles
+```{r ensembles, echo=TRUE}
+e <- filter(joined, grepl('ensemble', method) | method == "least_squares")
+plot_swf_(e, GAMMA=3)
+plot_swf_(e, GAMMA=3) + coord_cartesian(xlim=c(0, 0.4))
+
+plot_reach_vs_waste_(e)
+plot_reach_vs_waste_(e) + coord_cartesian(xlim=c(0, 0.4))
+plot_reach_vs_waste_(e, THRESHOLD=0.4)
+plot_reach_vs_waste_(e, THRESHOLD=0.2)
 ```
 
 ### Density
