@@ -623,9 +623,10 @@ kfold_split <- function(k, y, x, id=NULL, weight=NULL, seed=NULL) {
 kfold_add_importance_weights <- function(kfold_splits, threshold, gamma) {
   n <- length(kfold_splits$splits)
   marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- gamma)
-    for (i in 1:n) {
-      kfold_splits$splits[[i]]$w_train <- abs(marginal_utility(kfold_splits$splits[[i]]$y_train)-marginal_utility(threshold))
-    }
+  for (i in 1:n) {
+#     kfold_splits$splits[[i]]$w_train <- abs(marginal_utility(kfold_splits$splits[[i]]$y_train)-marginal_utility(threshold))
+    kfold_splits$splits[[i]]$w_train <- abs(exp(kfold_splits$splits[[i]]$y_train)-exp(threshold))
+  }
   kfold_splits  
 }
 
@@ -721,7 +722,7 @@ run_all_models_pca <- function(name, k, y, x, ncomp=20) {
   run_all_models(name, data.frame(y=y, x), "y", ksplit, ksplit_nmm)
 }
 
-run_all_heldout <- function(name, df, target, cv_split, grouping_variable=NULL) {
+run_all_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
   results <- lapply(cv_splits, function(single_split) {
     run_all_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
   results_no_cv <- lapply(cv_splits, function(single_split) {
@@ -734,6 +735,15 @@ run_fast_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL
     run_fast_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
   results_no_cv <- lapply(cv_splits, function(single_split) {
     run_fast_models(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
+  run_heldout(name, cv_splits, results, results_no_cv)
+}
+
+run_weighted_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
+  name <- paste(name, 'weighted', sep='_')
+  results <- lapply(cv_splits, function(single_split) {
+    run_weighted_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
+  results_no_cv <- lapply(cv_splits, function(single_split) {
+    run_weighted_models(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
   run_heldout(name, cv_splits, results, results_no_cv)
 }
 
@@ -804,9 +814,9 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
   results$quantile_30 <- kfold_(QuantileRegression(tau=0.3), ksplit)
   
   print("Running stepwise")
-  results$stepwise <- kfold_(Stepwise(300), ksplit)
+  try(results$stepwise <- kfold_(Stepwise(300), ksplit))
   print("Running stepwise 15")
-  results$stepwise_15 <- kfold_(Stepwise(15), ksplit)
+  try(results$stepwise_15 <- kfold_(Stepwise(15), ksplit))
   
   print("Running spline")
   results$spline <- kfold_(Spline(), ksplit)
@@ -975,14 +985,19 @@ run_simulation_models <- function(name, df, target, ksplit, ksplit_nmm, ksplit_i
   do.call(save_models, results)
 }
 
-run_weighted_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_variable=NULL) {
+run_weighted_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
   save_dataset(name, df)
   results <- list()
   
-  theshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
+  print("Running least squares")
+  results$least_squares <- kfold_(LeastSquares(), ksplit)
+  
+  threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
   gamma <- 2
   ksplit <- kfold_add_importance_weights(ksplit, threshold_40, gamma)
-  ksplit_nmm <- kfold_add_importance_weights(ksplit_nmm, threshold_40, gamma) 
+  if (!is.null(ksplit_nmm)) {
+    ksplit_nmm <- kfold_add_importance_weights(ksplit_nmm, threshold_40, gamma) 
+  }
     
   print("Running ridge")
   results$ridge <- kfold_(Ridge(), ksplit)
@@ -991,18 +1006,20 @@ run_weighted_models <- function(name, df, target, ksplit, ksplit_nmm, grouping_v
   print("Running stepwise")
   results$stepwise <- kfold_(Stepwise(300), ksplit)
   print("Running least squares")
-  results$least_squares <- kfold_(LeastSquares(), ksplit)
+  results$least_squares_weighted <- kfold_(LeastSquares(), ksplit)
   print("Running Quantile")
   results$quantile <- kfold_(QuantileRegression(), ksplit)
   print("Running rtree")
-  results$rtree <- kfold_(rTree(), ksplit_nmm)
+  results$rtree <- kfold_(rTree(), ksplit)
   print("Running logistic")
   results$logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
   print("Running logisitic lasso")
   results$logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
   print(" Running ctree")
-  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit_nmm)
+  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit)
   
-  results$name <- name
-  do.call(save_models, results)
+  prediction_results <- lapply(results, function(res) {res$pred})
+  prediction_results$name <- name
+  do.call(save_models, prediction_results)
+  results
 }
