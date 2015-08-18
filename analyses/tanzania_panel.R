@@ -117,39 +117,75 @@ create_dataset_split <- function(y1, y2) {
   
   clean <- panel %>% select(-one_of("year")) %>% select(-contains("hhid"))
   x <- model.matrix(lconsPC ~ .,  clean)
-  x_nmm <- select(clean, -one_of(TARGET))
   y <- clean[rownames(x), TARGET]
   
   x_train <- x[panel$year == year1, ]
-  x_train_nmm <- x_nmm[panel$year == year1, ]
   y_train <- y[panel$year == year1]
   w_train <- rep(1, length(y_train))
   
+  
   x_test <- x[panel$year == year2, ]
-  x_test_nmm <- x_nmm[panel$year == year2, ]
   y_test <- y[panel$year == year2]
+  
+  holdouts <- as.logical(rbinom(length(y_test), 1, .8))
+  x_holdout <- x_test[holdouts, ]
+  y_holdout <- y_test[holdouts]
+  ids <- 1:length(y_test)
+  id_holdout <- ids[holdouts]
+  id_sorted <- ids[!holdouts]
+  x_test <- x_test[!holdouts, ]
+  y_test <- y_test[!holdouts]
   w_test <- rep(1, length(y_test))
 
   
-  ksplit <- list(x_train=x_train, y_train=y_train, w_train=w_train, x_test=x_test, y_test=y_test, w_test=w_test)
-  ksplit_nmm <- list(x_train=x_train_nmm, y_train=y_train, w_train=w_train, x_test=x_test_nmm, y_test=y_test, w_test=w_test)
-  list(ksplit=list(splits=list(ksplit), assignments=1), ksplit_nmm=list(splits=list(ksplit_nmm), assignments=1))
+  splits <- list(
+    list(
+      x_train=x_train,
+      y_train=y_train,
+      w_train=w_train,
+      x_test=x_test,
+      y_test=y_test,
+      w_test=w_test)
+  )
+  assignments <- rep(1, length(y_test))
+  ksplit <- list(splits=splits, assignments=assignments, id_sorted=id_sorted)
+  list(
+    list(
+      cv=ksplit,
+      nocv=ksplit,
+      x_holdout=x_holdout,
+      y_holdout=y_holdout,
+      id_holdout=id_holdout)
+  )
+  
 }
 
 
-tz08_10 <- create_dataset_joined(2, 3, remove_missing=TRUE)
-tz08_10 <- standardize_predictors(tz08_10, TARGET)
-x <- model.matrix(lconsPC ~ .,  tz08_10)
-x_nmm <- select(tz08_10,-one_of(TARGET))
-y <- tz08_10[rownames(x), TARGET]
-k <- 4
-ksplit <- kfold_split(k, y, x, seed=1)
-ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
-run_all_models("tanzania_panel", tz08_10, 'lconsPC', ksplit, ksplit_nmm)
+# tz08_10 <- create_dataset_joined(1, 2, remove_missing=TRUE)
+# tz08_10 <- standardize_predictors(tz08_10, TARGET)
+# x <- model.matrix(lconsPC ~ .,  tz08_10)
+# x_nmm <- select(tz08_10,-one_of(TARGET))
+# y <- tz08_10[rownames(x), TARGET]
+# cv_splits <- cv_split(y, x, k=5, inner_k=3, seed=1)
+# run_all_heldout('tanzania_panel_08_10', tz08_10, "lconsPC", cv_splits)
+# run_weighted_heldout('tanzania_panel_08_10', tz08_10, "lconsPC", cv_splits)
 
-tz08_10_split <- create_dataset_split(2, 3)
-panel <- create_dataset()
-df1 <- filter(panel, year==YEARS[2])
-ksplit <- tz08_10_split$ksplit
-ksplit_nmm <- tz08_10_split$ksplit_nmm
-run_all_models("tanzania_panel_split", df1, 'lconsPC', ksplit, ksplit_nmm)
+tz10_12 <- create_dataset_joined(2, 3, remove_missing=TRUE)
+tz10_12 <- standardize_predictors(tz10_12, TARGET)
+x <- model.matrix(lconsPC ~ .,  tz10_12)
+y <- tz10_12[rownames(x), TARGET]
+cv_splits <- cv_split(y, x, k=5, inner_k=3, seed=1)
+run_all_heldout('tanzania_panel_10_12', tz10_12, "lconsPC", cv_splits)
+# run_weighted_heldout('tanzania_panel_10_12', tz10_12, "lconsPC", cv_splits)
+
+# cv_splits <- create_dataset_split(1, 2)
+# panel <- create_dataset()
+# df1 <- filter(panel, year==YEARS[1])
+# run_all_heldout('tanzania_panel_split_08_10', df1, "lconsPC", cv_splits)
+# run_weighted_heldout('tanzania_panel_split_08_10', df1, "lconsPC", cv_splits)
+# 
+# cv_splits <- create_dataset_split(2, 3)
+# panel <- create_dataset()
+# df1 <- filter(panel, year==YEARS[2])
+# run_all_heldout('tanzania_panel_split_10_12', df1, "lconsPC", cv_splits)
+# run_weighted_heldout('tanzania_panel_split_10_12', df1, "lconsPC", cv_splits)

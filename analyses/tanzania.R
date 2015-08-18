@@ -102,5 +102,6 @@ x <- model.matrix(lconsPC ~ .,  tz08)
 x_nmm <- select(tz08,-one_of("lconsPC"))
 y <- tz08[rownames(x), "lconsPC"]
 
-cv_splits <- cv_split(y, x, k=10, inner_k=5, seed=1)
+cv_splits <- cv_split(y, x, k=5, inner_k=3, seed=1)
 run_all_heldout(NAME, tz08, "lconsPC", cv_splits, 'locality')
+run_weighted_heldout(NAME, tz08, "lconsPC", cv_splits, 'locality')
