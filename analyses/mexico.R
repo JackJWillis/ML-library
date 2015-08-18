@@ -104,8 +104,7 @@ mx <- standardize_predictors(mx, "lconsPC")
 x <- model.matrix(lconsPC ~ .,  mx)
 x_nmm <- select(mx, -one_of("lconsPC"))
 y <- mx[rownames(x), "lconsPC"]
-k <- 5
 
-ksplit <- kfold_split(k, y, x, seed=1)
-ksplit_nmm <- kfold_split(k, y, x_nmm, seed=1)
-run_fast_models(NAME, mx, "lconsPC", ksplit, ksplit_nmm, 'muni')
+cv_splits <- cv_split(y, x, k=5, inner_k=3, seed=1)
+run_fast_heldout(NAME, mx, "lconsPC", cv_splits, 'muni')
+run_weighted_heldout(NAME, mx, "lconsPC", cv_splits, 'muni')
