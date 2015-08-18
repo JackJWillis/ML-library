@@ -16,8 +16,8 @@ library(MLlibrary)
 
 # Load data functions ---------------------------
 
-load_data <- function() {
-  read.dta(DATA_PATH)
+load_data <- function(path) {
+  read.dta(path)
 }
 
 add_covariates <- function(output_df, input_df) {
@@ -34,6 +34,7 @@ add_covariates <- function(output_df, input_df) {
     is_desired_type <- feature_info$type == type
     as.vector(feature_info$var_name[is_desired_type])
   }
+  columns <- colnames(input_df)
   
   covariates_categorical <- select_names_by_type("F")
   covariates_cardinal <- select_names_by_type("C")
@@ -78,6 +79,16 @@ create_dataset <- function(input_df,remove_missing=TRUE) {
   df
 }
 
+create_dataset_pmt <- function(input_df,remove_missing=TRUE) {
+  df <-
+    matrix(nrow=nrow(input_df), ncol=0) %>%
+    data.frame() %>%
+    add_covariates(input_df, pmt_only=TRUE) %>%
+    add_target(input_df) 
+  if (remove_missing) df <- remove_missing_data(df)
+  df
+}
+
 # Import data ---------------------------
 
 # TARGETING_DATA_IN <- "C:/Users/Jack/Box Sync/Poverty Targeting (DATA)/LSMS_ISA/Niger/Data/tmp"
@@ -93,9 +104,10 @@ VARIABLE_TABLE_FNAME <- "variable_table_niger.xlsx"
 DATA_PATH <- paste(TARGETING_DATA_IN, DATA_FNAME, sep="/")
 VARIABLE_TABLE_PATH <- paste(TARGETING_DATA_IN, VARIABLE_TABLE_FNAME, sep="/")
 
+DATA_PATH_PMT <- paste(TARGETING_DATA_IN, 'FINAL_PMT.dta', sep="/")
 # Just using their variables. Note, different for different agricultural zones
 
-temp <- load_data()
+temp <- load_data(DATA_PATH)
 
 #Just keeping Pastorale:
 pastoral <- temp[temp$milieu == "Pastorale",]
@@ -108,10 +120,9 @@ niger_p$menage <- NULL
 niger_p <- standardize_predictors(niger_p, "y_real")
 
 x_p <- model.matrix(y_real ~ .,  niger_p)
-x_p_nmm <- select(niger_p,-one_of("y_real"))
 y_p <- niger_p[rownames(x_p), "y_real"]
 
-temp <- load_data()
+temp <- load_data(DATA_PATH)
 #Just keeping Pastorale:
 agricultural <- temp[temp$milieu %in% c("Agricole","Agropastorale"),]
 niger_a <- create_dataset(agricultural)
@@ -123,14 +134,33 @@ niger_a$menage <- NULL
 niger_a <- standardize_predictors(niger_a, "y_real")
 
 x_a <- model.matrix(y_real ~ .,  niger_a)
-x_a_nmm <- select(niger_a,-one_of("y_real"))
 y_a <- niger_a[rownames(x_a), "y_real"]
 
-k <- 5
-ksplit_a <- kfold_split(k, y_a, x_a, id=niger_a_id, weight=niger_a_weight, seed=1)
-ksplit_nmm_a <- kfold_split(k, y_a, x_a_nmm, id=niger_a_id, weight=niger_a_weight, seed=1)
-run_all_models('niger_agricultural', niger_a, 'y_real', ksplit_a, ksplit_nmm_a)
 
-ksplit_p <- kfold_split(k, y_p, x_p, id=niger_p_id, weight=niger_p_weight, seed=1)
-ksplit_nmm_p <- kfold_split(k, y_p, x_p_nmm, id=niger_p_id, weight=niger_p_weight, seed=1)
-run_all_models('niger_pastoral', niger_p, 'y_real', ksplit_p, ksplit_nmm_p)
+cv_splits_a <- cv_split(y_a, x_a, k=5, inner_k=3, seed=1, weight=niger_a_weight)
+run_all_heldout('niger_agricultural', niger_a, 'y_real', cv_splits_a)
+# run_weighted_heldout('niger_agricultural', niger_a, 'y_real', cv_splits_a)
+
+cv_splits_p <- cv_split(y_p, x_p, k=5, inner_k=3, seed=1, weight=niger_p_weight)
+run_all_heldout('niger_pastoral', niger_p, 'y_real', cv_splits_p)
+# run_weighted_heldout('niger_pastoral', niger_p, 'y_real', cv_splits_p)
+
+
+feature_info <- read.xlsx(VARIABLE_TABLE_PATH, sheetName="Sheet1")
+feature_info[, "Agro.and.Agro.Pastoral.zone"] <- as.numeric(as.character(feature_info[, "Agro.and.Agro.Pastoral.zone"]))
+feature_info[, "Pastoral.zone"] <- as.numeric(as.character(feature_info[, "Pastoral.zone"]))
+feature_info[, "var_name"] <- as.character(feature_info[, "var_name"])
+agricultural_pmt <- select(niger_a, -one_of(feature_info$var_name[!is.na(feature_info$Agro.and.Agro.Pastoral.zone)]))
+pastoral_pmt <- select(niger_p, -one_of(feature_info$var_name[!is.na(feature_info$Pastoral.zone)]))
+
+x_a <- model.matrix(y_real ~ .,  agricultural_pmt)
+y_a <- niger_a[rownames(x_a), "y_real"]
+cv_splits_a <- cv_split(y_a, x_a, k=5, inner_k=3, seed=1, weight=niger_a_weight)
+run_all_heldout('niger_agricultural_pmt', niger_a, 'y_real', cv_splits_a)
+# run_weighted_heldout('niger_agricultural_pmt', niger_a, 'y_real', cv_splits_a)
+
+x_p <- model.matrix(y_real ~ .,  pastoral_pmt)
+y_p <- niger_p[rownames(x_p), "y_real"]
+cv_splits_p <- cv_split(y_p, x_p, k=5, inner_k=3, seed=1, weight=niger_p_weight)
+run_all_heldout('niger_pastoral_pmt', niger_p, 'y_real', cv_splits_p)
+# run_weighted_heldout('niger_pastoral_pmt', niger_p, 'y_real', cv_splits_p)

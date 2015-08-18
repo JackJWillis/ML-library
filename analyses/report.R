@@ -11,6 +11,10 @@ reach_df <- calculate_reach_(joined, fold=TRUE, base='least_squares')
 names(reach_df)[names(reach_df) == 'reach'] <- NAME
 write.csv(reach_df, paste(path, '_reach', '.csv', sep=''), row.names=FALSE)
 
+reach_df <- calculate_reach_(joined, fold=TRUE)
+names(reach_df)[names(reach_df) == 'reach'] <- NAME
+write.csv(reach_df, paste(path, '_reach_unnormalized', '.csv', sep=''), row.names=FALSE)
+
 mse_df <- joined %>%
   filter(predicted > 2) %>%
   mutate(se=(true - predicted)^2) %>%
