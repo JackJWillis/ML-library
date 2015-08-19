@@ -137,6 +137,28 @@ predict.grouped_ridge <- function(f, model) {
 }
 
 
+PostLasso <- function(max_covariates=NULL) {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="post_lasso")
+    f$max_covariates <- max_covariates
+    f
+  }
+}
+
+fit.post_lasso <- function(f) {
+  addq <- function(x) paste0("`", x, "`")
+  lasso_model <- fit.lasso(f)
+  columns <- coef(lasso_model)[, which.max(lasso_model$lambda == lasso_model$best_lambda)]
+  columns <- abs(columns) > 0
+  columns <- names(columns)[columns]
+  columns <- Filter(function(col) col != '(Intercept)', columns)
+  glmnet::glmnet(f$x_train[, columns], f$y_train, standardize=FALSE, lambda=0)
+}
+
+predict.post_lasso <- function(f, model) {
+  predict(model, newx=f$x_test[, rownames(coef(model))[-1]])
+}
+
 Lasso <- function(max_covariates=NULL) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="lasso")
@@ -144,7 +166,6 @@ Lasso <- function(max_covariates=NULL) {
     f
   }
 }
-
 
 fit.lasso <- function(f) {
   lasso_model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, alpha=1, standardize=TRUE)
@@ -802,6 +823,11 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
   results$lasso <- kfold_(Lasso(), ksplit)
   print("Running lasso 15")
   results$lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
+  print("Runnin post lasso")
+  results$post_lasso <- kfold_(PostLasso(), ksplit)
+  print("Runnin post lasso 15")
+  results$post_lasso_15 <- kfold_(PostLasso(max_covariates=15), ksplit)
+
   print("Running least squares")
   results$least_squares <- kfold_(LeastSquares(), ksplit)
   results$least_squares_pc <- kfold_(LeastSquaresPC(), ksplit)
@@ -938,6 +964,10 @@ run_simulation_models <- function(name, df, target, ksplit, ksplit_nmm, ksplit_i
   results$lasso <- kfold_(Lasso(), ksplit)
   print("Running lasso 15")
   results$lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
+  print("Runnin post lasso")
+  results$post_lasso <- kfold_(PostLasso(), ksplit)
+  print("Runnin post lasso 15")
+  results$post_lasso_15 <- kfold_(PostLasso(max_covariates=15), ksplit)
   print("Running least squares")
   results$least_squares <- kfold_(LeastSquares(), ksplit)
   
