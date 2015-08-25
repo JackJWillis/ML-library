@@ -62,8 +62,13 @@ plot_scores_ <- function(df, fname) {
     geom_point(position=position_dodge(width=0.5)) +
     scale_color_brewer(palette = "Set1") + 
     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    labs(y = paste(metric, "- lms", metric)) +
     scale_alpha_continuous(range=c(0.3, 1), guide=FALSE)
+  if (metric == 'bttp') {
+    p <- p + labs(y = 'budget to the true poor (over ols)')
+  }
+  else {
+    p <- p + labs(y = paste(metric, "- lms", metric) )
+  }
   methods <- unique(df$method)
   linear_count <- sum(grepl('0. OLS', methods)) + sum(grepl('1. Linear', methods))
   non_linear_count <- sum(grepl('2. Non-linear', methods))
@@ -77,7 +82,7 @@ plot_scores_ <- function(df, fname) {
 }
 df$alpha <- 1
 plot_scores(df, paste('results/', metric, '_all', sep=''))
-if (metric == "reach" | metric == "unnormalized") {
+if (metric == "reach" | metric == "unnormalized" | metric == "bttp") {
   df_avg <- group_by(df, method, variable) %>% summarize(value=mean(value))
   df_avg$alpha <- 2
   plot_scores(df_avg, paste('results/', metric, '_avg', sep=''))

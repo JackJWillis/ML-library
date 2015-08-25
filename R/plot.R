@@ -214,7 +214,7 @@ plot_accuracy <- function(..., BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRU
 }
 
 
-plot_accuracy_dollars_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
+plot_accuracy_dollars_ <- function(joined, BASE=NULL, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=FALSE, SHOW_CUTOFFS=FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
   joined$threshold <- THRESHOLD
   if (!SHOW_TRUE) {
@@ -239,6 +239,7 @@ plot_accuracy_dollars_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TR
   df <- make_df(joined, FALSE)
   folded_df <- make_df(joined, TRUE)
   plot_cumulative(df=df,
+                  base=BASE,
                   y_label="to_true_poor",
                   show_cutoffs=SHOW_CUTOFFS,
                   show_folds=SHOW_FOLDS,
@@ -338,6 +339,44 @@ calculate_reach_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_th
     arrange(desc(percent_pop_included)) %>%
     summarise(reach=first(reach))
   select(reach_df, -one_of('threshold'))
+}
+
+calculate_budget_to_true_poor_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_threshold=.4, base=NULL) {
+  joined <- mutate(joined, threshold=poverty_threshold)
+  if (fold){
+    grouped <- group_by(joined, method, fold, threshold)
+  }
+  else {
+    grouped <- group_by(joined, method, threshold)
+  }
+  bttp <- grouped %>%
+    mutate(response=raw < quantile(raw, threshold)) %>%
+    arrange(predicted) %>%
+    mutate(y=cumsum(response) / row_number()) %>%
+    mutate(x=row_number() / n())
+  folds <- unique(bttp$fold) 
+  true <- filter(bttp, method == 'true')
+  true <- true[rep(1:nrow(true), times=length(folds)), ]
+  true$fold <- folds
+  bttp <- filter(bttp, method != 'true')
+  bttp <- rbind(bttp , true)
+  bttp_df <- bttp %>%
+    filter(x < target_threshold) %>%
+    arrange(desc(x))
+  if (!is.null(base)) {
+    base_bttp <- bttp_df %>%
+      filter(method == base) %>%
+      group_by(fold) %>%
+      summarise(y=first(y))
+    bttp_df <- merge(bttp_df, base_bttp, by='fold') %>%
+      mutate(y=(y.x - y.y)/y.y) %>%
+      filter(method != base) %>%
+      group_by(method, fold)
+  }
+  bttp_df <- bttp_df %>%
+    arrange(desc(x)) %>%
+    summarise(y=first(y))
+  select(bttp_df, -one_of('threshold'))
 }
 
 plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
