@@ -7,6 +7,16 @@ dataset <- load_dataset(NAME)
 joined <- load_models(NAME)
 path <- paste('results', NAME, sep='/')
 knit2html('analyses/report.Rmd', output=path)
+
+e <- filter(joined, grepl('ensemble', method) | method == "least_squares")
+bttp_df <- calculate_budget_to_true_poor_(e, fold=FALSE, base='least_squares')
+names(bttp_df)[names(bttp_df) == 'y'] <- NAME
+write.csv(bttp_df, paste(path, '_ensemble_bttp', '.csv', sep=''), row.names=FALSE)
+
+e_reach_df <- calculate_reach_(e, fold=TRUE, base='least_squares')
+names(e_reach_df)[names(e_reach_df) == 'reach'] <- NAME
+write.csv(e_reach_df, paste(path, '_ensemble_reach', '.csv', sep=''), row.names=FALSE)
+
 reach_df <- calculate_reach_(joined, fold=TRUE, base='least_squares')
 names(reach_df)[names(reach_df) == 'reach'] <- NAME
 write.csv(reach_df, paste(path, '_reach', '.csv', sep=''), row.names=FALSE)
