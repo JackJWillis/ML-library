@@ -278,6 +278,41 @@ predict.rTree <- function(f, model) {
   predict(model, data.frame(f$x_test))
 }
 
+TreePlusLinear <- function() {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="tree_p_linear")
+  }
+}
+
+fit.tree_p_linear <- function(f) {
+  yx_train <- data.frame(Y=f$y_train,f$x_train)
+  party::mob(Y ~ ., data=yx_train, model=linearModel)
+}
+
+predict.tree_p_linear <- function(f, model) {
+  predict(model, data.frame(f$x_test))
+}
+
+LinearPlusForest <- function() {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="linear_p_forest")
+  }
+}
+
+fit.linear_p_forest<- function() {
+  yx_train <- data.frame(Y=f$y_train,f$x_train)
+  linear_part <- lm(Y ~ ., data=yx_train)
+  residuals <- f$y_train - predict(linear_part, yx_train)
+  nonlinear_part <- randomForest::randomForest(x=f$x_train, y=residuals)
+  list(linear=linear_part, nonlinear=non_linear_part)
+}
+
+predict.linear_p_forest <- function(f, model) {
+  linear_part <- predict(model$linear_part, data.frame(f$x_train))
+  nonlinear_part <- predict(model$nonlinear_part, f$x_train)
+  linear_part + nonlinear_part
+}
+
 #No simple way to add weights to randomforest
 Forest <- function() {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
@@ -287,7 +322,14 @@ Forest <- function() {
 
 fit.forest <- function(f) {
 #Supposedly this doesn't need CV  
-  randomForest::randomForest(f$x_train, f$y_train, ntree=500)
+  yx_train <- data.frame(Y=f$y_train,f$x_train)
+  if (nrow(f$x_train > 2000)) {
+    ntree <- 50
+  }
+  else {
+    ntree <- 200
+  }
+  randomForest::randomForest(x=f$x_train, y=f$y_train, ntree=ntree)
 }
 
 predict.forest <- function(f, model) {
@@ -487,11 +529,10 @@ cForest <- function(threshold) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
-    structure(f, class=c("cforest", "classification"))
+    structure(f, class=c("cforest", "forest", "classification"))
   }
 }
 
-fit.cforest <- fit.forest
 
 predict.cforest <- function(f, model) {
   temp<-predict(model, f$x_test, type = "prob")
@@ -721,6 +762,7 @@ ensemble <- function(results, holdout_results, classification=TRUE) {
     print('joining holdout results')
     df <- get_prediction_df(hres)
     print('making predictions')
+    raw_df <- get_prediction_df(res)
     predicted <- predict(model, select(df, -one_of('id', 'raw')))
     print('creating data frame')
     pred <- data.frame(predicted=predicted,
