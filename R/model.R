@@ -26,6 +26,17 @@ transform_ys.classification <- function(f) {
   f
 }
 
+to_mm <- function(f) {
+  test <- data.frame(Y=f$y_test, f$x_test)
+  train <- data.frame(Y=f$y_train, f$x_train)
+  
+  df <- rbind(test, train)
+  mm <- model.matrix(Y ~ ., df)
+  x_test <- mm[1:nrow(test), ]
+  x_train <- mm[1:nrow(train), ]
+  list(x_test=x_test, y_test=f$y_test, x_train=x_train, y_train=f$y_train, w_test=f$w_test, w_train=f$w_train)
+}
+
 # Linear models ---------------------------
 
 Ridge <- function() {
@@ -36,6 +47,9 @@ Ridge <- function() {
 
 
 fit.ridge <- function(f) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   ridge_model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=TRUE, alpha=0)
   cv_ridge <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=TRUE, alpha=0, parallel=TRUE)
   ridge_model$best_lambda <- cv_ridge$lambda.min
@@ -44,6 +58,9 @@ fit.ridge <- function(f) {
 
 
 predict.ridge <- function(f, model) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   predict(model, s=model$best_lambda, newx=f$x_test)
 }
 
@@ -168,6 +185,9 @@ Lasso <- function(max_covariates=NULL) {
 }
 
 fit.lasso <- function(f) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   lasso_model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, alpha=1, standardize=TRUE)
   cv_lasso <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, alpha=1, standardize=TRUE, parallel=TRUE)
   max_covariates <- f$max_covariates
@@ -183,6 +203,9 @@ fit.lasso <- function(f) {
 
 
 predict.lasso <- function(f, model) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   predict(model, newx=f$x_test, s=model$best_lambda)
 }
 
@@ -205,6 +228,9 @@ LeastSquares <- function() {
 
 
 fit.least_squares <- function(f) {
+#   if (class(f$x_test) == "data.frame") {
+#     f <- to_mm(f)
+#   }
   #glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
   yx_train <- data.frame(Y=f$y_train, f$x_train)
   lm(Y ~ ., data=yx_train, weights=f$w_train)
@@ -212,6 +238,9 @@ fit.least_squares <- function(f) {
 
 
 predict.least_squares <- function(f, model) {
+#   if (class(f$x_test) == "data.frame") {
+#     f <- to_mm(f)
+#   }
   predict(model, data.frame(f$x_test))
 }
 
