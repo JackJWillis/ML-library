@@ -1,0 +1,123 @@
+---
+title: "OLS vs. Forests"
+output: html_document
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir="../")
+options(width = 250)
+```
+
+```{r preamble, echo=FALSE}
+library(MLlibrary)
+library(dplyr)
+```
+
+```{r table, echo=FALSE}
+ds_names <- c('tanzania', 'ghana_pe', 'niger_pastoral', 'niger_agricultural', 'mexico')
+print_tables <- function(name_suffix=NULL) {
+  r_squared <- NULL
+  ensemble <- NULL
+  ensemble_2 <- NULL
+  forest <- NULL
+  forest_2 <- NULL
+  lpf <- NULL
+  lpf_2 <- NULL
+  ols <- NULL
+  ols_2 <- NULL
+  rse <- NULL
+  ensemble_budget_difference <- NULL
+  row_count <- NULL
+  column_count <- NULL
+  for (ds_name in ds_names) {
+    if (!is.null(name_suffix)){
+      ds_name <- paste(ds_name, name_suffix, sep='_')
+    }
+    data <- load_dataset(ds_name)
+    data <- select(data, -one_of('X'))
+    if (grepl('niger', ds_name)) {
+      x <- select(data, -one_of('y_real'))
+      y <- data[rownames(x), 'y_real']
+    } else if (grepl('ghana', ds_name)) {
+      x <- select(data, -one_of('lnwelfare'))
+      y <- data[rownames(x), 'lnwelfare']
+    } else {
+      x <- select(data, -one_of('lconsPC'))
+      y <- data[rownames(x), 'lconsPC']
+    }
+    
+    joined <- load_models(ds_name)
+    forest_res <- filter(joined, method == 'forest')
+    first_forest <- filter(forest_res, fold==1)
+    ids <- first_forest$id
+    forest_pred <- first_forest$predicted
+    
+    test <- x[ids, ]
+    ols_on_forest <- lm(forest_pred ~ ., data=data.frame(forest_pred=forest_pred, test))
+    r_sq <- summary(ols_on_forest)$r.squared
+    rse <- c(rse, summary(ols_on_forest)$sigma)
+    
+    forest_reach <- calculate_reach_(forest_res)$reach
+    ols_res <- filter(joined, method == 'least_squares')
+    ols_reach<- calculate_reach_(ols_res)$reach
+    lpf_res <- filter(joined, method == 'linear_plus_forest')
+    lpf_reach<- calculate_reach_(lpf_res)$reach
+    ensemble_res <- filter(joined, method == 'ensemble')
+    ensemble_reach<- calculate_reach_(ensemble_res)$reach
+    
+    ensemble_and_ls <- filter(joined, method == 'ensemble' | method == 'least_squares')
+    budgets_df <- calculate_budget_reduction_(ensemble_and_ls)
+    budgets <- as.list(budgets_df$percent_pop_included)
+    names(budgets) <- budgets_df$method
+    budget_difference <- (budgets$ensemble - budgets$least_squares) / budgets$least_squares
+    ensemble_budget_difference <- c(ensemble_budget_difference, budget_difference)
+    
+    r_squared <- c(r_squared, r_sq)
+    forest <- c(forest, forest_reach)
+    ols <- c(ols, ols_reach)
+    lpf <- c(lpf, lpf_reach)
+    ensemble <- c(ensemble, ensemble_reach)
+    row_count <- c(row_count, nrow(data))
+    column_count <- c(column_count, ncol(data))
+  }
+  
+  results <- data.frame(
+    dataset=ds_names,
+    row_count=row_count,
+    column_count=column_count,
+    ols=ols,
+    forest=forest,
+    linear_plus_forest=lpf,
+    ensemble=ensemble,
+    r_squared=r_squared,
+    rse=rse)
+  
+  results <- results[order(results$row_count), ]
+  print(results, digits=4, row.names=FALSE)
+  
+  ensemble_results <- data.frame(
+    dataset=ds_names,
+    row_count=row_count,
+    reach_difference=(ensemble - ols) / ols,
+    budget_difference=ensemble_budget_difference)
+  ensemble_results <- ensemble_results[order(ensemble_results$row_count), ]
+  print('ensemble')
+  print(ensemble_results, digits=4, row.names=FALSE)
+}
+print_tables()
+```
+
+
+## Waste vs Reach plots
+
+```{r reach_vs_waste, echo=FALSE}
+ds_names <- c( 'niger_pastoral', 'niger_agricultural', 'tanzania', 'ghana_pe', 'mexico')
+for (ds_name in ds_names) {
+  print(ds_name)
+  joined <- load_models(ds_name)
+  p <- plot_reach_vs_waste_(joined, POINT_COUNT=1000, THRESHOLD = 0.4)
+  plot(p)
+}
+```
+
