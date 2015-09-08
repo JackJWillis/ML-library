@@ -1,4 +1,4 @@
-all: tanzania ghana table
+all: tanzania ghana niger mexico table
 
 clean:
 	rm results/*
