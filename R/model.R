@@ -26,6 +26,17 @@ transform_ys.classification <- function(f) {
   f
 }
 
+to_mm <- function(f) {
+  test <- data.frame(Y=f$y_test, f$x_test)
+  train <- data.frame(Y=f$y_train, f$x_train)
+  
+  df <- rbind(test, train)
+  mm <- model.matrix(Y ~ ., df)
+  x_test <- mm[1:nrow(test), ]
+  x_train <- mm[1:nrow(train), ]
+  list(x_test=x_test, y_test=f$y_test, x_train=x_train, y_train=f$y_train, w_test=f$w_test, w_train=f$w_train)
+}
+
 # Linear models ---------------------------
 
 Ridge <- function() {
@@ -36,6 +47,9 @@ Ridge <- function() {
 
 
 fit.ridge <- function(f) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   ridge_model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=TRUE, alpha=0)
   cv_ridge <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, standardize=TRUE, alpha=0, parallel=TRUE)
   ridge_model$best_lambda <- cv_ridge$lambda.min
@@ -44,6 +58,9 @@ fit.ridge <- function(f) {
 
 
 predict.ridge <- function(f, model) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   predict(model, s=model$best_lambda, newx=f$x_test)
 }
 
@@ -168,6 +185,9 @@ Lasso <- function(max_covariates=NULL) {
 }
 
 fit.lasso <- function(f) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   lasso_model <- glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, alpha=1, standardize=TRUE)
   cv_lasso <- glmnet::cv.glmnet(f$x_train, f$y_train, weights=f$w_train, alpha=1, standardize=TRUE, parallel=TRUE)
   max_covariates <- f$max_covariates
@@ -183,6 +203,9 @@ fit.lasso <- function(f) {
 
 
 predict.lasso <- function(f, model) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   predict(model, newx=f$x_test, s=model$best_lambda)
 }
 
@@ -205,6 +228,9 @@ LeastSquares <- function() {
 
 
 fit.least_squares <- function(f) {
+#   if (class(f$x_test) == "data.frame") {
+#     f <- to_mm(f)
+#   }
   #glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
   yx_train <- data.frame(Y=f$y_train, f$x_train)
   lm(Y ~ ., data=yx_train, weights=f$w_train)
@@ -212,6 +238,9 @@ fit.least_squares <- function(f) {
 
 
 predict.least_squares <- function(f, model) {
+#   if (class(f$x_test) == "data.frame") {
+#     f <- to_mm(f)
+#   }
   predict(model, data.frame(f$x_test))
 }
 
@@ -278,6 +307,43 @@ predict.rTree <- function(f, model) {
   predict(model, data.frame(f$x_test))
 }
 
+TreePlusLinear <- function() {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="tree_p_linear")
+  }
+}
+
+fit.tree_p_linear <- function(f) {
+  yx_train <- data.frame(Y=f$y_train,f$x_train)
+  columns <- paste(colnames(yx_train), collapse='+')
+  fmla <- as.formula(paste('Y ~', columns, '|', columns))
+  party::mob(fmla, data=yx_train, model=modeltools::linearModel)
+}
+
+predict.tree_p_linear <- function(f, model) {
+  predict(model, data.frame(f$x_test))
+}
+
+LinearPlusForest <- function() {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="linear_p_forest")
+  }
+}
+
+fit.linear_p_forest<- function(f) {
+  yx_train <- data.frame(Y=f$y_train,f$x_train)
+  linear_part <- lm(Y ~ ., data=yx_train)
+  residuals <- f$y_train - predict(linear_part, yx_train)
+  nonlinear_part <- randomForest::randomForest(x=f$x_train, y=residuals, ntree=50)
+  list(linear=linear_part, nonlinear=nonlinear_part)
+}
+
+predict.linear_p_forest <- function(f, model) {
+  linear_part <- predict(model$linear, data.frame(f$x_test))
+  nonlinear_part <- predict(model$nonlinear, f$x_test)
+  linear_part + nonlinear_part
+}
+
 #No simple way to add weights to randomforest
 Forest <- function() {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
@@ -287,7 +353,14 @@ Forest <- function() {
 
 fit.forest <- function(f) {
 #Supposedly this doesn't need CV  
-  randomForest::randomForest(f$x_train, f$y_train, ntree=500)
+  yx_train <- data.frame(Y=f$y_train,f$x_train)
+  if (nrow(f$x_train > 2000)) {
+    ntree <- 50
+  }
+  else {
+    ntree <- 200
+  }
+  randomForest::randomForest(x=f$x_train, y=f$y_train, ntree=ntree)
 }
 
 predict.forest <- function(f, model) {
@@ -487,11 +560,10 @@ cForest <- function(threshold) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
-    structure(f, class=c("cforest", "classification"))
+    structure(f, class=c("cforest", "forest", "classification"))
   }
 }
 
-fit.cforest <- fit.forest
 
 predict.cforest <- function(f, model) {
   temp<-predict(model, f$x_test, type = "prob")
@@ -704,10 +776,18 @@ ensemble <- function(results, holdout_results, classification=TRUE) {
       })
       res <- res[!sapply(res, is.null)]
       trues <- lapply(res, function(r) r$raw)
-      stopifnot(all(sapply(trues, function(t) all.equal(t, trues[[1]]))))
+      sapply(trues, function(t) {
+        if (!(abs(t - trues[[1]]) < .001)) {
+          print(t - trues[[1]])
+        }
+      })
       
       ids <- lapply(res, function(r) r$id)
-      stopifnot(all(sapply(ids, function(i) all.equal(i, ids[[1]]))))
+      sapply(ids, function(id) {
+        if (id != ids[[1]]) {
+          print(paste(id, '!=', ids[[1]]))
+        }
+      })
       
       cols <- lapply(res, function(r) r$predicted)
       cols$raw <- trues[[1]]
@@ -721,6 +801,7 @@ ensemble <- function(results, holdout_results, classification=TRUE) {
     print('joining holdout results')
     df <- get_prediction_df(hres)
     print('making predictions')
+    raw_df <- get_prediction_df(res)
     predicted <- predict(model, select(df, -one_of('id', 'raw')))
     print('creating data frame')
     pred <- data.frame(predicted=predicted,
@@ -751,13 +832,14 @@ run_all_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL)
   run_heldout(name, cv_splits, results, results_no_cv)
 }
 
-run_fast_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
+run_fs_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
   results <- lapply(cv_splits, function(single_split) {
-    run_fast_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
+    run_all_feature_selected(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
   results_no_cv <- lapply(cv_splits, function(single_split) {
-    run_fast_models(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
+    run_all_feature_selected(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
   run_heldout(name, cv_splits, results, results_no_cv)
 }
+
 
 run_weighted_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
   name <- paste(name, 'weighted', sep='_')
@@ -788,7 +870,6 @@ run_heldout <- function(name, cv_splits, results, results_no_cv) {
   predictions <- lapply(results, function(res) lapply(res, function(r) r$pred))
   holdout_predictions <- lapply(holdout_predictions, function(hres) {
     is_null <- sapply(hres, is.null)
-    print(names(hres[is_null]))
     hres[!is_null]
   })
   
@@ -809,8 +890,49 @@ run_heldout <- function(name, cv_splits, results, results_no_cv) {
   save_models_(name, dfs)
 }
 
+run_all_feature_selected <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
+  lasso <- kfold_(Lasso(25), ksplit)
+  model <- lasso$kfold_fits$fits[[1]]
+  col_index <- max(which(colSums(abs(as.matrix(model$beta)) > 0) <=25))
+  betas <- model$beta[, col_index]
+  columns <- names(betas)[betas > 0]
+  for (i in 1:length(ksplit$splits)) {
+    ksplit$splits[[i]]$x_train <- ksplit$splits[[i]]$x_train[, columns]
+    ksplit$splits[[i]]$x_test <- ksplit$splits[[i]]$x_test[, columns]
+  }
+  run_all_models(name, df, target, ksplit, ksplit_nmm, grouping_variable)
+}
 
 run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
+  if (is.null(ksplit_nmm)) {
+    ksplit_nmm <- ksplit
+  }
+  save_dataset(name, df)
+  results <- list()
+  
+  print("Running ridge")
+  results$ridge <- kfold_(Ridge(), ksplit)
+  print("Running lasso")
+  results$lasso <- kfold_(Lasso(), ksplit)
+
+  print("Running least squares")
+  results$least_squares <- kfold_(LeastSquares(), ksplit)
+  
+  print("Running randomForest")
+  results$forest <- kfold_(Forest(), ksplit_nmm)
+#   print("Running tree plus linear")
+#   results$tree_plus_linear <- kfold_(TreePlusLinear(), ksplit_nmm)
+  print("Running linear plus tree")
+  results$linear_plus_forest <- kfold_(LinearPlusForest(), ksplit_nmm)
+
+  prediction_results <- lapply(results, function(res) {res$pred})
+  prediction_results$name <- name
+  do.call(save_models, prediction_results)
+  results
+}
+
+
+run_all_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
   if (is.null(ksplit_nmm)) {
     ksplit_nmm <- ksplit
   }
@@ -856,6 +978,11 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
   results$btree <- kfold_(BoostedTrees(), ksplit_nmm)
   results$btree_laplace <- kfold_(BoostedTrees(distribution="laplace"), ksplit_nmm)  
   
+  print("Running tree plus linear")
+  results$tree_plus_linear <- kfold_(TreePlusLinear(), ksplit_nmm)
+  print("Running linear plus tree")
+  results$linear_plus_forest <- kfold_(LinearPlusTree(), ksplit_nmm)
+  
   print("Running mca")
   try(results$mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit_nmm))
   print("Running pca")
@@ -891,163 +1018,6 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
   results$cbtree_adaboost_30 <- kfold_(cBoostedTrees(threshold_30, distribution="adaboost"), ksplit)  
   results$cbtree_huberized_30 <- kfold_(cBoostedTrees(threshold_30, distribution="huberized"), ksplit)  
 
-  prediction_results <- lapply(results, function(res) {res$pred})
-  prediction_results$name <- name
-  do.call(save_models, prediction_results)
-  results
-}
-
-
-run_fast_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
-  save_dataset(name, df)
-  results <- list()
-  
-  print("Running ridge")
-  results$ridge <- kfold_(Ridge(), ksplit)
-  print("Running lasso")
-  results$lasso <- kfold_(Lasso(), ksplit)
-  print("Running lasso 15")
-  results$lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
-  print("Running least squares")
-  results$least_squares <- kfold_(LeastSquares(), ksplit)
-  results$least_squares_pc <- kfold_(LeastSquaresPC(), ksplit)
-  
-  print("Running s")
-  
-  print('Running grouped ridge')
-  try(results$grouped_ridge <- kfold_(GroupedRidge(grouping_variable), ksplit))
-
-  print("Running stepwise")
-  results$stepwise <- kfold_(Stepwise(300), ksplit)
-  print("Running stepwise 15")
-  results$stepwise_15 <- kfold_(Stepwise(15), ksplit)
-  
-  
-  print("Running rtree")
-  results$rtree <- kfold_(rTree(), ksplit)
-  print("Running randomForest")
-  
-  print("Running mca")
-  try(results$mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit))
-  print("Running pca")
-  try(results$pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit))
-  print("Running pca all")
-  try(results$pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit))
-
-  threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
-  print("Running logistic")
-  results$logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
-  print("Running logisitic lasso")
-  results$logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
-  print(" Running ctree")
-  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit)
-  print("Running randomForest")
-  results$cforest_40 <- kfold_(cForest(threshold_40), ksplit)
-  print("Running cBoostedtree")
-  results$cbtree_40 <- kfold_(cBoostedTrees(threshold_40), ksplit)
-  results$cbtree_adaboost_40 <- kfold_(cBoostedTrees(threshold_40, distribution="adaboost"), ksplit)  
-  results$cbtree_huberized_40 <- kfold_(cBoostedTrees(threshold_40, distribution="huberized"), ksplit)  
-  
-  prediction_results <- lapply(results, function(res) {res$pred})
-  prediction_results$name <- name
-  do.call(save_models, prediction_results)
-  results
-}
-
-run_simulation_models <- function(name, df, target, ksplit, ksplit_nmm, ksplit_ix) {
-  save_dataset(name, df)
-  results <- list()
-  
-  print("Running ridge")
-  results$ridge <- kfold_(Ridge(), ksplit)
-  print("Running lasso")
-  results$lasso <- kfold_(Lasso(), ksplit)
-  print("Running lasso 15")
-  results$lasso_15 <- kfold_(Lasso(max_covariates=15), ksplit)
-  print("Runnin post lasso")
-  results$post_lasso <- kfold_(PostLasso(), ksplit)
-  print("Runnin post lasso 15")
-  results$post_lasso_15 <- kfold_(PostLasso(max_covariates=15), ksplit)
-  print("Running least squares")
-  results$least_squares <- kfold_(LeastSquares(), ksplit)
-  
-  print("Running ridge_ix")
-  results$ridge_ix <- kfold_(Ridge(), ksplit_ix)
-  print("Running lasso_ix")
-  results$lasso_ix <- kfold_(Lasso(), ksplit_ix)
-  print("Running least squares_ix")
-  results$least_squares_ix <- kfold_(LeastSquares(), ksplit_ix)
-  
-  print("Running Quantile")
-  results$quantile <- kfold_(QuantileRegression(), ksplit)
-  
-  print("Running stepwise")
-  results$stepwise <- kfold_(Stepwise(300), ksplit)
-  print("Running stepwise 15")
-  results$stepwise_15 <- kfold_(Stepwise(15), ksplit)
-  
-  print("Running rtree")
-  results$rtree <- kfold_(rTree(), ksplit_nmm)
-  print("Running randomForest")
-  results$forest <- kfold_(Forest(), ksplit_nmm)
-  print("Running Boostedtree")
-  results$btree <- kfold_(BoostedTrees(), ksplit_nmm)
-  
-  print("Running pca")
-  try(results$pca_knn <- kfold_(PCA_KNN(ndim=12), ksplit_nmm))
-  print("Running pca all")
-  try(results$pca_knn_all <- kfold_(PCA_KNN(ndim=12), ksplit))
-  
-  threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
-  print("Running logistic")
-  results$logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
-  print("Running logisitic lasso")
-  results$logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
-  print(" Running ctree")
-  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit_nmm)
-  print("Running randomForest")
-  results$cforest_40 <- kfold_(cForest(threshold_40), ksplit_nmm)
-  print("Running cBoostedtree")
-  results$cbtree_40 <- kfold_(cBoostedTrees(threshold_40), ksplit_nmm)
-
-  
-  results$name <- name
-  do.call(save_models, results)
-}
-
-run_weighted_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
-  save_dataset(name, df)
-  results <- list()
-  
-  print("Running least squares")
-  results$least_squares <- kfold_(LeastSquares(), ksplit)
-  
-  threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
-  gamma <- 2
-  ksplit <- kfold_add_importance_weights(ksplit, threshold_40, gamma)
-  if (!is.null(ksplit_nmm)) {
-    ksplit_nmm <- kfold_add_importance_weights(ksplit_nmm, threshold_40, gamma) 
-  }
-    
-  print("Running ridge")
-  results$ridge <- kfold_(Ridge(), ksplit)
-  print("Running lasso")
-  results$lasso <- kfold_(Lasso(), ksplit)
-  print("Running stepwise")
-  results$stepwise <- kfold_(Stepwise(300), ksplit)
-  print("Running least squares")
-  results$least_squares_weighted <- kfold_(LeastSquares(), ksplit)
-  print("Running Quantile")
-  results$quantile <- kfold_(QuantileRegression(), ksplit)
-  print("Running rtree")
-  results$rtree <- kfold_(rTree(), ksplit)
-  print("Running logistic")
-  results$logistic_40 <- kfold_(Logistic(threshold_40), ksplit)
-  print("Running logisitic lasso")
-  results$logistic_lasso_40 <- kfold_(LogisticLasso(threshold_40), ksplit)
-  print(" Running ctree")
-  results$ctree_40 <- kfold_(cTree(threshold_40), ksplit)
-  
   prediction_results <- lapply(results, function(res) {res$pred})
   prediction_results$name <- name
   do.call(save_models, prediction_results)

@@ -117,7 +117,7 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
     ggplot2::labs(x = x_label)
    
   if ('least_squares' %in% cut$method) {
-    lms <- filter(cut, method=='least_squares')
+    lms <- filter(ungroup(cut), method=='least_squares')
     p <- p + 
       ggplot2::geom_line(data=lms, mapping=ggplot2::aes(x=x, y=y, color=method), size=1.75)
   }
@@ -321,6 +321,7 @@ calculate_reach_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_th
   true$fold <- folds
   rvw <- filter(rvw, method != 'true')
   rvw <- rbind(rvw, true)
+  rvw <- ungroup(rvw)
   reach_df <- rvw %>%
     filter(percent_pop_included < target_threshold) %>%
     mutate(reach=y) %>%
@@ -339,6 +340,21 @@ calculate_reach_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_th
     arrange(desc(percent_pop_included)) %>%
     summarise(reach=first(reach))
   select(reach_df, -one_of('threshold'))
+}
+
+calculate_budget_reduction_ <- function(joined, base='least_squares', poverty_threshold=.4, target_threshold=.4) {
+  stopifnot(base %in% joined$method)
+  base_reach <- calculate_reach_(
+    filter(joined, method==base),
+    fold=FALSE,
+    poverty_threshold=poverty_threshold,
+    target_threshold=target_threshold)$reach
+  joined <- mutate(joined, threshold=poverty_threshold)
+  rvw <- calculate_reach_vs_waste_(joined, folds=FALSE)
+  rvw %>%
+    filter(y < base_reach) %>%
+    arrange(desc(y)) %>%
+    summarize(reach=first(y), percent_pop_included=first(percent_pop_included))
 }
 
 calculate_budget_to_true_poor_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_threshold=.4, base=NULL) {
@@ -378,6 +394,8 @@ calculate_budget_to_true_poor_ <- function(joined, fold=FALSE, poverty_threshold
     summarise(y=first(y))
   select(bttp_df, -one_of('threshold'))
 }
+
+
 
 plot_reach_vs_waste_ <- function(joined, THRESHOLD=DEFAULT_THRESHOLDS, SHOW_CUTOFFS = FALSE, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- joined[rep(seq_len(nrow(joined)), each=length(THRESHOLD)), ]
