@@ -776,10 +776,18 @@ ensemble <- function(results, holdout_results, classification=TRUE) {
       })
       res <- res[!sapply(res, is.null)]
       trues <- lapply(res, function(r) r$raw)
-      stopifnot(all(sapply(trues, function(t) all.equal(t, trues[[1]]))))
+      sapply(trues, function(t) {
+        if (!(abs(t - trues[[1]]) < .001)) {
+          print(t - trues[[1]])
+        }
+      })
       
       ids <- lapply(res, function(r) r$id)
-      stopifnot(all(sapply(ids, function(i) all.equal(i, ids[[1]]))))
+      sapply(ids, function(id) {
+        if (id != ids[[1]]) {
+          print(paste(id, '!=', ids[[1]]))
+        }
+      })
       
       cols <- lapply(res, function(r) r$predicted)
       cols$raw <- trues[[1]]
