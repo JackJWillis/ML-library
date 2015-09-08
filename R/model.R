@@ -315,7 +315,9 @@ TreePlusLinear <- function() {
 
 fit.tree_p_linear <- function(f) {
   yx_train <- data.frame(Y=f$y_train,f$x_train)
-  party::mob(Y ~ ., data=yx_train, model=linearModel)
+  columns <- paste(colnames(yx_train), collapse='+')
+  fmla <- as.formula(paste('Y ~', columns, '|', columns))
+  party::mob(fmla, data=yx_train, model=modeltools::linearModel)
 }
 
 predict.tree_p_linear <- function(f, model) {
@@ -328,17 +330,17 @@ LinearPlusForest <- function() {
   }
 }
 
-fit.linear_p_forest<- function() {
+fit.linear_p_forest<- function(f) {
   yx_train <- data.frame(Y=f$y_train,f$x_train)
   linear_part <- lm(Y ~ ., data=yx_train)
   residuals <- f$y_train - predict(linear_part, yx_train)
-  nonlinear_part <- randomForest::randomForest(x=f$x_train, y=residuals)
-  list(linear=linear_part, nonlinear=non_linear_part)
+  nonlinear_part <- randomForest::randomForest(x=f$x_train, y=residuals, ntree=50)
+  list(linear=linear_part, nonlinear=nonlinear_part)
 }
 
 predict.linear_p_forest <- function(f, model) {
-  linear_part <- predict(model$linear_part, data.frame(f$x_train))
-  nonlinear_part <- predict(model$nonlinear_part, f$x_train)
+  linear_part <- predict(model$linear, data.frame(f$x_test))
+  nonlinear_part <- predict(model$nonlinear, f$x_test)
   linear_part + nonlinear_part
 }
 
