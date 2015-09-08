@@ -870,7 +870,6 @@ run_heldout <- function(name, cv_splits, results, results_no_cv) {
   predictions <- lapply(results, function(res) lapply(res, function(r) r$pred))
   holdout_predictions <- lapply(holdout_predictions, function(hres) {
     is_null <- sapply(hres, is.null)
-    print(names(hres[is_null]))
     hres[!is_null]
   })
   
@@ -915,13 +914,16 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
   results$ridge <- kfold_(Ridge(), ksplit)
   print("Running lasso")
   results$lasso <- kfold_(Lasso(), ksplit)
-  print("Running lasso 15")
 
   print("Running least squares")
   results$least_squares <- kfold_(LeastSquares(), ksplit)
   
   print("Running randomForest")
   results$forest <- kfold_(Forest(), ksplit_nmm)
+#   print("Running tree plus linear")
+#   results$tree_plus_linear <- kfold_(TreePlusLinear(), ksplit_nmm)
+  print("Running linear plus tree")
+  results$linear_plus_forest <- kfold_(LinearPlusForest(), ksplit_nmm)
 
   prediction_results <- lapply(results, function(res) {res$pred})
   prediction_results$name <- name
@@ -975,6 +977,11 @@ run_all_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, groupi
   print("Running Boostedtree")
   results$btree <- kfold_(BoostedTrees(), ksplit_nmm)
   results$btree_laplace <- kfold_(BoostedTrees(distribution="laplace"), ksplit_nmm)  
+  
+  print("Running tree plus linear")
+  results$tree_plus_linear <- kfold_(TreePlusLinear(), ksplit_nmm)
+  print("Running linear plus tree")
+  results$linear_plus_forest <- kfold_(LinearPlusTree(), ksplit_nmm)
   
   print("Running mca")
   try(results$mca_knn <- kfold_(MCA_KNN(ndim=12, k=5), ksplit_nmm))
