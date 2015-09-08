@@ -117,7 +117,7 @@ plot_cumulative <- function(df, y_label, show_cutoffs, show_folds, folded, point
     ggplot2::labs(x = x_label)
    
   if ('least_squares' %in% cut$method) {
-    lms <- filter(cut, method=='least_squares')
+    lms <- filter(ungroup(cut), method=='least_squares')
     p <- p + 
       ggplot2::geom_line(data=lms, mapping=ggplot2::aes(x=x, y=y, color=method), size=1.75)
   }
@@ -321,6 +321,7 @@ calculate_reach_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_th
   true$fold <- folds
   rvw <- filter(rvw, method != 'true')
   rvw <- rbind(rvw, true)
+  rvw <- ungroup(rvw)
   reach_df <- rvw %>%
     filter(percent_pop_included < target_threshold) %>%
     mutate(reach=y) %>%
