@@ -121,6 +121,7 @@ niger_p <- standardize_predictors(niger_p, "y_real")
 
 x_p <- model.matrix(y_real ~ .,  niger_p)
 y_p <- niger_p[rownames(x_p), "y_real"]
+x_p_nmm <- select(niger_a, -one_of('y_real'))
 
 temp <- load_data(DATA_PATH)
 #Just keeping Pastorale:
@@ -134,16 +135,17 @@ niger_a$menage <- NULL
 niger_a <- standardize_predictors(niger_a, "y_real")
 
 x_a <- model.matrix(y_real ~ .,  niger_a)
+x_a_nmm <- select(niger_a, -one_of('y_real'))
 y_a <- niger_a[rownames(x_a), "y_real"]
 
 
-cv_splits_a <- cv_split(y_a, x_a, k=5, inner_k=3, seed=1, weight=niger_a_weight)
+cv_splits_a <- cv_split(y_a, x_a_nmm, k=5, inner_k=4, seed=1, weight=niger_a_weight)
 run_all_heldout('niger_agricultural', niger_a, 'y_real', cv_splits_a)
-# run_weighted_heldout('niger_agricultural', niger_a, 'y_real', cv_splits_a)
+run_fs_heldout('niger_agricultural_25', niger_a, 'y_real', cv_splits_a)
 
-cv_splits_p <- cv_split(y_p, x_p, k=5, inner_k=3, seed=1, weight=niger_p_weight)
+cv_splits_p <- cv_split(y_p, x_p_nmm, k=5, inner_k=4, seed=1, weight=niger_p_weight)
 run_all_heldout('niger_pastoral', niger_p, 'y_real', cv_splits_p)
-# run_weighted_heldout('niger_pastoral', niger_p, 'y_real', cv_splits_p)
+run_fs_heldout('niger_pastoral_25', niger_p, 'y_real', cv_splits_p)
 
 
 feature_info <- read.xlsx(VARIABLE_TABLE_PATH, sheetName="Sheet1")

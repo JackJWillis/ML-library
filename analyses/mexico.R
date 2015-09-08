@@ -108,5 +108,6 @@ x <- model.matrix(lconsPC ~ .,  mx)
 x_nmm <- select(mx, -one_of("lconsPC"))
 y <- mx[rownames(x), "lconsPC"]
 
-cv_splits <- cv_split(y, x, k=5, inner_k=3, seed=1)
+cv_splits <- cv_split(y, x_nmm, k=5, inner_k=3, seed=1)
 run_all_heldout(NAME, mx, "lconsPC", cv_splits, 'muni')
+run_fs_heldout(paste(NAME, '25', sep='_'), mx, "lconsPC", cv_splits, 'muni')
