@@ -832,6 +832,15 @@ run_all_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL)
   run_heldout(name, cv_splits, results, results_no_cv)
 }
 
+run_fs_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
+  results <- lapply(cv_splits, function(single_split) {
+    run_all_feature_selected(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
+  results_no_cv <- lapply(cv_splits, function(single_split) {
+    run_all_feature_selected(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
+  run_heldout(name, cv_splits, results, results_no_cv)
+}
+
+
 run_weighted_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
   name <- paste(name, 'weighted', sep='_')
   results <- lapply(cv_splits, function(single_split) {
@@ -880,6 +889,19 @@ run_heldout <- function(name, cv_splits, results, results_no_cv) {
   dfs <- rbind(dfs, e$pred)
   dfs <- rbind(dfs, e_all$pred)
   save_models_(name, dfs)
+}
+
+run_all_feature_selected <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
+  lasso <- kfold_(Lasso(25), ksplit)
+  model <- lasso$kfold_fits$fits[[1]]
+  col_index <- max(which(colSums(abs(as.matrix(model$beta)) > 0) <=25))
+  betas <- model$beta[, col_index]
+  columns <- names(betas)[betas > 0]
+  for (i in 1:length(ksplit$splits)) {
+    ksplit$splits[[i]]$x_train <- ksplit$splits[[i]]$x_train[, columns]
+    ksplit$splits[[i]]$x_test <- ksplit$splits[[i]]$x_test[, columns]
+  }
+  run_all_models(name, df, target, ksplit, ksplit_nmm, grouping_variable)
 }
 
 run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
