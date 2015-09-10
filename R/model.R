@@ -267,22 +267,42 @@ predict.quantile_regression <- function(f, model) {
   quantreg::predict.rq(model, newdata=data.frame(f$x_test))
 }
 
-Stepwise <- function(max_covariates=100) {
+Stepwise <- function(max_covariates=100, original_columns=NULL) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="stepwise")
     f$max_covariates <- max_covariates
+    f$original_columns <- original_columns
     f
   }
 }
 
+to_original_columns <- function(mm_columns, original_columns) {
+  idx <- sapply(original_columns, function(original_column) {
+    any(grepl(original_column, mm_columns))
+  })
+  original_columns[idx]
+}
+
 fit.stepwise <- function(f) {
   yx_train <- data.frame(Y=f$y_train, f$x_train)
-  l <- leaps::regsubsets(Y ~ ., data=yx_train, weights=f$w_train, method="forward", nvmax=f$max_covariates)
-  l <- summary(l)
-  bestfeat <-l$which[which.min(l$bic),]
-  bestfeat <- bestfeat[-1] # remove weird (Intercept) column
-  bestfeat <- names(bestfeat)[bestfeat]
-  lm(Y ~ ., data=yx_train[,  c('Y', bestfeat)], weights=f$w_train)
+  l <- leaps::regsubsets(Y ~ ., data=yx_train, weights=f$w_train, method="forward", nvmax=1000)
+  features <- NULL
+  i <- 0
+  if (!is.null(f$original_columns)) {
+    original_columns <- f$original_columns
+  }
+  else {
+    original_columns <- colnames(yx_train)
+  }
+  while (length(features) < f$max_covariates) {
+    i <- i + 1
+    l_mm_columns <- summary(l)$which[i, ]
+    mm_columns <- names(l_mm_columns)[l_mm_columns]
+    features <- to_original_columns(mm_columns, original_columns)
+  }
+  ols <- lm(Y ~ ., data=yx_train[, c('Y', features)], weights=f$w_train)
+  ols$stepwise_features <- features
+  ols
 }
 
 predict.stepwise <- function(f, model) {
@@ -905,13 +925,31 @@ run_heldout <- function(name, cv_splits, results, results_no_cv) {
   save_models_(name, dfs)
 }
 
-run_all_feature_selected <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
-  lasso <- kfold_(Lasso(25), ksplit)
-  model <- lasso$kfold_fits$fits[[1]]
-  col_index <- max(which(colSums(abs(as.matrix(model$beta)) > 0) <=25))
-  betas <- model$beta[, col_index]
-  columns <- names(betas)[betas > 0]
+run_all_feature_selected <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL, method='stepwise') {
+  if (method=='lasso') {
+    lasso <- kfold_(Lasso(25), ksplit)
+    model <- lasso$kfold_fits$fits[[1]]
+    col_index <- max(which(colSums(abs(as.matrix(model$beta)) > 0) <=25))
+    betas <- model$beta[, col_index]
+    columns <- names(betas)[betas > 0]
+  }
+  if (method == 'stepwise') {
+    stepwise <- kfold_fit(ksplit, Stepwise(max_covariates=25, original_columns=colnames(df)))
+    model <- stepwise$fits[[1]]
+    columns <- model$stepwise_features
+  }
+  if (method == 'forest') {
+    forest <- kfold_fit(ksplit, Forest())
+    model <- forest$fits[[1]]
+    imp <- model$importance
+    columns <- imp[-order(imp[, 1]), ][1:25]
+  }
   for (i in 1:length(ksplit$splits)) {
+    for (col in columns) {
+      if (!(col %in% colnames(ksplit$splits[[i]]$x_train))) {
+        print(col)
+      }
+    }
     ksplit$splits[[i]]$x_train <- ksplit$splits[[i]]$x_train[, columns]
     ksplit$splits[[i]]$x_test <- ksplit$splits[[i]]$x_test[, columns]
   }
