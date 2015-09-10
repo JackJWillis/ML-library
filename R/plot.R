@@ -323,7 +323,14 @@ calculate_reach_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_th
   rvw <- rbind(rvw, true)
   rvw <- ungroup(rvw)
   reach_df <- rvw %>%
-    filter(percent_pop_included < target_threshold) %>%
+    filter(percent_pop_included < target_threshold)
+  if (fold){
+    reach_df <- group_by(reach_df, method, fold, threshold)
+  }
+  else {
+    reach_df <- group_by(reach_df, method, threshold)
+  }
+  reach_df <- reach_df %>%
     mutate(reach=y) %>%
     arrange(desc(percent_pop_included))
   if (!is.null(base)) {
