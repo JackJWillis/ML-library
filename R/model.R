@@ -29,11 +29,14 @@ transform_ys.classification <- function(f) {
 to_mm <- function(f) {
   test <- data.frame(Y=f$y_test, f$x_test)
   train <- data.frame(Y=f$y_train, f$x_train)
+  columns <- intersect(colnames(test), colnames(train))
+  test <- test[, columns]
+  train <- train[, columns]
   
   df <- rbind(test, train)
   mm <- model.matrix(Y ~ ., df)
   x_test <- mm[1:nrow(test), ]
-  x_train <- mm[1:nrow(train), ]
+  x_train <- mm[(nrow(test)+1):nrow(mm), ]
   list(x_test=x_test, y_test=f$y_test, x_train=x_train, y_train=f$y_train, w_test=f$w_test, w_train=f$w_train)
 }
 
@@ -228,9 +231,9 @@ LeastSquares <- function() {
 
 
 fit.least_squares <- function(f) {
-#   if (class(f$x_test) == "data.frame") {
-#     f <- to_mm(f)
-#   }
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   #glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
   yx_train <- data.frame(Y=f$y_train, f$x_train)
   lm(Y ~ ., data=yx_train, weights=f$w_train)
@@ -238,9 +241,9 @@ fit.least_squares <- function(f) {
 
 
 predict.least_squares <- function(f, model) {
-#   if (class(f$x_test) == "data.frame") {
-#     f <- to_mm(f)
-#   }
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   predict(model, data.frame(f$x_test))
 }
 
@@ -331,6 +334,9 @@ LinearPlusForest <- function() {
 }
 
 fit.linear_p_forest<- function(f) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   yx_train <- data.frame(Y=f$y_train,f$x_train)
   linear_part <- lm(Y ~ ., data=yx_train)
   residuals <- f$y_train - predict(linear_part, yx_train)
@@ -339,6 +345,9 @@ fit.linear_p_forest<- function(f) {
 }
 
 predict.linear_p_forest <- function(f, model) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   linear_part <- predict(model$linear, data.frame(f$x_test))
   nonlinear_part <- predict(model$nonlinear, f$x_test)
   linear_part + nonlinear_part
@@ -352,18 +361,24 @@ Forest <- function() {
 }
 
 fit.forest <- function(f) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
 #Supposedly this doesn't need CV  
   yx_train <- data.frame(Y=f$y_train,f$x_train)
-  if (nrow(f$x_train > 2000)) {
-    ntree <- 50
-  }
-  else {
-    ntree <- 200
-  }
-  randomForest::randomForest(x=f$x_train, y=f$y_train, ntree=ntree)
+#   if (nrow(f$x_train > 2000)) {
+#     ntree <- 50
+#   }
+#   else {
+#     ntree <- 200
+#   }
+  randomForest::randomForest(x=f$x_train, y=f$y_train)
 }
 
 predict.forest <- function(f, model) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   predict(model, f$x_test)
 }
 
