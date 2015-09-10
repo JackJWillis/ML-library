@@ -88,8 +88,8 @@ y <- gh[rownames(x), "lnwelfare"]
 
 cv_splits <- cv_split(y, x, k=5, inner_k=3, seed=1)
 
-run_all_heldout(NAME, gh, "lnwelfare", cv_splits, 'rural')
-run_fs_heldout(paste(NAME, '25', sep='_'), gh, "lnwelfare", cv_splits, 'rural')
+# run_all_heldout(NAME, gh, "lnwelfare", cv_splits, 'rural')
+# run_fs_heldout(paste(NAME, '25', sep='_'), gh, "lnwelfare", cv_splits, 'rural')
 
 gh <- create_dataset(pe_data_path, pe_variable_table_path)
 gh <- standardize_predictors(gh, "lnwelfare")
