@@ -898,7 +898,7 @@ run_heldout <- function(name, cv_splits, results, results_no_cv) {
         kfold_fits$folds[[i]]$w_test <- rep(1, length(cv_split$y_holdout))
       }
       kfold_fits$folds <- lapply(kfold_fits$folds, transform_ys)
-      tryCatch(kfold_predict(kfold_fits), error=function(e) NULL)
+      kfold_predict(kfold_fits)
     })
   })
 
