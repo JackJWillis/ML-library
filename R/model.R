@@ -792,12 +792,12 @@ kfold <- function(k, model_class, y, x, id=NULL, weight=NULL, seed=0) {
   data.frame(kfold_predict(kfold_fits), kfold_splits$id_sorted)
 }
 
-ensemble <- function(results, holdout_results, classification=TRUE) {
-  stopifnot(length(results) == length(holdout_results))
-  k <- length(results)
+ensemble <- function(predictions, holdout_predictions, classification=TRUE) {
+  stopifnot(length(predictions) == length(holdout_predictions))
+  k <- length(predictions)
   ensemble_list <- lapply(1:k, function(i) {
-    res <- results[[i]]
-    hres <- holdout_results[[i]]
+    res <- predictions[[i]]
+    hres <- holdout_predictions[[i]]
     model_names <- intersect(names(res), names(hres))
     res <- res[model_names]
     get_prediction_df <- function(res) {
@@ -812,14 +812,14 @@ ensemble <- function(results, holdout_results, classification=TRUE) {
       res <- res[!sapply(res, is.null)]
       trues <- lapply(res, function(r) r$raw)
       sapply(trues, function(t) {
-        if (!(abs(t - trues[[1]]) < .001)) {
+        if (!all(abs(t - trues[[1]]) < .001)) {
           print(t - trues[[1]])
         }
       })
       
       ids <- lapply(res, function(r) r$id)
       sapply(ids, function(id) {
-        if (id != ids[[1]]) {
+        if (any(id != ids[[1]])) {
           print(paste(id, '!=', ids[[1]]))
         }
       })
