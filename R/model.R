@@ -860,18 +860,18 @@ run_all_models_pca <- function(name, k, y, x, ncomp=20) {
 }
 
 run_all_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
-  results <- lapply(cv_splits, function(single_split) {
-    run_all_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
   results_no_cv <- lapply(cv_splits, function(single_split) {
     run_all_models(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
+  results <- lapply(cv_splits, function(single_split) {
+    run_all_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
   run_heldout(name, cv_splits, results, results_no_cv)
 }
 
-run_fs_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
+run_fs_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL, method='stepwise') {
   results <- lapply(cv_splits, function(single_split) {
-    run_all_feature_selected(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
+    run_all_feature_selected(name, df, target, single_split$cv, grouping_variable=grouping_variable, method=method)})
   results_no_cv <- lapply(cv_splits, function(single_split) {
-    run_all_feature_selected(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
+    run_all_feature_selected(name, df, target, single_split$nocv, grouping_variable=grouping_variable, method=method)})
   run_heldout(name, cv_splits, results, results_no_cv)
 }
 
