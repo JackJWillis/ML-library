@@ -108,6 +108,12 @@ print_tables <- function(name_suffix=NULL) {
 print_tables()
 ```
 
+## 25 features
+
+```{r feature_selected, echo=FALSE}
+print_tables('25')
+```
+
 
 ## Waste vs Reach plots
 
