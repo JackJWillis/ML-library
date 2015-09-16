@@ -34,7 +34,7 @@ to_mm <- function(f) {
   train <- train[, columns]
   
   df <- rbind(test, train)
-  mm <- model.matrix(Y ~ ., df)
+  mm <- model.matrix(Y ~ -1 + ., df)
   x_test <- mm[1:nrow(test), ]
   x_train <- mm[(nrow(test)+1):nrow(mm), ]
   list(x_test=x_test, y_test=f$y_test, x_train=x_train, y_train=f$y_train, w_test=f$w_test, w_train=f$w_train)
@@ -284,15 +284,21 @@ to_original_columns <- function(mm_columns, original_columns) {
 }
 
 fit.stepwise <- function(f) {
-  yx_train <- data.frame(Y=f$y_train, f$x_train)
-  l <- leaps::regsubsets(Y ~ ., data=yx_train, weights=f$w_train, method="forward", nvmax=1000)
+  if (class(f$x_test) == "data.frame") {
+    mm <- to_mm(f)
+  }
+  yx_train <- data.frame(Y=f$y_train, mm$x_train)
+  # HACK to remove linearly dependant columns
+  model <- lm(Y ~ ., data=yx_train)
+  yx_train2 <- yx_train[, !is.na(coef(model))]
+  l <- leaps::regsubsets(Y ~ ., data=yx_train2, weights=f$w_train, method="forward", nvmax=1000)
   features <- NULL
   i <- 0
   if (!is.null(f$original_columns)) {
     original_columns <- f$original_columns
   }
   else {
-    original_columns <- colnames(yx_train)
+    original_columns <- colnames(yx_train2)
   }
   while (length(features) < f$max_covariates) {
     i <- i + 1
@@ -300,7 +306,8 @@ fit.stepwise <- function(f) {
     mm_columns <- names(l_mm_columns)[l_mm_columns]
     features <- to_original_columns(mm_columns, original_columns)
   }
-  ols <- lm(Y ~ ., data=yx_train[, c('Y', features)], weights=f$w_train)
+  yx_train_nmm <- data.frame(Y=f$y_train, f$x_train)
+  ols <- lm(Y ~ ., data=yx_train_nmm[, c('Y', features)], weights=f$w_train)
   ols$stepwise_features <- features
   ols
 }
@@ -355,9 +362,9 @@ LinearPlusForest <- function() {
 
 fit.linear_p_forest<- function(f) {
   if (class(f$x_test) == "data.frame") {
-    f <- to_mm(f)
+    mm <- to_mm(f)
   }
-  yx_train <- data.frame(Y=f$y_train,f$x_train)
+  yx_train <- data.frame(Y=f$y_train, mm$x_train)
   linear_part <- lm(Y ~ ., data=yx_train)
   residuals <- f$y_train - predict(linear_part, yx_train)
   nonlinear_part <- randomForest::randomForest(x=f$x_train, y=residuals, ntree=50)
@@ -366,9 +373,9 @@ fit.linear_p_forest<- function(f) {
 
 predict.linear_p_forest <- function(f, model) {
   if (class(f$x_test) == "data.frame") {
-    f <- to_mm(f)
+    mm <- to_mm(f)
   }
-  linear_part <- predict(model$linear, data.frame(f$x_test))
+  linear_part <- predict(model$linear, data.frame(mm$x_test))
   nonlinear_part <- predict(model$nonlinear, f$x_test)
   linear_part + nonlinear_part
 }
@@ -381,24 +388,24 @@ Forest <- function() {
 }
 
 fit.forest <- function(f) {
-  if (class(f$x_test) == "data.frame") {
-    f <- to_mm(f)
-  }
+#   if (class(f$x_test) == "data.frame") {
+#     f <- to_mm(f)
+#   }
 #Supposedly this doesn't need CV  
   yx_train <- data.frame(Y=f$y_train,f$x_train)
-#   if (nrow(f$x_train > 2000)) {
-#     ntree <- 50
-#   }
-#   else {
-#     ntree <- 200
-#   }
-  randomForest::randomForest(x=f$x_train, y=f$y_train)
+  if (nrow(f$x_train > 2000)) {
+    ntree <- 50
+  }
+  else {
+    ntree <- 200
+  }
+  randomForest::randomForest(x=f$x_train, y=f$y_train, ntree=ntree)
 }
 
 predict.forest <- function(f, model) {
-  if (class(f$x_test) == "data.frame") {
-    f <- to_mm(f)
-  }
+#   if (class(f$x_test) == "data.frame") {
+#     f <- to_mm(f)
+#   }
   predict(model, f$x_test)
 }
 
@@ -963,10 +970,10 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
   save_dataset(name, df)
   results <- list()
   
-  print("Running ridge")
-  results$ridge <- kfold_(Ridge(), ksplit)
-  print("Running lasso")
-  results$lasso <- kfold_(Lasso(), ksplit)
+#   print("Running ridge")
+#   results$ridge <- kfold_(Ridge(), ksplit)
+#   print("Running lasso")
+#   results$lasso <- kfold_(Lasso(), ksplit)
 
   print("Running least squares")
   results$least_squares <- kfold_(LeastSquares(), ksplit)
