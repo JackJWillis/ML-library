@@ -360,7 +360,7 @@ calculate_budget_reduction_ <- function(joined, base='least_squares', poverty_th
   rvw <- calculate_reach_vs_waste_(joined, folds=FALSE)
   rvw %>%
     filter(y < base_reach) %>%
-    arrange(desc(y)) %>%
+    arrange(desc(y), percent_pop_included) %>%
     summarize(reach=first(y), percent_pop_included=first(percent_pop_included))
 }
 
