@@ -257,28 +257,27 @@ plot_accuracy_dollars <- function(..., THRESHOLD=DEFAULT_THRESHOLDS, SHOW_TRUE=F
 }
 
 
+calculate_swf_ <- function(joined, fold=FALSE, GAMMA=2, base=NULL) {
+  marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
+  joined$marginal_utility <- sapply(joined$raw, marginal_utility)
+  if (fold) {
+    grouped <- group_by(joined, method, fold)
+  }
+  else {
+    grouped <- group_by(joined, method)
+  }
+  grouped %>%
+    arrange(predicted) %>%
+    mutate(y=cumsum(marginal_utility) / cumsum(sort(marginal_utility, decreasing=TRUE)))%>%
+    mutate(x=row_number() / n())
+}
+
 plot_swf_ <- function(joined, BASE=NULL, GAMMA=2, SHOW_FOLDS=FALSE, POINT_COUNT=200) {
   joined <- dplyr::filter(joined, method!="true")
   joined$threshold <- ""
-  marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- GAMMA)
-  joined$marginal_utility <- sapply(joined$raw, marginal_utility)
 
-  make_df <- function(df, folds) {
-
-    if (folds) {
-      grouped <- group_by(df, method, fold)
-    }
-    else {
-      grouped <- group_by(df, method)
-    }
-    grouped %>%
-      arrange(predicted) %>%
-      mutate(y=cumsum(marginal_utility) / cumsum(sort(marginal_utility, decreasing=TRUE)))%>%
-      mutate(x=row_number() / n())
-  }
-
-  df <- make_df(joined, FALSE)
-  folded_df <- make_df(joined, TRUE)
+  df <- calculate_swf_(joined, FALSE, GAMMA=GAMMA)
+  folded_df <- calculate_swf_(joined, TRUE, GAMMA=GAMMA)
   plot_cumulative(df=df,
                   base=BASE,
                   y_label="welfare",
@@ -323,7 +322,7 @@ calculate_reach_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_th
   rvw <- rbind(rvw, true)
   rvw <- ungroup(rvw)
   reach_df <- rvw %>%
-    filter(percent_pop_included < target_threshold)
+    filter(percent_pop_included <= target_threshold)
   if (fold){
     reach_df <- group_by(reach_df, method, fold, threshold)
   }
@@ -359,9 +358,29 @@ calculate_budget_reduction_ <- function(joined, base='least_squares', poverty_th
   joined <- mutate(joined, threshold=poverty_threshold)
   rvw <- calculate_reach_vs_waste_(joined, folds=FALSE)
   rvw %>%
-    filter(y < base_reach) %>%
+    filter(y <= base_reach) %>%
     arrange(desc(y), percent_pop_included) %>%
     summarize(reach=first(y), percent_pop_included=first(percent_pop_included))
+}
+
+calculate_budget_reduction_swf_ <- function(joined, base='least_squares', target_threshold=.4, GAMMA=2) {
+  stopifnot(base %in% joined$method)
+  sw <- calculate_swf_(joined,
+    fold=FALSE,
+    GAMMA=GAMMA) 
+  sw <- sw %>%
+    arrange(x) %>%
+    mutate(sw=cumsum(marginal_utility))
+  base_sw <- sw %>%
+    filter(method==base) %>%
+    arrange(desc(x)) %>%
+    filter(x <= target_threshold)
+  base_sw <- base_sw$y %>% first()
+  sw %>%
+    filter(y <= base_sw) %>%
+    arrange(desc(y), x) %>%
+    summarise(sw=first(y), percent_pop_included=first(x))
+  
 }
 
 calculate_budget_to_true_poor_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_threshold=.4, base=NULL) {
