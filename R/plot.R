@@ -323,7 +323,14 @@ calculate_reach_ <- function(joined, fold=FALSE, poverty_threshold=.4, target_th
   rvw <- rbind(rvw, true)
   rvw <- ungroup(rvw)
   reach_df <- rvw %>%
-    filter(percent_pop_included < target_threshold) %>%
+    filter(percent_pop_included < target_threshold)
+  if (fold){
+    reach_df <- group_by(reach_df, method, fold, threshold)
+  }
+  else {
+    reach_df <- group_by(reach_df, method, threshold)
+  }
+  reach_df <- reach_df %>%
     mutate(reach=y) %>%
     arrange(desc(percent_pop_included))
   if (!is.null(base)) {
@@ -353,7 +360,7 @@ calculate_budget_reduction_ <- function(joined, base='least_squares', poverty_th
   rvw <- calculate_reach_vs_waste_(joined, folds=FALSE)
   rvw %>%
     filter(y < base_reach) %>%
-    arrange(desc(y)) %>%
+    arrange(desc(y), percent_pop_included) %>%
     summarize(reach=first(y), percent_pop_included=first(percent_pop_included))
 }
 

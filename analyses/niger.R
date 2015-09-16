@@ -112,6 +112,7 @@ temp <- load_data(DATA_PATH)
 #Just keeping Pastorale:
 pastoral <- temp[temp$milieu == "Pastorale",]
 niger_p <- create_dataset(pastoral)
+niger_p <- select(niger_p, Iregion_=starts_with('_Iregion_'), everything())
 niger_p_weight <- niger_p$hhweight
 niger_p$hhweight <- NULL
 niger_p_id <- data.frame(grappe=niger_p$grappe,menage=niger_p$menage)
@@ -121,12 +122,14 @@ niger_p <- standardize_predictors(niger_p, "y_real")
 
 x_p <- model.matrix(y_real ~ .,  niger_p)
 y_p <- niger_p[rownames(x_p), "y_real"]
-x_p_nmm <- select(niger_a, -one_of('y_real'))
+x_p_nmm <- select(niger_p, -one_of('y_real'))
 
 temp <- load_data(DATA_PATH)
 #Just keeping Pastorale:
 agricultural <- temp[temp$milieu %in% c("Agricole","Agropastorale"),]
 niger_a <- create_dataset(agricultural)
+niger_a <- select(niger_a, Iregion_=starts_with('_Iregion_'), everything())
+
 niger_a_weight <- niger_a$hhweight
 niger_a$hhweight <- NULL
 niger_a_id <- data.frame(grappe=niger_a$grappe,menage=niger_a$menage)

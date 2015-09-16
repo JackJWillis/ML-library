@@ -29,11 +29,14 @@ transform_ys.classification <- function(f) {
 to_mm <- function(f) {
   test <- data.frame(Y=f$y_test, f$x_test)
   train <- data.frame(Y=f$y_train, f$x_train)
+  columns <- intersect(colnames(test), colnames(train))
+  test <- test[, columns]
+  train <- train[, columns]
   
   df <- rbind(test, train)
-  mm <- model.matrix(Y ~ ., df)
+  mm <- model.matrix(Y ~ -1 + ., df)
   x_test <- mm[1:nrow(test), ]
-  x_train <- mm[1:nrow(train), ]
+  x_train <- mm[(nrow(test)+1):nrow(mm), ]
   list(x_test=x_test, y_test=f$y_test, x_train=x_train, y_train=f$y_train, w_test=f$w_test, w_train=f$w_train)
 }
 
@@ -228,9 +231,9 @@ LeastSquares <- function() {
 
 
 fit.least_squares <- function(f) {
-#   if (class(f$x_test) == "data.frame") {
-#     f <- to_mm(f)
-#   }
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   #glmnet::glmnet(f$x_train, f$y_train, standardize=FALSE, lambda=0)
   yx_train <- data.frame(Y=f$y_train, f$x_train)
   lm(Y ~ ., data=yx_train, weights=f$w_train)
@@ -238,9 +241,9 @@ fit.least_squares <- function(f) {
 
 
 predict.least_squares <- function(f, model) {
-#   if (class(f$x_test) == "data.frame") {
-#     f <- to_mm(f)
-#   }
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   predict(model, data.frame(f$x_test))
 }
 
@@ -264,22 +267,49 @@ predict.quantile_regression <- function(f, model) {
   quantreg::predict.rq(model, newdata=data.frame(f$x_test))
 }
 
-Stepwise <- function(max_covariates=100) {
+Stepwise <- function(max_covariates=100, original_columns=NULL) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="stepwise")
     f$max_covariates <- max_covariates
+    f$original_columns <- original_columns
     f
   }
 }
 
+to_original_columns <- function(mm_columns, original_columns) {
+  idx <- sapply(original_columns, function(original_column) {
+    any(grepl(original_column, mm_columns))
+  })
+  original_columns[idx]
+}
+
 fit.stepwise <- function(f) {
-  yx_train <- data.frame(Y=f$y_train, f$x_train)
-  l <- leaps::regsubsets(Y ~ ., data=yx_train, weights=f$w_train, method="forward", nvmax=f$max_covariates)
-  l <- summary(l)
-  bestfeat <-l$which[which.min(l$bic),]
-  bestfeat <- bestfeat[-1] # remove weird (Intercept) column
-  bestfeat <- names(bestfeat)[bestfeat]
-  lm(Y ~ ., data=yx_train[,  c('Y', bestfeat)], weights=f$w_train)
+  if (class(f$x_test) == "data.frame") {
+    mm <- to_mm(f)
+  }
+  yx_train <- data.frame(Y=f$y_train, mm$x_train)
+  # HACK to remove linearly dependant columns
+  model <- lm(Y ~ ., data=yx_train)
+  yx_train2 <- yx_train[, !is.na(coef(model))]
+  l <- leaps::regsubsets(Y ~ ., data=yx_train2, weights=f$w_train, method="forward", nvmax=1000)
+  features <- NULL
+  i <- 0
+  if (!is.null(f$original_columns)) {
+    original_columns <- f$original_columns
+  }
+  else {
+    original_columns <- colnames(yx_train2)
+  }
+  while (length(features) < f$max_covariates) {
+    i <- i + 1
+    l_mm_columns <- summary(l)$which[i, ]
+    mm_columns <- names(l_mm_columns)[l_mm_columns]
+    features <- to_original_columns(mm_columns, original_columns)
+  }
+  yx_train_nmm <- data.frame(Y=f$y_train, f$x_train)
+  ols <- lm(Y ~ ., data=yx_train_nmm[, c('Y', features)], weights=f$w_train)
+  ols$stepwise_features <- features
+  ols
 }
 
 predict.stepwise <- function(f, model) {
@@ -331,7 +361,10 @@ LinearPlusForest <- function() {
 }
 
 fit.linear_p_forest<- function(f) {
-  yx_train <- data.frame(Y=f$y_train,f$x_train)
+  if (class(f$x_test) == "data.frame") {
+    mm <- to_mm(f)
+  }
+  yx_train <- data.frame(Y=f$y_train, mm$x_train)
   linear_part <- lm(Y ~ ., data=yx_train)
   residuals <- f$y_train - predict(linear_part, yx_train)
   nonlinear_part <- randomForest::randomForest(x=f$x_train, y=residuals, ntree=50)
@@ -339,7 +372,10 @@ fit.linear_p_forest<- function(f) {
 }
 
 predict.linear_p_forest <- function(f, model) {
-  linear_part <- predict(model$linear, data.frame(f$x_test))
+  if (class(f$x_test) == "data.frame") {
+    mm <- to_mm(f)
+  }
+  linear_part <- predict(model$linear, data.frame(mm$x_test))
   nonlinear_part <- predict(model$nonlinear, f$x_test)
   linear_part + nonlinear_part
 }
@@ -352,6 +388,9 @@ Forest <- function() {
 }
 
 fit.forest <- function(f) {
+#   if (class(f$x_test) == "data.frame") {
+#     f <- to_mm(f)
+#   }
 #Supposedly this doesn't need CV  
   yx_train <- data.frame(Y=f$y_train,f$x_train)
   if (nrow(f$x_train > 2000)) {
@@ -364,6 +403,9 @@ fit.forest <- function(f) {
 }
 
 predict.forest <- function(f, model) {
+#   if (class(f$x_test) == "data.frame") {
+#     f <- to_mm(f)
+#   }
   predict(model, f$x_test)
 }
 
@@ -757,12 +799,12 @@ kfold <- function(k, model_class, y, x, id=NULL, weight=NULL, seed=0) {
   data.frame(kfold_predict(kfold_fits), kfold_splits$id_sorted)
 }
 
-ensemble <- function(results, holdout_results, classification=TRUE) {
-  stopifnot(length(results) == length(holdout_results))
-  k <- length(results)
+ensemble <- function(predictions, holdout_predictions, classification=TRUE) {
+  stopifnot(length(predictions) == length(holdout_predictions))
+  k <- length(predictions)
   ensemble_list <- lapply(1:k, function(i) {
-    res <- results[[i]]
-    hres <- holdout_results[[i]]
+    res <- predictions[[i]]
+    hres <- holdout_predictions[[i]]
     model_names <- intersect(names(res), names(hres))
     res <- res[model_names]
     get_prediction_df <- function(res) {
@@ -777,14 +819,14 @@ ensemble <- function(results, holdout_results, classification=TRUE) {
       res <- res[!sapply(res, is.null)]
       trues <- lapply(res, function(r) r$raw)
       sapply(trues, function(t) {
-        if (!(abs(t - trues[[1]]) < .001)) {
+        if (!all(abs(t - trues[[1]]) < .001)) {
           print(t - trues[[1]])
         }
       })
       
       ids <- lapply(res, function(r) r$id)
       sapply(ids, function(id) {
-        if (id != ids[[1]]) {
+        if (any(id != ids[[1]])) {
           print(paste(id, '!=', ids[[1]]))
         }
       })
@@ -825,18 +867,18 @@ run_all_models_pca <- function(name, k, y, x, ncomp=20) {
 }
 
 run_all_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
-  results <- lapply(cv_splits, function(single_split) {
-    run_all_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
   results_no_cv <- lapply(cv_splits, function(single_split) {
     run_all_models(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
+  results <- lapply(cv_splits, function(single_split) {
+    run_all_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
   run_heldout(name, cv_splits, results, results_no_cv)
 }
 
-run_fs_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
+run_fs_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL, method='stepwise') {
   results <- lapply(cv_splits, function(single_split) {
-    run_all_feature_selected(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
+    run_all_feature_selected(name, df, target, single_split$cv, grouping_variable=grouping_variable, method=method)})
   results_no_cv <- lapply(cv_splits, function(single_split) {
-    run_all_feature_selected(name, df, target, single_split$nocv, grouping_variable=grouping_variable)})
+    run_all_feature_selected(name, df, target, single_split$nocv, grouping_variable=grouping_variable, method=method)})
   run_heldout(name, cv_splits, results, results_no_cv)
 }
 
@@ -863,7 +905,7 @@ run_heldout <- function(name, cv_splits, results, results_no_cv) {
         kfold_fits$folds[[i]]$w_test <- rep(1, length(cv_split$y_holdout))
       }
       kfold_fits$folds <- lapply(kfold_fits$folds, transform_ys)
-      tryCatch(kfold_predict(kfold_fits), error=function(e) NULL)
+      kfold_predict(kfold_fits)
     })
   })
 
@@ -890,13 +932,31 @@ run_heldout <- function(name, cv_splits, results, results_no_cv) {
   save_models_(name, dfs)
 }
 
-run_all_feature_selected <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
-  lasso <- kfold_(Lasso(25), ksplit)
-  model <- lasso$kfold_fits$fits[[1]]
-  col_index <- max(which(colSums(abs(as.matrix(model$beta)) > 0) <=25))
-  betas <- model$beta[, col_index]
-  columns <- names(betas)[betas > 0]
+run_all_feature_selected <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL, method='stepwise') {
+  if (method=='lasso') {
+    lasso <- kfold_(Lasso(25), ksplit)
+    model <- lasso$kfold_fits$fits[[1]]
+    col_index <- max(which(colSums(abs(as.matrix(model$beta)) > 0) <=25))
+    betas <- model$beta[, col_index]
+    columns <- names(betas)[betas > 0]
+  }
+  if (method == 'stepwise') {
+    stepwise <- kfold_fit(ksplit, Stepwise(max_covariates=25, original_columns=colnames(df)))
+    model <- stepwise$fits[[1]]
+    columns <- model$stepwise_features
+  }
+  if (method == 'forest') {
+    forest <- kfold_fit(ksplit, Forest())
+    model <- forest$fits[[1]]
+    imp <- model$importance
+    columns <- imp[-order(imp[, 1]), ][1:25]
+  }
   for (i in 1:length(ksplit$splits)) {
+    for (col in columns) {
+      if (!(col %in% colnames(ksplit$splits[[i]]$x_train))) {
+        print(col)
+      }
+    }
     ksplit$splits[[i]]$x_train <- ksplit$splits[[i]]$x_train[, columns]
     ksplit$splits[[i]]$x_test <- ksplit$splits[[i]]$x_test[, columns]
   }
@@ -910,10 +970,10 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
   save_dataset(name, df)
   results <- list()
   
-  print("Running ridge")
-  results$ridge <- kfold_(Ridge(), ksplit)
-  print("Running lasso")
-  results$lasso <- kfold_(Lasso(), ksplit)
+#   print("Running ridge")
+#   results$ridge <- kfold_(Ridge(), ksplit)
+#   print("Running lasso")
+#   results$lasso <- kfold_(Lasso(), ksplit)
 
   print("Running least squares")
   results$least_squares <- kfold_(LeastSquares(), ksplit)

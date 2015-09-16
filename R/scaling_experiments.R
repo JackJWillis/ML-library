@@ -67,7 +67,7 @@ scale_k <- function(y, x, holdout_fraction=0.2, holdout_assignments=NULL, steps=
   }
   if (method == 'lasso') {
     model <- glmnet::glmnet(x_train, y_train, alpha=1)
-    nzero <- colSums(abs(model$beta) > 0)
+    nzero <- colSums(abs(as.matrix(model$beta)) > 0)
     positions <- match(unique(nzero), nzero)
     assignments <- sort(rep(nzero[positions], times=length(y_holdout)))
     preds <- unlist(lapply(model$lambda[positions], function(s) predict(model, x_holdout, s=s)))
@@ -157,7 +157,7 @@ plot_all <- function(datasets=DATASETS, steps=20) {
 #     geom_point(data=ensembles, mapping=aes(y=y, color=ensemble, x=1))
   
   ggsave('scale_n.pdf', n_plot)
-  gsave('scale_k.pdf', k_plot)
+  ggsave('scale_k.pdf', k_plot)
   ggsave('scale_k_lasso.pdf', lasso_k_plot)
 }
 
