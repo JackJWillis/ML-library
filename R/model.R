@@ -222,7 +222,28 @@ LeastSquaresPC <- function(ncomp=20) {
     structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class=c("least_squares_pc", "least_squares"))
   }
 }
+
+BinaryLeastSquares <- function(threshold) {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
+    f$threshold <- threshold
+    structure(f, class=c("least_squares", "binary_least_squares")) }
+}
+
+transform_ys.binary_least_squares<- function(f) {
+  threshold <- f$threshold
+  f$y_train <- f$y_train < threshold
+  f$y_test_raw <- f$y_test
+  f$y_test <- f$y_test < threshold
+  f
+}
+
+
+
+
   
+  
+
 LeastSquares <- function() {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="least_squares")
@@ -1004,6 +1025,9 @@ run_weighted_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, group
   
   print("Running weighted least squares")
   results$weighted_least_squares <- kfold_(LeastSquares(), ksplit)
+  
+  print("Running binary least squares")
+  results$weighted_binary_least_squares <- kfold_(BinaryLeastSquares(threshold_40), ksplit)
   
   prediction_results <- lapply(results, function(res) {res$pred})
   prediction_results$name <- name
