@@ -19,15 +19,12 @@ ds_names <- c('tanzania', 'ghana_pe', 'niger_pastoral', 'niger_agricultural', 'm
 print_tables <- function(name_suffix=NULL) {
   r_squared <- NULL
   ensemble <- NULL
-  ensemble_2 <- NULL
   forest <- NULL
-  forest_2 <- NULL
   lpf <- NULL
-  lpf_2 <- NULL
   ols <- NULL
-  ols_2 <- NULL
   rse <- NULL
   ensemble_budget_difference <- NULL
+  ensemble_budget_difference_swf <- NULL
   row_count <- NULL
   column_count <- NULL
   for (ds_name in ds_names) {
@@ -73,6 +70,12 @@ print_tables <- function(name_suffix=NULL) {
     budget_difference <- (budgets$ensemble - budgets$least_squares) / budgets$least_squares
     ensemble_budget_difference <- c(ensemble_budget_difference, budget_difference)
     
+    budgets_df <- calculate_budget_reduction_swf_(ensemble_and_ls)
+    budgets <- as.list(budgets_df$percent_pop_included)
+    names(budgets) <- budgets_df$method
+    budget_difference <- (budgets$ensemble - budgets$least_squares) / budgets$least_squares
+    ensemble_budget_difference_swf <- c(ensemble_budget_difference_swf, budget_difference)
+    
     r_squared <- c(r_squared, r_sq)
     forest <- c(forest, forest_reach)
     ols <- c(ols, ols_reach)
@@ -100,7 +103,8 @@ print_tables <- function(name_suffix=NULL) {
     dataset=ds_names,
     row_count=row_count,
     reach_difference=(ensemble - ols) / ols,
-    budget_difference=ensemble_budget_difference)
+    budget_difference=ensemble_budget_difference,
+    budget_difference_sw=ensemble_budget_difference_swf)
   ensemble_results <- ensemble_results[order(ensemble_results$row_count), ]
   print('ensemble')
   print(ensemble_results, digits=4, row.names=FALSE)
