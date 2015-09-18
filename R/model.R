@@ -759,8 +759,7 @@ kfold_add_importance_weights <- function(kfold_splits, threshold, gamma) {
   n <- length(kfold_splits$splits)
   marginal_utility <- function(log_consumption) exp(log_consumption) ^ (- gamma)
   for (i in 1:n) {
-#     kfold_splits$splits[[i]]$w_train <- abs(marginal_utility(kfold_splits$splits[[i]]$y_train)-marginal_utility(threshold))
-    kfold_splits$splits[[i]]$w_train <- abs(exp(kfold_splits$splits[[i]]$y_train)-exp(threshold))
+    kfold_splits$splits[[i]]$w_train <- abs(marginal_utility(kfold_splits$splits[[i]]$y_train) - marginal_utility(threshold))
   }
   kfold_splits  
 }
@@ -884,7 +883,6 @@ run_fs_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL, 
 
 
 run_weighted_heldout <- function(name, df, target, cv_splits, grouping_variable=NULL) {
-  name <- paste(name, 'weighted', sep='_')
   results <- lapply(cv_splits, function(single_split) {
     run_weighted_models(name, df, target, single_split$cv, grouping_variable=grouping_variable)})
   results_no_cv <- lapply(cv_splits, function(single_split) {
@@ -990,6 +988,30 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
   do.call(save_models, prediction_results)
   results
 }
+
+run_weighted_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
+  save_dataset(name, df)
+  results <- list()
+  print("Running least squares")
+  results$least_squares <- kfold_(LeastSquares(), ksplit)
+  
+  gamma <- 2
+  threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
+  ksplit <- kfold_add_importance_weights(ksplit, threshold_40, gamma)
+  if (is.null(ksplit_nmm)) {
+    ksplit_nmm <- ksplit
+  }
+  
+  print("Running weighted least squares")
+  results$weighted_least_squares <- kfold_(LeastSquares(), ksplit)
+  
+  prediction_results <- lapply(results, function(res) {res$pred})
+  prediction_results$name <- name
+  do.call(save_models, prediction_results)
+  results
+}
+
+
 
 
 run_all_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
