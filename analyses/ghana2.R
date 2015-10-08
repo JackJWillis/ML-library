@@ -86,10 +86,10 @@ x <- model.matrix(lnwelfare ~ .,  gh)
 x_nmm <- select(gh,-one_of("lnwelfare"))
 y <- gh[rownames(x), "lnwelfare"]
 
-cv_splits <- cv_split(y, x, k=5, inner_k=3, seed=1)
+cv_splits <- cv_split(y, x_nmm, k=5, inner_k=3, seed=1)
 
-# run_all_heldout(NAME, gh, "lnwelfare", cv_splits, 'rural')
-# run_fs_heldout(paste(NAME, '25', sep='_'), gh, "lnwelfare", cv_splits, 'rural')
+run_all_heldout(NAME, gh, "lnwelfare", cv_splits, 'rural')
+run_weighted_heldout(paste(NAME, 'weighted', sep='_'), gh, "lnwelfare", cv_splits, 'rural')
 
 gh <- create_dataset(pe_data_path, pe_variable_table_path)
 gh <- standardize_predictors(gh, "lnwelfare")
@@ -102,3 +102,4 @@ cv_splits <- cv_split(y, x_nmm, k=5, inner_k=3, seed=1)
 
 run_all_heldout(paste(NAME, "pe", sep="_"), gh, "lnwelfare", cv_splits, 'rural')
 run_fs_heldout(paste(NAME, "pe", '25', sep="_"), gh, "lnwelfare", cv_splits, 'rural')
+run_weighted_heldout(paste(NAME, "pe", 'weighted', sep="_"), gh, "lnwelfare", cv_splits, 'rural')

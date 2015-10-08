@@ -118,6 +118,22 @@ print_tables()
 print_tables('25')
 ```
 
+## PMT Variables
+```{r pmt, echo=FALSE}
+ds_names <- c('ghana', 'niger_pastoral_pmt', 'niger_agricultural_pmt')
+print_tables()
+```
+
+## Weights
+```{r weights, echo=FALSE}
+ds_names <- c('tanzania_weighted', 'ghana_pe_weighted', 'mexico_weighted')
+for (name in ds_names) {
+  print(name)
+  joined <- load_models(name)
+  print(calculate_budget_reduction_swf_(joined))
+  plot(plot_swf_(joined))
+}
+```
 
 ## Waste vs Reach plots
 
@@ -131,3 +147,14 @@ for (ds_name in ds_names) {
 }
 ```
 
+## Social welfare plots
+```{r swf, echo=FALSE}
+ds_names <- c( 'niger_pastoral', 'niger_agricultural', 'tanzania', 'ghana_pe', 'mexico')
+
+for (ds_name in ds_names) {
+  print(ds_name)
+  joined <- load_models(ds_name)
+  p <- plot_swf_(joined, POINT_COUNT=1000)
+  plot(p)
+}
+```

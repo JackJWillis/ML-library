@@ -105,3 +105,4 @@ y <- tz08[rownames(x), "lconsPC"]
 cv_splits <- cv_split(y, x_nmm, k=5, inner_k=4, seed=10)
 run_all_heldout(NAME, tz08, "lconsPC", cv_splits, 'locality')
 run_fs_heldout(paste(NAME, '25', sep='_'), tz08, "lconsPC", cv_splits, 'locality')
+run_weighted_heldout(paste(NAME, 'weighted', sep='_'), tz08, "lconsPC", cv_splits, 'locality')
