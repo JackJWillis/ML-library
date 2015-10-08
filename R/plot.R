@@ -266,9 +266,11 @@ calculate_swf_ <- function(joined, fold=FALSE, GAMMA=2, base=NULL) {
   else {
     grouped <- group_by(joined, method)
   }
+    
   grouped %>%
     arrange(predicted) %>%
-    mutate(y=cumsum(marginal_utility) / cumsum(sort(marginal_utility, decreasing=TRUE)))%>%
+    mutate(ideal_sw=cumsum(sort(marginal_utility, decreasing=TRUE))) %>%
+    mutate(y=cumsum(marginal_utility) / ideal_sw)%>%
     mutate(x=row_number() / n())
 }
 
@@ -375,11 +377,11 @@ calculate_budget_reduction_swf_ <- function(joined, base='least_squares', target
     filter(method==base) %>%
     arrange(desc(x)) %>%
     filter(x <= target_threshold)
-  base_sw <- base_sw$y %>% first()
+  base_sw <- base_sw$sw %>% first()
   sw %>%
-    filter(y <= base_sw) %>%
-    arrange(desc(y), x) %>%
-    summarise(sw=first(y), percent_pop_included=first(x))
+    filter(sw <= base_sw) %>%
+    arrange(desc(sw), x) %>%
+    summarise(sw=first(sw), percent_pop_included=first(x))
   
 }
 

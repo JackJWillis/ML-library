@@ -103,11 +103,13 @@ mx <- standardize_predictors(mx, "lconsPC")
 i <- sapply(mx, is.factor)
 mx[i] <- lapply(mx[i], as.character)
 mx[mx == ''] <- MISSINGNESS_INDICATOR
+mx[i] <- lapply(mx[i], as.factor)
 save_dataset(NAME, mx)
 x <- model.matrix(lconsPC ~ .,  mx)
 x_nmm <- select(mx, -one_of("lconsPC"))
 y <- mx[rownames(x), "lconsPC"]
 
 cv_splits <- cv_split(y, x_nmm, k=5, inner_k=3, seed=1)
-run_all_heldout(NAME, mx, "lconsPC", cv_splits, 'muni')
-run_fs_heldout(paste(NAME, '25', sep='_'), mx, "lconsPC", cv_splits, 'muni')
+# run_all_heldout(NAME, mx, "lconsPC", cv_splits, 'muni')
+# run_fs_heldout(paste(NAME, '25', sep='_'), mx, "lconsPC", cv_splits, 'muni')
+run_weighted_heldout(paste(NAME, 'weighted', sep='_'), mx, "lconsPC", cv_splits, 'muni')

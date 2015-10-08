@@ -112,7 +112,6 @@ temp <- load_data(DATA_PATH)
 #Just keeping Pastorale:
 pastoral <- temp[temp$milieu == "Pastorale",]
 niger_p <- create_dataset(pastoral)
-niger_p <- select(niger_p, Iregion_=starts_with('_Iregion_'), everything())
 niger_p_weight <- niger_p$hhweight
 niger_p$hhweight <- NULL
 niger_p_id <- data.frame(grappe=niger_p$grappe,menage=niger_p$menage)
@@ -128,8 +127,6 @@ temp <- load_data(DATA_PATH)
 #Just keeping Pastorale:
 agricultural <- temp[temp$milieu %in% c("Agricole","Agropastorale"),]
 niger_a <- create_dataset(agricultural)
-niger_a <- select(niger_a, Iregion_=starts_with('_Iregion_'), everything())
-
 niger_a_weight <- niger_a$hhweight
 niger_a$hhweight <- NULL
 niger_a_id <- data.frame(grappe=niger_a$grappe,menage=niger_a$menage)
@@ -145,10 +142,11 @@ y_a <- niger_a[rownames(x_a), "y_real"]
 cv_splits_a <- cv_split(y_a, x_a_nmm, k=5, inner_k=4, seed=1, weight=niger_a_weight)
 run_all_heldout('niger_agricultural', niger_a, 'y_real', cv_splits_a)
 run_fs_heldout('niger_agricultural_25', niger_a, 'y_real', cv_splits_a)
+run_weighted_heldout('niger_agricultural_weighted', niger_a, 'y_real', cv_splits_a)
 
 cv_splits_p <- cv_split(y_p, x_p_nmm, k=5, inner_k=4, seed=1, weight=niger_p_weight)
 run_all_heldout('niger_pastoral', niger_p, 'y_real', cv_splits_p)
-run_fs_heldout('niger_pastoral_25', niger_p, 'y_real', cv_splits_p)
+run_weighted_heldout('niger_pastoral_weighted', niger_p, 'y_real', cv_splits_p)
 
 
 feature_info <- read.xlsx(VARIABLE_TABLE_PATH, sheetName="Sheet1")
@@ -158,12 +156,16 @@ feature_info[, "var_name"] <- as.character(feature_info[, "var_name"])
 agricultural_pmt <- select(niger_a, -one_of(feature_info$var_name[!is.na(feature_info$Agro.and.Agro.Pastoral.zone)]))
 pastoral_pmt <- select(niger_p, -one_of(feature_info$var_name[!is.na(feature_info$Pastoral.zone)]))
 
-# x_a <- model.matrix(y_real ~ .,  agricultural_pmt)
-# y_a <- niger_a[rownames(x_a), "y_real"]
-# cv_splits_a <- cv_split(y_a, x_a, k=5, inner_k=3, seed=1, weight=niger_a_weight)
-# run_all_heldout('niger_agricultural_pmt', niger_a, 'y_real', cv_splits_a)
-# 
-# x_p <- model.matrix(y_real ~ .,  pastoral_pmt)
-# y_p <- niger_p[rownames(x_p), "y_real"]
-# cv_splits_p <- cv_split(y_p, x_p, k=5, inner_k=3, seed=1, weight=niger_p_weight)
-# run_all_heldout('niger_pastoral_pmt', niger_p, 'y_real', cv_splits_p)
+x_a <- model.matrix(y_real ~ .,  agricultural_pmt)
+x_a_nmm <- select(agricultural_pmt, -one_of('y_real'))
+y_a <- niger_a[rownames(x_a), "y_real"]
+cv_splits_a <- cv_split(y_a, x_a_nmm, k=5, inner_k=3, seed=1, weight=niger_a_weight)
+run_all_heldout('niger_agricultural_pmt', niger_a, 'y_real', cv_splits_a)
+run_weighted_heldout('niger_agricultural_pmt_weighted', niger_a, 'y_real', cv_splits_a)
+
+x_p <- model.matrix(y_real ~ .,  pastoral_pmt)
+x_p_nmm <- select(pastoral_pmt, -one_of('y_real'))
+y_p <- niger_p[rownames(x_p), "y_real"]
+cv_splits_p <- cv_split(y_p, x_p_nmm, k=5, inner_k=3, seed=1, weight=niger_p_weight)
+run_all_heldout('niger_pastoral_pmt', niger_p, 'y_real', cv_splits_p)
+run_weighted_heldout('niger_pastoral_pmt_weighted', niger_p, 'y_real', cv_splits_p)

@@ -222,7 +222,28 @@ LeastSquaresPC <- function(ncomp=20) {
     structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class=c("least_squares_pc", "least_squares"))
   }
 }
+
+BinaryLeastSquares <- function(threshold) {
+  function(x_train, y_train, w_train, x_test, y_test, w_test) {
+    f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
+    f$threshold <- threshold
+    structure(f, class=c("least_squares", "binary")) }
+}
+
+transform_ys.binary <- function(f) {
+  threshold <- f$threshold
+  f$y_train <- f$y_train > threshold
+  f$y_test_raw <- f$y_test
+  f$y_test <- f$y_test > threshold
+  f
+}
+
+
+
+
   
+  
+
 LeastSquares <- function() {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     structure(fold(x_train, y_train, w_train, x_test, y_test, w_test), class="least_squares")
@@ -461,16 +482,24 @@ Logistic <- function(threshold) {
   function(x_train, y_train, w_train, x_test, y_test, w_test) {
     f <- fold(x_train, y_train, w_train, x_test, y_test, w_test)
     f$threshold <- threshold
-    structure(f, class=c("logistic", "classification"))
+    structure(f, class=c("logistic", "binary"))
   }
 }
 
 
 fit.logistic <- function(f) {
-  glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=TRUE)
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
+  glmnet::glmnet(f$x_train, f$y_train, weights=f$w_train, family="binomial", standardize=TRUE, lambda=0)
+#   yx_train <- data.frame(Y=f$y_train, f$x_train)
+#   glm(Y ~ ., data=yx_train, weights=f$w_train, family=binomial())
 }
 
 predict.logistic <- function(f, model) {
+  if (class(f$x_test) == "data.frame") {
+    f <- to_mm(f)
+  }
   predict(model, f$x_test, type="response", s=0)
 }
 
@@ -992,11 +1021,14 @@ run_all_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_v
 run_weighted_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, grouping_variable=NULL) {
   save_dataset(name, df)
   results <- list()
+  threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
   print("Running least squares")
   results$least_squares <- kfold_(LeastSquares(), ksplit)
   
+  print("Running logistic")
+  results$logistic <- kfold_(Logistic(threshold_40), ksplit)
+  
   gamma <- 2
-  threshold_40 <- quantile(df[, target], .4, na.rm=TRUE)
   ksplit <- kfold_add_importance_weights(ksplit, threshold_40, gamma)
   if (is.null(ksplit_nmm)) {
     ksplit_nmm <- ksplit
@@ -1004,6 +1036,12 @@ run_weighted_models <- function(name, df, target, ksplit, ksplit_nmm=NULL, group
   
   print("Running weighted least squares")
   results$weighted_least_squares <- kfold_(LeastSquares(), ksplit)
+  
+  print("Running binary least squares")
+  results$weighted_binary_least_squares <- kfold_(BinaryLeastSquares(threshold_40), ksplit)
+  
+  print("Running weighted logisitc")
+  results$weighted_logistic <- kfold_(Logistic(threshold_40), ksplit)
   
   prediction_results <- lapply(results, function(res) {res$pred})
   prediction_results$name <- name
