@@ -1,5 +1,5 @@
 TARGET_VARIABLE <- 'yyyyy'
-FORMULA <- as.formula(paste(TRAIN_VARIABLE, "~ ."))
+FORMULA <- as.formula(paste(TARGET_VARIABLE, "~ ."))
 K <- 8 # Because I have 4 cores :/
 
 #### Training/Testing ######
@@ -11,56 +11,58 @@ get_assignments <- function(survey_df, k) {
 
 split_test_train <- function(survey_df, k=K) {
   assignments <- get_assignments(survey_df, k)
-  splits <- lapply(1:k, function(i)) {
+  folds <- lapply(1:k, function(i) {
     is_test <- assignments == i
     test <- survey_df[is_test, ]
     train <- survey_df[!is_test, ]
-    list(test=test, train=train, fold=i)
-  }
-  splits
+    list(test=test, train=train, fold_number=i)
+  })
+  folds
 }
 
 
-test_one(method, split) {
-  predictions <- method(split)
+test_one <- function(method, fold) {
+  stopifnot(length(method) == 1)
+  method_name <- names(method)
+  method <- method[[1]]
+  predictions <- method(fold)
   df <- data.frame(
-    true=split$test[, TARGET_VARIABLE],
+    true=fold$test[, TARGET_VARIABLE],
     predicted=predictions,
-    fold=split$i)
-  if (!is.null(names(method))) {
-    df$method <- names(method)
+    fold=fold$fold_number)
+  if (!is.null(method_name)) {
+    df$method <- method_name
   }
   
   # we want to calculate poverty thresholds from the training data
   # (not the testing data)
   # so we do that here
   quantiles <- quantile(
-    split$train[, TARGET_VARIABLES],
-    seq(0., 0.5, .1)
-  names(quantiles) <- paste(
-    'threshold',
-    names(quantiles),
-    sep='_')
-  df[, names(quantiles)] <- quantiles
+    fold$train[, TARGET_VARIABLE],
+    seq(0., 0.5, .1))
+  for (q in names(quantiles)) {
+    df[, q] <- quantiles[q]
+  }
   df
 }
 
 
-test_method_on_splits(method, splits) {
+test_method_on_splits <- function(method, folds) {
   mclapply(
-    splits,
-    function(split) test_one(method, split))
+    folds,
+    function(fold) test_one(method, fold),
+    mc.cores=detectCores())
 }
 
 
-test_all(survey_df, method_list=method_list, k=K) {
-  splits <- split_test_train(survey_df, k)
-  method_results <- lapply(names(method_list)) {
+test_all <- function(survey_df, method_list=METHOD_LIST, k=K) {
+  folds <- split_test_train(survey_df, k)
+  method_results <- purrr::flatmap(names(method_list), function(method_name) {
+    print(method_name)
     method <- method_list[method_name]
-    predictions <- test_method_on_splits(method, splits)
-  }
-  method_results <- unlist(method_results)
-  do.call('rbind', method_results)
+    predictions <- test_method_on_splits(method, folds)
+  })
+  purrr::reduce(method_results, rbind)
 }
 
 ##### Output #####
@@ -73,48 +75,50 @@ order_by_pct_targeted <- function(output) {
 }
 
 reach_by_pct_targeted <- function(output) {
-  threshold_columns <- names(output)[grepl('threshold', names(ouput))]
+  threshold_columns <- names(output)[grepl('%', names(output))]
   true_lt_thresh <- lapply(threshold_columns, function(thresh) paste('true <', thresh))
   reach <- lapply(threshold_columns, function(thresh) paste('cumsum(', thresh, ')'))
   ordered <- order_by_pct_targeted
   ordered %>%
-    mutate(.dots=true_lt_thresh) %>%
-    summarize(.dots=reach)
+    mutate_(.dots=true_lt_thresh) %>%
+    summarize_(.dots=reach)
 }
 
 ##### Models #####
 
-ols <- function(split) {
-  model <- lm(FORMULA, data=split$train)
-  predict(model, split$test)
+ols <- function(fold) {
+  model <- lm(FORMULA, data=fold$train)
+  predict(model, fold$test)
 }
 
 
 fit_forest <- function(df, ntree=100) {
-  randomForest::randomForest(FORMULA, data=df, ntree=ntree}
+  y <- df[, TARGET_VARIABLE]
+  x <- select(df, -one_of(TARGET_VARIABLE))
+  randomForest::randomForest(x=x, y=y, ntree=ntree)
 }
 
-forest <- function(split) {
-  model <- fit_forest(split$train)
-  predict(model, split$test)
+forest <- function(fold) {
+  model <- fit_forest(fold$train)
+  predict(model, fold$test)
 }
 
 
-ols_plus_forest <- function(split) {
-  linear <- lm(FORMULA, data=split$train)
-  res_df <- dplyr::mutate(split$train, .dots(setNames(TARGET_VARIABLE, residuals(linear))))
-  nonlinear <- fit_forest(split$train)
+ols_plus_forest <- function(fold) {
+  linear <- lm(FORMULA, data=fold$train)
+  res_df <- fold$train
+  res_df[, TARGET_VARIABLE] <- residuals(linear)
+  nonlinear <- fit_forest(fold$train)
   
-  predict(linear, split$test) + predict(nonlinear, split$test)
+  predict(linear, fold$test) + predict(nonlinear, fold$test)
 }
 
 
-ols_forest_ensemble <- function(split) {
+ols_forest_ensemble <- function(fold) {
   holdout_fraction <- 0.2
-  assignments <- as.logical(rbinom(nrow(split$train), 1, 1 - holdout_fraction))
-  train <- split$train[assignments, ]
-  train_holdout <- split$train[!assignments, ]
-  train <- list(train=train, test=train_holdout)
+  assignments <- as.logical(rbinom(nrow(fold$train), 1, 1 - holdout_fraction))
+  train <- fold$train[assignments, ]
+  train_holdout <- fold$train[!assignments, ]
   
   ols_model <- lm(FORMULA, train)
   ols_predictions <- predict(ols_model, train_holdout)
@@ -126,8 +130,8 @@ ols_forest_ensemble <- function(split) {
     forest=forest_predictions)
   ensemble <- lm(true ~ ols + forest, data=ensemble_df)
   
-  ols_test_predictions <- predict(ols_model, test)
-  forest_test_predictions <- predict(forest_model, test)
+  ols_test_predictions <- predict(ols_model, fold$test)
+  forest_test_predictions <- predict(forest_model, fold$test)
   test_predictions_df <- data.frame(
     ols=ols_test_predictions, 
     forest=forest_test_predictions)
