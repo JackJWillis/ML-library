@@ -33,16 +33,6 @@ test_one <- function(method, fold) {
   if (!is.null(method_name)) {
     df$method <- method_name
   }
-  
-  # we want to calculate poverty thresholds from the training data
-  # (not the testing data)
-  # so we do that here
-  quantiles <- quantile(
-    fold$train[, TARGET_VARIABLE],
-    seq(0., 0.5, .1))
-  for (q in names(quantiles)) {
-    df[, q] <- quantiles[q]
-  }
   df
 }
 
@@ -66,22 +56,46 @@ test_all <- function(survey_df, method_list=METHOD_LIST, k=K) {
 }
 
 ##### Output #####
+DEFAULT_THRESHOLDS <- seq(0.1, 0.4, .1)
 
-order_by_pct_targeted <- function(output) {
-  grouped <- group_by(output, method)
-  grouped %>% 
-    arrange(prediction) %>%
+add_threshold <- function(output, threshold) {
+  consumption_cutoff <- quantile(output$true, threshold)
+  output <- output[rep(1:nrow(output), each=length(threshold)), ]
+  output$threshold <- threshold
+  output$consumption_cutoff <- consumption_cutoff
+  output
+}
+
+
+order_by_predicted <- function(output) {
+  output %>% 
+    arrange(predicted) %>%
     mutate(pct_targeted=row_number() / n())
 }
 
-reach_by_pct_targeted <- function(output) {
-  threshold_columns <- names(output)[grepl('%', names(output))]
-  true_lt_thresh <- lapply(threshold_columns, function(thresh) paste('true <', thresh))
-  reach <- lapply(threshold_columns, function(thresh) paste('cumsum(', thresh, ')'))
-  ordered <- order_by_pct_targeted
-  ordered %>%
-    mutate_(.dots=true_lt_thresh) %>%
-    summarize_(.dots=reach)
+
+reach_by_pct_targeted <- function(output, threshold=DEFAULT_THRESHOLDS) {
+  output %>%
+    add_threshold(threshold) %>%
+    group_by(method, threshold) %>%
+    order_by_predicted() %>%
+    mutate(tp=true < consumption_cutoff) %>%
+    mutate(reach=cumsum(tp) / n())
+}
+
+plot_reach <- function(output, threshold=DEFAULT_THRESHOLDS) {
+  reach <- reach_by_pct_targeted(output, threshold)
+  ggplot(reach, aes(x=pct_targeted, y=reach, color=method)) +
+    geom_line() +
+    facet_wrap(~ threshold)
+}
+
+table_reach <- function(output, threshold=DEFAULT_THRESHOLDS) {
+  reach_df <- output %>%
+    reach_by_pct_targeted(threshold) %>%
+    filter(pct_targeted <= threshold) %>%
+    summarize(reach=last(reach))
+  reshape::cast(reach_df, method ~ threshold, value='reach')
 }
 
 ##### Models #####
