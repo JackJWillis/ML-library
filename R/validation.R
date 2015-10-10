@@ -80,23 +80,40 @@ reach_by_pct_targeted <- function(output, threshold=DEFAULT_THRESHOLDS) {
     group_by(method, threshold) %>%
     order_by_predicted() %>%
     mutate(tp=true < consumption_cutoff) %>%
-    mutate(reach=cumsum(tp) / n())
+    mutate(value=cumsum(tp) / n())
 }
 
-plot_reach <- function(output, threshold=DEFAULT_THRESHOLDS) {
-  reach <- reach_by_pct_targeted(output, threshold)
-  ggplot(reach, aes(x=pct_targeted, y=reach, color=method)) +
+value_at_pct <- function(stat_by_pct) {
+  filter(stat_by_pct, pct_targeted <= threshold) %>%
+    summarize(value=last(value))
+}
+
+
+budget_change <- function(stat_by_pct, base='ols') {
+  base_stat <- value_at_pct(stat_by_pct) %>%
+    filter(method == base) %>%
+    select(threshold, base_value=value)
+  #FIXME groups go away on merge
+  merged <- merge(stat_by_pct, base_stat, by='threshold') %>% group_by(methresholdjk)
+  merged %>%
+    filter(value <= base_value) %>%
+    summarize(pct_targeted=last(pct_targeted), base_pct=last(threshold)) %>%
+    select(value=(pct_targeted - base_pct) / base_pct)
+}
+
+
+plot_stat <- function(stat_by_pct) {
+  ggplot(reach, aes(x=pct_targeted, y=value, color=method)) +
     geom_line() +
     facet_wrap(~ threshold)
 }
 
-table_reach <- function(output, threshold=DEFAULT_THRESHOLDS) {
-  reach_df <- output %>%
-    reach_by_pct_targeted(threshold) %>%
-    filter(pct_targeted <= threshold) %>%
-    summarize(reach=last(reach))
-  reshape::cast(reach_df, method ~ threshold, value='reach')
+
+table <- function(stat_by_pct) {
+  stat_df <- value_at_pct(stat_by_pct)
+  reshape::cast(stat_df, method ~ threshold)
 }
+
 
 ##### Models #####
 
