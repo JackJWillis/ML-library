@@ -113,7 +113,7 @@ plot_stat <- function(stat_by_pct) {
 }
 
 
-table <- function(stat_by_pct) {
+table_stat <- function(stat_by_pct) {
   stat_df <- value_at_pct(stat_by_pct)
   reshape::cast(stat_df, method ~ threshold)
 }
@@ -132,6 +132,7 @@ fit_forest <- function(df, ntree=100) {
   x <- select(df, -one_of(TARGET_VARIABLE))
   randomForest::randomForest(x=x, y=y, ntree=ntree)
 }
+
 
 forest <- function(fold) {
   model <- fit_forest(fold$train)
