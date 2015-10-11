@@ -93,12 +93,16 @@ budget_change <- function(stat_by_pct, base='ols') {
   base_stat <- value_at_pct(stat_by_pct) %>%
     filter(method == base) %>%
     select(threshold, base_value=value)
-  #FIXME groups go away on merge
-  merged <- merge(stat_by_pct, base_stat, by='threshold') %>% group_by(methresholdjk)
+  merged <- merge(stat_by_pct, base_stat, by='threshold') %>%
+    group_by(method.x, threshold) %>%
+    arrange(pct_targeted) %>%
+    select(-one_of('method.y'))
   merged %>%
     filter(value <= base_value) %>%
-    summarize(pct_targeted=last(pct_targeted), base_pct=last(threshold)) %>%
-    select(value=(pct_targeted - base_pct) / base_pct)
+    summarize(pct_targeted=last(pct_targeted), base_pct=last(threshold) / 100) %>%
+    mutate(value=(pct_targeted - base_pct) / base_pct) %>%
+    select(method=method.x, threshold=threshold, value=value) %>%
+    reshape::cast(method ~ threshold)
 }
 
 
