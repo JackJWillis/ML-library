@@ -61,7 +61,7 @@ DEFAULT_THRESHOLDS <- seq(0.1, 0.4, .1)
 add_threshold <- function(output, threshold) {
   consumption_cutoff <- quantile(output$true, threshold)
   output <- output[rep(1:nrow(output), each=length(threshold)), ]
-  output$threshold <- threshold
+  output$threshold <- as.integer(threshold * 100)
   output$consumption_cutoff <- consumption_cutoff
   output
 }
@@ -84,7 +84,7 @@ reach_by_pct_targeted <- function(output, threshold=DEFAULT_THRESHOLDS) {
 }
 
 value_at_pct <- function(stat_by_pct) {
-  filter(stat_by_pct, pct_targeted <= threshold) %>%
+  filter(stat_by_pct, pct_targeted <= threshold / 100) %>%
     summarize(value=last(value))
 }
 
