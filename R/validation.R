@@ -139,7 +139,7 @@ ols_plus_forest <- function(fold) {
   linear <- lm(FORMULA, data=fold$train)
   res_df <- fold$train
   res_df[, TARGET_VARIABLE] <- residuals(linear)
-  nonlinear <- fit_forest(fold$train)
+  nonlinear <- fit_forest(res_df)
   
   predict(linear, fold$test) + predict(nonlinear, fold$test)
 }
