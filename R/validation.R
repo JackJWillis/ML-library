@@ -38,6 +38,8 @@ test_one <- function(method, fold) {
 
 
 test_method_on_splits <- function(method, folds) {
+  # FIXME weka does not work with multicore
+  # either remove weka or switch on method
   mclapply(
     folds,
     function(fold) test_one(method, fold),
@@ -82,6 +84,7 @@ reach_by_pct_targeted <- function(output, threshold=DEFAULT_THRESHOLDS) {
     mutate(tp=true < consumption_cutoff) %>%
     mutate(value=cumsum(tp) / n())
 }
+
 
 value_at_pct <- function(stat_by_pct) {
   filter(stat_by_pct, pct_targeted <= threshold / 100) %>%
@@ -149,6 +152,21 @@ ols_plus_forest <- function(fold) {
   predict(linear, fold$test) + predict(nonlinear, fold$test)
 }
 
+ols_plus_tree <- function(fold) {
+  linear <- lm(FORMULA, data=fold$train)
+  res_df <- fold$train
+  res_df[, TARGET_VARIABLE] <- residuals(linear)
+  nonlinear <- rpart::rpart(FORMULA, fold$train)
+  
+  predict(linear, fold$test) + predict(nonlinear, fold$test)
+}
+
+
+tree_plus_ols <- function(fold) {
+  model <- RWeka::M5P(FORMULA, fold$train)
+  predict(model, fold$test)
+}
+
 
 ols_forest_ensemble <- function(fold) {
   holdout_fraction <- 0.2
@@ -178,4 +196,5 @@ METHOD_LIST <- list(
   ols=ols,
   forest=forest,
   opf=ols_plus_forest,
+  tpo=tree_plus_ols,
   ensemble=ols_forest_ensemble)
