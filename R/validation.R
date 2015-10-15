@@ -202,6 +202,6 @@ METHOD_LIST <- list(
   ols=ols,
   forest=forest,
   opf=ols_plus_forest,
-  opt=ols_plut_tree,
+  opt=ols_plus_tree,
   tpo=tree_plus_ols,
   ensemble=ols_forest_ensemble)
