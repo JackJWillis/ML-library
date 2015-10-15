@@ -38,12 +38,18 @@ test_one <- function(method, fold) {
 
 
 test_method_on_splits <- function(method, folds) {
-  # FIXME weka does not work with multicore
-  # either remove weka or switch on method
-  mclapply(
-    folds,
-    function(fold) test_one(method, fold),
-    mc.cores=detectCores())
+  method_name <- names(method)
+  parallel <- (method_name != 'tpo') # RWeka does not work with multicore
+  if (parallel) {
+    mclapply(
+      folds,
+      function(fold) test_one(method, fold),
+      mc.cores=detectCores())
+  } else {
+    lapply(
+      folds,
+      function(fold) test_one(method, fold))
+  }
 }
 
 
@@ -196,5 +202,6 @@ METHOD_LIST <- list(
   ols=ols,
   forest=forest,
   opf=ols_plus_forest,
+  opt=ols_plut_tree,
   tpo=tree_plus_ols,
   ensemble=ols_forest_ensemble)
