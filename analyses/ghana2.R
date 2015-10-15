@@ -47,7 +47,7 @@ add_covariates <- function(output_df, ghana, var_table_path) {
 }
 
 add_target <- function(output_df, panel_df) {
-  output_df$lnwelfare <- log(panel_df$lnwelfare) 
+  output_df[, TARGET_VARIABLE] <- log(panel_df$lnwelfare)
   output_df
 }
 
@@ -80,26 +80,17 @@ pe_data_path <- paste(TARGETING_DATA_IN, PE_DATA_FNAME, sep="/")
 pe_variable_table_path <- paste(TARGETING_DATA_IN, PE_VARIABLE_TABLE_FNAME, sep="/")
 
 gh <- create_dataset(data_path, variable_table_path)
-gh <- standardize_predictors(gh, "lnwelfare")
+gh <- filter(gh, s7dq11 != 'generator') # only one observation, causes issues in cross validation
+gh <- standardize_predictors(gh, TARGET_VARIABLE)
 save_dataset(NAME, gh)
-x <- model.matrix(lnwelfare ~ .,  gh)
-x_nmm <- select(gh,-one_of("lnwelfare"))
-y <- gh[rownames(x), "lnwelfare"]
+output <- test_all(gh)
+save_validation_models_(NAME, output)
 
-cv_splits <- cv_split(y, x_nmm, k=5, inner_k=3, seed=1)
 
-run_all_heldout(NAME, gh, "lnwelfare", cv_splits, 'rural')
-run_weighted_heldout(paste(NAME, 'weighted', sep='_'), gh, "lnwelfare", cv_splits, 'rural')
 
 gh <- create_dataset(pe_data_path, pe_variable_table_path)
-gh <- standardize_predictors(gh, "lnwelfare")
+gh <- filter(gh, s7dq11 != 'generator') # only one observation, causes issues in cross validation
+gh <- standardize_predictors(gh, TARGET_VARIABLE)
 save_dataset(paste(NAME, 'pe', sep='_'), gh)
-x <- model.matrix(lnwelfare ~ .,  gh)
-x_nmm <- select(gh,-one_of("lnwelfare"))
-y <- gh[rownames(x), "lnwelfare"]
-
-cv_splits <- cv_split(y, x_nmm, k=5, inner_k=3, seed=1)
-
-run_all_heldout(paste(NAME, "pe", sep="_"), gh, "lnwelfare", cv_splits, 'rural')
-run_fs_heldout(paste(NAME, "pe", '25', sep="_"), gh, "lnwelfare", cv_splits, 'rural')
-run_weighted_heldout(paste(NAME, "pe", 'weighted', sep="_"), gh, "lnwelfare", cv_splits, 'rural')
+output <- test_all(gh)
+save_validation_models_(paste(NAME, 'pe', sep='_'), output)

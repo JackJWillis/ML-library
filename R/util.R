@@ -23,6 +23,13 @@ save_models_ <- function(name, joined) {
   write.csv(joined, file=out_path)
 }
 
+save_validation_models_ <- function(name, joined) {
+  fname <- paste(name, 'validation', MODELS_BASE, sep="_")
+  out_path <- paste(TARGETING_DATA_OUT, fname, sep="/")
+  write.csv(joined, file=out_path)
+}
+
+
 save_ensemble <- function(name, e) {
   fname <- paste(name, ENSEMBLE_BASE, sep="_")
   out_path <- paste(TARGETING_DATA_OUT, fname, sep="/")
@@ -42,6 +49,11 @@ load_models <- function(name) {
   read.csv(out_path)
 }
 
+load_validation_models <- function(name) {
+  fname <- paste(name, 'validation', MODELS_BASE, sep="_")
+  out_path <- paste(TARGETING_DATA_OUT, fname, sep="/")
+  read.csv(out_path)
+}
 
 save_dataset <- function(name, data) {
   fname <- paste(name, DATASET_BASE, sep="")
