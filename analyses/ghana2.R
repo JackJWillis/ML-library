@@ -80,7 +80,6 @@ pe_data_path <- paste(TARGETING_DATA_IN, PE_DATA_FNAME, sep="/")
 pe_variable_table_path <- paste(TARGETING_DATA_IN, PE_VARIABLE_TABLE_FNAME, sep="/")
 
 gh <- create_dataset(data_path, variable_table_path)
-gh <- filter(gh, s7dq11 != 'generator') # only one observation, causes issues in cross validation
 gh <- standardize_predictors(gh, TARGET_VARIABLE)
 save_dataset(NAME, gh)
 output <- test_all(gh)
