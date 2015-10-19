@@ -1,0 +1,59 @@
+---
+title: "Validation"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir="../")
+options(width = 250)
+```
+
+```{r preamble, echo=FALSE}
+library(MLlibrary)
+library(dplyr)
+library(purrr)
+# ds_names <- c('tanzania', 'ghana_pe', 'niger_pastoral', 'niger_agricultural', 'mexico')
+THRESHOLD <- 0.4
+ds_names <- c('niger_pastoral', 'niger_agricultural')
+```
+
+
+```{r util, echo=FALSE}
+table_stats <- function(stats) {
+  tables <- lapply(stats, table_stat)
+  tables <- lapply(names(stats), function(name) {
+    df <- tables[[name]]
+    value_name <- colnames(df)[[2]]
+    df$dataset <- name
+    reshape::cast(df, dataset ~ method, value=value_name)
+  })
+}
+```
+
+```{r daataset_stats, echo=FALSE}
+ds_stats <- lapply(ds_names, function(name) {
+  df <- load_dataset(name)
+  row_count <- nrow(df)
+  col_count <- ncol(df)
+  data.frame(dataset=name, N=row_count, K=col_count)
+})
+ds_stats <- reduce(ds_stats, rbind)
+```
+
+```{r table, echo=FALSE}
+reaches <- lapply(ds_names, function(name) {
+  output <- load_validation_models(name)
+  reach_by_pct_targeted(output, threshold=THRESHOLD)
+})
+names(reaches) <- ds_names
+tables <- table_stats(reaches) %>%
+  reduce(rbind) %>%
+  merge(ds_stats, by='dataset') %>%
+  select(dataset, N, K, ols, everything()) %>%
+  arrange(N)
+print(tables)
+  
+
+```
