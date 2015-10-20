@@ -63,7 +63,7 @@ add_covariates <- function(output_df, tanzania_panel) {
 }
 
 add_target_per_capita <- function(output_df, panel_df) {
-  output_df$lconsPC <- log(panel_df$expmR / panel_df$hhsize) 
+  output_df[, TARGET_VARIABLE] <- log(panel_df$expmR / panel_df$hhsize) 
   output_df$lhhsize <- log(panel_df$hhsize) 
   output_df
 }
@@ -96,13 +96,7 @@ create_dataset <- function(year, remove_missing=TRUE) {
 # Run analysis ---------------------------
 
 tz08 <- create_dataset(2008, remove_missing=TRUE)
-tz08 <- standardize_predictors(tz08, "lconsPC")
+tz08 <- standardize_predictors(tz08, TARGET_VARIABLE)
 save_dataset(NAME, tz08)
-x <- model.matrix(lconsPC ~ .,  tz08)
-x_nmm <- select(tz08,-one_of("lconsPC"))
-y <- tz08[rownames(x), "lconsPC"]
-
-cv_splits <- cv_split(y, x_nmm, k=5, inner_k=4, seed=10)
-run_all_heldout(NAME, tz08, "lconsPC", cv_splits, 'locality')
-run_fs_heldout(paste(NAME, '25', sep='_'), tz08, "lconsPC", cv_splits, 'locality')
-run_weighted_heldout(paste(NAME, 'weighted', sep='_'), tz08, "lconsPC", cv_splits, 'locality')
+output <- test_all(tz08)
+save_validation_models_(NAME, output)

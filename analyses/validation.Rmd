@@ -14,10 +14,12 @@ options(width = 250)
 library(MLlibrary)
 library(dplyr)
 library(purrr)
-# ds_names <- c('tanzania', 'ghana_pe', 'niger_pastoral', 'niger_agricultural', 'mexico')
+
 THRESHOLD <- 0.4
-ds_names <- c('niger_pastoral', 'niger_agricultural')
+# ds_names <- c('tanzania', 'ghana_pe', 'niger_pastoral', 'niger_agricultural', 'mexico')
+ds_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania', 'ghana_pe')
 ```
+
 
 
 ```{r util, echo=FALSE}
