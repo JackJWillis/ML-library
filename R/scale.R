@@ -29,18 +29,24 @@ scale_n <- function(survey_df, method_list=SCALE_METHODS, holdout_fraction=.2, s
   results <- rbind_all(results)
 }
 
-stepwise_ols <- function(fold, column_counts=NULL) {
-  if (is.null(column_counts)) columns_counts <- 1:ncol(train)
-  train <- fold$train
-#   # HACK to remove linearly dependant columns
-#   model <- lm(FORMULA., data=train)
-#   train <- train[, !is.na(coef(model))]
-  x <- model.matrix(FORMULA, train)
-  y <- train[, TARGET_COLUMN]
-  l <- leaps::regsubsets(FORMULA, data=train, method="forward", nvmax=max(column_counts))
+stepwise_ols <- function(fold, column_counts=NULL, holdout_fraction=0.2) {
+  if (is.null(column_counts)) column_counts <- 1:ncol(survey_df)
+  
+  is_test <- as.logical(rbinom(nrow(survey_df), 1, holdout_fraction))
+  x <- model.matrix(FORMULA, survey_df)
+  df <- data.frame(x)
+  y <- survey_df[rownames(x), TARGET_VARIABLE]
+  df[, TARGET_VARIABLE] <- y
+  train <- data.frame(df[!is_test, ])
+  train_mm <- x[!is_test, ]
+  test <- data.frame(df[is_test, ])
+  
+  l <- leaps::regsubsets(x=train_mm, y=y, intercept=FALSE, method="forward", nvmax=max(column_counts))
   dfs <- lapply(column_counts, function(column_count) {
     columns <- summary(l)$which[column_count, ]
-    model <- lm(x=x[, columns], y=y)
+    columns[1] <- FALSE
+    columns <- names(columns)[columns]
+    model <- lm(FORMULA, data=train[, c(columns, TARGET_VARIABLE)])
     y_hat <- predict(model, test)
     data.frame(
       predicted=y_hat,
@@ -48,18 +54,28 @@ stepwise_ols <- function(fold, column_counts=NULL) {
       fold=column_count,
       method='ols')
   })
-  rbind_all(dfs)
+  rbind_all(dfs) %>%
+    group_by(fold) %>%
+    summarise(method=first(method), mse=mean((predicted - true)^2))
 }
 
-stepwise_tree <- function(fold, column_counts=NULL, threshold=0.4) {
-  if (is.null(column_counts)) columns_counts <- 1:ncol(train)
-  train <- fold$train
-  x <- model.matrix(FORMULA, train)
-  y <- train[, TARGET_VARIABLE]
+stepwise_tree <- function(survey_df, threshold=0.4) {
+  x <- model.matrix(FORMULA, survey_df)
+  y <- survey_df[, TARGET_VARIABLE]
   y <- as.factor(y < quantile(y, threshold))
   v <- varSelRF::varSelRF(x, y)
-  
+  var_history <- as.character(v$selec.history$Vars.in.Forest)
+  var_counts <- sapply(strsplit(var_history, '[+]'), length)
+  mse <- v$selec.history$OOB
+  data.frame(method='forest', mse=mse, fold=var_counts)
 }
+
+scale_k <- function(survey_df) {
+  ols_results <- stepwise_ols(survey_df)
+  tree_results <- stepwise_tree(survey_df)
+  rbind(ols_results, tree_results)
+}
+
 
 plot_scaling <- function(outcome) {
 #   g <- group_by(outcome, method, fold)
