@@ -95,8 +95,19 @@ create_dataset <- function(year, remove_missing=TRUE) {
 
 # Run analysis ---------------------------
 
-tz08 <- create_dataset(2008, remove_missing=TRUE)
-tz08 <- standardize_predictors(tz08, TARGET_VARIABLE)
-save_dataset(NAME, tz08)
-output <- test_all(tz08)
-save_validation_models_(NAME, output)
+run_year <- function(year ) {
+  year_name <- paste(NAME, year, sep="_")
+  tz <- create_dataset(year, remove_missing=TRUE)
+  tz <- standardize_predictors(tz, TARGET_VARIABLE)
+  save_dataset(year_name, tz)
+  output <- test_all(tz)
+  save_validation_models_(year_name, output)
+}
+
+print(2008)
+run_year(2008)
+print(2010)
+run_year(2010)
+print(2012)
+run_year(2012)
+
