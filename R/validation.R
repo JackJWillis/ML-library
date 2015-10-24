@@ -1,3 +1,5 @@
+#' @export
+
 TARGET_VARIABLE <- 'yyyyy'
 FORMULA <- as.formula(paste(TARGET_VARIABLE, "~ ."))
 K <- 8 # Because I have 4 cores :/
@@ -9,13 +11,19 @@ get_assignments <- function(survey_df, k) {
 }
 
 
+construct_fold <- function(survey_df, is_test) {
+  test <- survey_df[is_test, ]
+  train <- survey_df[!is_test, ]
+  list(test=test, train=train)
+}
+
 split_test_train <- function(survey_df, k=K) {
   assignments <- get_assignments(survey_df, k)
   folds <- lapply(1:k, function(i) {
     is_test <- assignments == i
-    test <- survey_df[is_test, ]
-    train <- survey_df[!is_test, ]
-    list(test=test, train=train, fold_number=i)
+    fold <- construct_fold(survey_df, is_test)
+    fold$fold_number <- i
+    fold
   })
   folds
 }
@@ -62,6 +70,7 @@ test_all <- function(survey_df, method_list=METHOD_LIST, k=K) {
   })
   purrr::reduce(method_results, rbind)
 }
+
 
 ##### Output #####
 DEFAULT_THRESHOLDS <- seq(0.1, 0.4, .1)
