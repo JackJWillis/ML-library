@@ -91,10 +91,14 @@ order_by_predicted <- function(output) {
 }
 
 
-reach_by_pct_targeted <- function(output, threshold=DEFAULT_THRESHOLDS) {
-  output %>%
-    add_threshold(threshold) %>%
-    group_by(method, threshold) %>%
+reach_by_pct_targeted <- function(output, threshold=DEFAULT_THRESHOLDS, fold=FALSE) {
+  with_threshold <- add_threshold(output, threshold)
+  if (fold) {
+    grouped <- group_by(with_threshold, method, fold, threshold)
+  } else {
+    grouped <- group_by(with_threshold, method, threshold)
+  }
+  grouped %>%
     order_by_predicted() %>%
     mutate(tp=true < consumption_cutoff) %>%
     mutate(value=cumsum(tp) / n())
