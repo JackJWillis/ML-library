@@ -231,3 +231,8 @@ METHOD_LIST <- list(
   opt=ols_plus_tree,
   tpo=tree_plus_ols,
   ensemble=ols_forest_ensemble)
+
+SCALE_METHODS <- list(
+  ols=ols,
+  tree=tree
+)
