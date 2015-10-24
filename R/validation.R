@@ -188,7 +188,7 @@ ols_plus_tree <- function(fold) {
   linear <- lm(FORMULA, data=fold$train)
   res_df <- fold$train
   res_df[, TARGET_VARIABLE] <- residuals(linear)
-  nonlinear <- rpart::rpart(FORMULA, fold$train)
+  nonlinear <- rpart::rpart(FORMULA, res_df)
   
   predict(linear, fold$test) + predict(nonlinear, fold$test)
 }
