@@ -177,6 +177,13 @@ ols_plus_forest <- function(fold) {
   predict(linear, fold$test) + predict(nonlinear, fold$test)
 }
 
+
+tree <- function(fold) {
+  model <- rpart::rpart(FORMULA, fold$train)
+  predict(model, fold$test)
+}
+
+
 ols_plus_tree <- function(fold) {
   linear <- lm(FORMULA, data=fold$train)
   res_df <- fold$train
