@@ -119,6 +119,7 @@ niger_p_id <- data.frame(grappe=niger_p$grappe,menage=niger_p$menage)
 niger_p$grappe <- NULL
 niger_p$menage <- NULL
 niger_p <- standardize_predictors(niger_p, TARGET_VARIABLE)
+niger_p[, WEIGHT_VARIABLE] <- niger_p_weight
 
 # x_p <- model.matrix(y_real ~ .,  niger_p)
 # y_p <- niger_p[rownames(x_p), "y_real"]
@@ -135,6 +136,7 @@ niger_a_id <- data.frame(grappe=niger_a$grappe,menage=niger_a$menage)
 niger_a$grappe <- NULL
 niger_a$menage <- NULL
 niger_a <- standardize_predictors(niger_a, TARGET_VARIABLE)
+niger_a[, WEIGHT_VARIABLE] <- niger_a_weight
 
 output <- test_all(niger_a)
 save_validation_models_('niger_agricultural', output)

@@ -1,8 +1,9 @@
 #' @export
 
 TARGET_VARIABLE <- 'yyyyy'
-FORMULA <- as.formula(paste(TARGET_VARIABLE, "~ ."))
-K <- 8 # Because I have 4 cores :/
+WEIGHT_VARIABLE <- 'weight_weight_weight'
+FMLA_STR <- paste(TARGET_VARIABLE, "~ .")
+K <- 5 # Because I have 4 cores :/
 
 #### Training/Testing ######
 
@@ -61,14 +62,15 @@ test_method_on_splits <- function(method, folds) {
 }
 
 
-test_all <- function(survey_df, method_list=METHOD_LIST, k=K) {
+test_all <- function(survey_df, method_list=METHOD_LIST, k=K, seed=1) {
+  set.seed(seed)
   folds <- split_test_train(survey_df, k)
   method_results <- purrr::flatmap(names(method_list), function(method_name) {
     print(method_name)
     method <- method_list[method_name]
     predictions <- test_method_on_splits(method, folds)
   })
-  purrr::reduce(method_results, rbind)
+  bind_rows(method_results)
 }
 
 
@@ -149,15 +151,33 @@ table_stat <- function(stat_by_pct) {
 
 ##### Models #####
 
+
+get_weights <- function(df) {
+  weight_vector <- df[, WEIGHT_VARIABLE]
+  df <- select(df, -one_of(WEIGHT_VARIABLE))
+  list(data=df, weight_vector=weight_vector)
+}
+
+
+fit_ols <- function(df) {
+  wdf <- get_weights(df)
+  df <- purrr::keep(wdf$data, ~ length(unique(.)) > 1)
+  weight_vector <- wdf$weight_vector
+  fmla <- as.formula(FMLA_STR)
+  lm(fmla, data=df, weights=weight_vector)
+}
+
+
 ols <- function(fold) {
-  model <- lm(FORMULA, data=fold$train)
+  model <- fit_ols(fold$train)
   predict(model, fold$test)
 }
 
 
-fit_forest <- function(df, ntree=100) {
+fit_forest <- function(df, ntree=NULL) {
+  if (nrow(df) < 2000) ntree <- 200 else ntree <- 50
   y <- df[, TARGET_VARIABLE]
-  x <- select(df, -one_of(TARGET_VARIABLE))
+  x <- select(df, -one_of(TARGET_VARIABLE, WEIGHT_VARIABLE))
   randomForest::randomForest(x=x, y=y, ntree=ntree)
 }
 
@@ -169,7 +189,7 @@ forest <- function(fold) {
 
 
 ols_plus_forest <- function(fold) {
-  linear <- lm(FORMULA, data=fold$train)
+  linear <- fit_ols(fold$train)
   res_df <- fold$train
   res_df[, TARGET_VARIABLE] <- residuals(linear)
   nonlinear <- fit_forest(res_df)
@@ -179,58 +199,75 @@ ols_plus_forest <- function(fold) {
 
 
 tree <- function(fold) {
-  model <- rpart::rpart(FORMULA, fold$train)
+  model <- rpart::rpart(as.formula(FMLA_STR), fold$train)
   predict(model, fold$test)
 }
 
 
 ols_plus_tree <- function(fold) {
-  linear <- lm(FORMULA, data=fold$train)
+  linear <- fit_ols(fold$train)
   res_df <- fold$train
   res_df[, TARGET_VARIABLE] <- residuals(linear)
-  nonlinear <- rpart::rpart(FORMULA, res_df)
+  nonlinear <- rpart::rpart(as.formula(FMLA_STR), res_df)
   
   predict(linear, fold$test) + predict(nonlinear, fold$test)
 }
 
 
 tree_plus_ols <- function(fold) {
-  model <- RWeka::M5P(FORMULA, fold$train)
+  model <- RWeka::M5P(as.formula(FMLA_STR), fold$train)
   predict(model, fold$test)
 }
 
 
 ols_forest_ensemble <- function(fold) {
-  holdout_fraction <- 0.2
-  assignments <- as.logical(rbinom(nrow(fold$train), 1, 1 - holdout_fraction))
-  train <- fold$train[assignments, ]
-  train_holdout <- fold$train[!assignments, ]
+  train <- fold$train
+  ensemble_folds <- split_test_train(train, k=4)
   
-  ols_model <- lm(FORMULA, train)
-  ols_predictions <- predict(ols_model, train_holdout)
-  forest_model <- fit_forest(train)
-  forest_predictions <- predict(forest_model, train_holdout)
+  ols_predictions <- flatmap(ensemble_folds, ols)
+  forest_predictions <- flatmap(ensemble_folds, forest)
+  opf_predictions <- flatmap(ensemble_folds, ols_plus_forest)
+  true <- flatmap(ensemble_folds, ~.$test[, TARGET_VARIABLE])
+  
   ensemble_df <- data.frame(
-    true=train_holdout[, TARGET_VARIABLE],
+    true=true,
     ols=ols_predictions,
-    forest=forest_predictions)
-  ensemble <- lm(true ~ ols + forest, data=ensemble_df)
+    forest=forest_predictions,
+    opf=opf_predictions)
+  ensemble <- lm(true ~ ., data=ensemble_df)
   
-  ols_test_predictions <- predict(ols_model, fold$test)
-  forest_test_predictions <- predict(forest_model, fold$test)
+  ols_test_predictions <- ols(fold)
+  forest_test_predictions <- forest(fold)
+  opf_test_predictions <- ols_plus_forest(fold)
   test_predictions_df <- data.frame(
     ols=ols_test_predictions, 
-    forest=forest_test_predictions)
+    forest=forest_test_predictions,
+    opf=opf_test_predictions)
   predict(ensemble, test_predictions_df)
 }
+
+
+elastic_net <- function(fold) {
+  train <- get_weights(fold$train)
+  x <- model.matrix(as.formula(FMLA_STR), train$data)
+  y <- train$data[, TARGET_VARIABLE]
+  cv.model <- glmnet::cv.glmnet(x, y, weights=train$weight_vector, alpha=0.5)
+  model <- glmnet::glmnet(x, y, alpha=0.5)
+  
+  test <- get_weights(fold$test)
+  test_x <- model.matrix(as.formula(FMLA_STR), test$data)
+  as.numeric(predict(model, test_x, s=cv.model$lambda.min))
+}
+
 
 METHOD_LIST <- list(
   ols=ols,
   forest=forest,
   opf=ols_plus_forest,
-  opt=ols_plus_tree,
-  tpo=tree_plus_ols,
-  ensemble=ols_forest_ensemble)
+#   opt=ols_plus_tree,
+#   tpo=tree_plus_ols,
+  ensemble=ols_forest_ensemble,
+  enet=elastic_net)
 
 SCALE_METHODS <- list(
   ols=ols,
