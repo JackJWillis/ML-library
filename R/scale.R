@@ -11,8 +11,6 @@ scale_n <- function(survey_df, method_list=SCALE_METHODS, holdout_fraction=.2, s
   
   apply_method_to_size <- function(method, trial_size) {
     train_subset <- train[queue[1:trial_size], ]
-    non_degenerate <- as.list(map(train_subset, ~length(unique(.x)))) > 1
-    train_subset <- train_subset[, non_degenerate]
     fold <- list(train=train_subset, test=test, fold_number=trial_size)
     test_one(method, fold)
   }
