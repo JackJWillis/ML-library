@@ -41,7 +41,7 @@ ds_stats <- lapply(ds_names, function(name) {
   col_count <- ncol(df)
   data.frame(dataset=name, N=row_count, K=col_count)
 })
-ds_stats <- reduce(ds_stats, rbind)
+ds_stats <- bind_rows(ds_stats)
 ```
 
 ```{r table, echo=FALSE}
@@ -51,7 +51,7 @@ reaches <- lapply(ds_names, function(name) {
 })
 names(reaches) <- ds_names
 tables <- table_stats(reaches) %>%
-  reduce(rbind) %>%
+  bind_rows() %>%
   merge(ds_stats, by='dataset') %>%
   select(dataset, N, K, ols, everything()) %>%
   arrange(N)
