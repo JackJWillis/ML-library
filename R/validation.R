@@ -153,7 +153,11 @@ table_stat <- function(stat_by_pct) {
 
 
 get_weights <- function(df) {
-  weight_vector <- df[, WEIGHT_VARIABLE]
+  if (WEIGHT_VARIABLE %in% colnames(df)) {
+    weight_vector <- df[, WEIGHT_VARIABLE]
+  } else {
+    weight_vector <- rep(1, nrow(df))
+  }
   df <- select(df, -one_of(WEIGHT_VARIABLE))
   list(data=df, weight_vector=weight_vector)
 }
