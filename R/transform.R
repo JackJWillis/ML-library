@@ -33,4 +33,26 @@ na_indicator <- function(df) {
   df
 }
 
+impute_all <- function(df) {
+  for (name in colnames(df)) {
+    vals <- df[, name]
+    if (is.numeric(vals)) {
+      df[is.na(vals), name] <- median(vals)
+    }
+    if (is.character(vals) | is.factor(vals)) {
+      df[is.na(vals), name] <- names(sort(table(vals), decreasing=TRUE))[1]
+    }
+  }
+  df
+}
+
+knockout_new_categories <- function(test, train) {
+  for (name in colnames(test)) {
+    vals <- test[, name]
+    if (is.character(vals) | is.factor(vals)) {
+      test[!(vals %in% unique(train[, name])), name] <- NA
+    }
+  }
+  test
+}
 

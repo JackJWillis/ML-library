@@ -97,7 +97,8 @@ create_dataset <- function(year, remove_missing=TRUE) {
 
 run_year <- function(year ) {
   year_name <- paste(NAME, year, sep="_")
-  tz <- create_dataset(year, remove_missing=TRUE)
+  tz <- create_dataset(year, remove_missing=FALSE)
+  tz <- na_indicator(tz)
   tz <- standardize_predictors(tz, TARGET_VARIABLE)
   save_dataset(year_name, tz)
   output <- test_all(tz)

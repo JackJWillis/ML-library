@@ -3,7 +3,7 @@
 TARGET_VARIABLE <- 'yyyyy'
 WEIGHT_VARIABLE <- 'weight_weight_weight'
 FMLA_STR <- paste(TARGET_VARIABLE, "~ .")
-K <- 5 # Because I have 4 cores :/
+K <- 5 
 
 #### Training/Testing ######
 
@@ -174,7 +174,9 @@ fit_ols <- function(df) {
 
 ols <- function(fold) {
   model <- fit_ols(fold$train)
-  predict(model, fold$test)
+  test <- knockout_new_categories(fold$test, fold$train)
+  test <- impute_all(test)
+  predict(model, test)
 }
 
 
@@ -198,7 +200,9 @@ ols_plus_forest <- function(fold) {
   res_df[, TARGET_VARIABLE] <- residuals(linear)
   nonlinear <- fit_forest(res_df)
   
-  predict(linear, fold$test) + predict(nonlinear, fold$test)
+  test <- knockout_new_categories(fold$test, fold$train)
+  test <- impute_all(test)
+  predict(linear, test) + predict(nonlinear, fold$test)
 }
 
 

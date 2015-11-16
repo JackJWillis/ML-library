@@ -38,10 +38,10 @@ add_covariates <- function(output_df, ghana, var_table_path) {
   output_df[, covariates_yesno] <- ghana[, covariates_yesno]
   
   # Make sure features are cast correctly
-  output_df[, covariates_categorical] <- sapply(output_df[, covariates_categorical], as.factor)
-  output_df[, covariates_cardinal] <- sapply(output_df[, covariates_cardinal], as.numeric)
+  output_df[, covariates_categorical] <- lapply(output_df[, covariates_categorical], as.factor)
+  output_df[, covariates_cardinal] <- lapply(output_df[, covariates_cardinal], as.numeric)
   # Note, may wish to recode some of the categoricals as ordered and the yes/no as categorical.
-  output_df[, covariates_yesno] <- sapply(output_df[, covariates_yesno], as.factor)
+  output_df[, covariates_yesno] <- lapply(output_df[, covariates_yesno], as.factor)
   
   output_df
 }
@@ -79,16 +79,18 @@ variable_table_path <- paste(TARGETING_DATA_IN, VARIABLE_TABLE_FNAME, sep="/")
 pe_data_path <- paste(TARGETING_DATA_IN, PE_DATA_FNAME, sep="/")
 pe_variable_table_path <- paste(TARGETING_DATA_IN, PE_VARIABLE_TABLE_FNAME, sep="/")
 
-gh <- create_dataset(data_path, variable_table_path)
+gh <- create_dataset(data_path, variable_table_path, remove_missing=FALSE)
 gh <- standardize_predictors(gh, TARGET_VARIABLE)
+gh <- na_indicator(gh)
 save_dataset(NAME, gh)
 output <- test_all(gh)
 save_validation_models_(NAME, output)
 
 
 
-gh <- create_dataset(pe_data_path, pe_variable_table_path)
+gh <- create_dataset(pe_data_path, pe_variable_table_path, remove_missing=FALSE)
 gh <- filter(gh, s7dq11 != 'generator') # only one observation, causes issues in cross validation
+gh <- na_indicator(gh)
 gh <- standardize_predictors(gh, TARGET_VARIABLE)
 save_dataset(paste(NAME, 'pe', sep='_'), gh)
 output <- test_all(gh)
