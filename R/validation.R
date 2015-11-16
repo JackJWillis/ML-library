@@ -180,11 +180,12 @@ ols <- function(fold) {
 }
 
 
-fit_forest <- function(df, ntree=NULL) {
+fit_forest <- function(df, ntree=NULL, nodesize=NULL) {
   if (nrow(df) < 2000) ntree <- 200 else ntree <- 50
+  if(is.null(nodesize)) nodesize <- ceiling(.005 * nrow(df))
   y <- df[, TARGET_VARIABLE]
   x <- select(df, -one_of(TARGET_VARIABLE, WEIGHT_VARIABLE))
-  randomForest::randomForest(x=x, y=y, ntree=ntree)
+  randomForest::randomForest(x=x, y=y, ntree=ntree, nodesize=nodesize)
 }
 
 
