@@ -17,7 +17,7 @@ library(purrr)
 
 THRESHOLD <- 0.4
 # ds_names <- c('tanzania', 'ghana_pe', 'niger_pastoral', 'niger_agricultural', 'mexico')
-ds_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania_2008', 'tanzania_2010', 'tanzania_2012', 'ghana_pe', 'ghana')
+ds_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania_2008', 'tanzania_2010', 'tanzania_2012', 'ghana_pe', 'ghana', 'mexico')
 ```
 
 
