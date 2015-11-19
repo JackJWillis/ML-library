@@ -165,7 +165,8 @@ get_weights <- function(df) {
 
 fit_ols <- function(df) {
   wdf <- get_weights(df)
-  df <- purrr::keep(wdf$data, ~ length(unique(.)) > 1)
+  df <- droplevels(wdf$data)
+  df <- purrr::keep(df, ~length(na.omit(unique(.))) > 1)
   weight_vector <- wdf$weight_vector
   fmla <- as.formula(FMLA_STR)
   lm(fmla, data=df, weights=weight_vector)
