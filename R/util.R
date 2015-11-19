@@ -6,6 +6,7 @@ TARGETING_DATA_OUT <- "data"
 MODELS_BASE <- "cv_out.csv"
 DATASET_BASE <- ".csv"
 ENSEMBLE_BASE <- "ensemble.csv"
+SET_ASIDE_FRACTION <- 0.2
 
 
 save_models <- function(name, ...) {
@@ -66,5 +67,16 @@ load_dataset <- function(name) {
   fname <- paste(name, DATASET_BASE, sep="")
   dataset_path <- paste(TARGETING_DATA_OUT, fname, sep="/")
   read.csv(dataset_path)
+}
+
+set_aside_holdout <- function(NAME, df) {
+  set.seed(1)
+  set_aside <- as.logical(rbinom(nrow(df), 1, SET_ASIDE_FRACTION))
+  fname <- paste(NAME, 'holdout_row_ids.csv', sep='_')
+  fname <- paste(TARGETING_DATA_IN, fname, sep='/')
+  write.csv(set_aside, fname)
+  holdout <- df[set_aside, ]
+  use <- df[!set_aside, ]
+  use
 }
 
