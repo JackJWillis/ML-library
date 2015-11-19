@@ -84,9 +84,9 @@ create_dataset <- function(remove_missing=TRUE) {
     mutate(tam_loc=iconv(tam_loc, to="ascii", sub=""))
     
   
-  # If these are factors, MCA does not work...
-  df$state <- sapply(mexico$ubica_geo, function(s) substr(s, 1, 2))
-  df$muni <- sapply(mexico$ubica_geo, function(s) substr(s, 3, 5))
+  df$state <- factor(sapply(mexico$ubica_geo, function(s) substr(s, 1, 2)))
+  # df$muni <- factor(sapply(mexico$ubica_geo, function(s) substr(s, 3, 5)))
+  df$tam_loc <- factor(df$tam_loc)
   year_df <- select(df, ends_with("_a"))
   year_df <- lapply(year_df, transform_years)
   df[, names(year_df)] <- year_df
@@ -106,4 +106,4 @@ mx[mx == ''] <- MISSINGNESS_INDICATOR
 mx[i] <- lapply(mx[i], as.factor)
 save_dataset(NAME, mx)
 output <- test_all(mx)
-save_validation_models_(mx, NAME)
+save_validation_models_(NAME, output)
