@@ -1,0 +1,368 @@
+---
+title: 'Targeting Poverty by Predicting Poverty: Using Machine Learning in Targeted
+  Transfer Programs'
+output: beamer_presentation
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir="../")
+options(width = 250)
+```
+
+```{r helpers, echo=FALSE}
+myround <- function(x, digits=1) {
+  if(digits < 1) stop("This is intended for the case digits >= 1.")
+  if(length(digits) > 1) {
+    digits <- digits[1]
+    warning("Using only digits[1]")
+  }
+  tmp <- sprintf(paste("%.", digits, "f", sep=""), x)
+  # deal with "-0.00" case
+  zero <- paste0("0.", paste(rep("0", digits), collapse=""))
+  tmp[tmp == paste0("-", zero)] <- zero
+  tmp
+}
+
+cap <- function(x) {
+  s <- strsplit(x, " ")[[1]]
+  paste(toupper(substring(s, 1,1)), substring(s, 2),
+      sep="", collapse=" ")
+}
+```
+
+```{r preamble, echo=FALSE}
+library(MLlibrary)
+library(dplyr)
+library(purrr)
+library(reshape2)
+library(ggplot2)
+library(grid) # for unit
+library(scales) # for brewer_pal
+
+THRESHOLD <- 0.4
+all_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania_2008', 'tanzania_2010', 'tanzania_2012', 'ghana_pe', 'mexico', 'south_africa_w1', 'south_africa_w2', 'south_africa_w3', 'iraq', 'brazil')
+# all_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania_2008')
+countries <- strsplit(all_names, '_') %>% 
+  map(first) %>%
+  unique() %>%
+  map(cap)
+
+# pmt_names <- c('niger_pastoral_pmt', 'niger_agricultural_pmt', 'ghana')
+pmt_names <- c()
+renames <- list(
+  niger_pastoral='niger_1',
+  niger_agricultural='niger_2',
+  ghana_pe='ghana',
+  ghana='ghana_pmt',
+  south_africa_w1='sa_08',
+  south_africa_w2='sa_10',
+  south_africa_w3='sa_12',
+  tanzania_2008='tnz_08',
+  tanzania_2010='tnz_10',
+  tanzania_2012='tnz_12'
+  )
+
+clean_name <- function(name) {
+  new_name <- renames[[name]]
+  if (!is.null(new_name)) {
+    return(new_name)
+  }
+  else {
+    return(name)
+  }
+}
+```
+
+
+
+```{r util, echo=FALSE}
+table_stats <- function(tables) {
+  lapply(names(tables), function(name) {
+    df <- tables[[name]]
+    value_name <- colnames(df)[[2]]
+    df$dataset <- name
+    reshape::cast(df, dataset ~ method, value=value_name)
+  })
+}
+```
+
+```{r daataset_stats, echo=FALSE}
+ds_stats <- lapply(c(all_names, pmt_names), function(name) {
+  df <- load_dataset(name)
+  row_count <- nrow(df)
+  col_count <- ncol(df)
+  data.frame(dataset=clean_name(name), N=row_count, K=col_count)
+})
+ds_stats <- bind_rows(ds_stats)
+```
+
+```{r table, echo=FALSE}
+get_reaches <- function(ds_names) {
+  reaches <- lapply(ds_names, function(name) {
+    output <- load_validation_models(name)
+    reach_by_pct_targeted(output, threshold=THRESHOLD)
+  })
+  names(reaches) <- sapply(ds_names, clean_name)
+  reaches 
+}
+
+get_reach_table <- function(reaches) {
+  tables <- lapply(reaches, table_stat)
+  combine_tables(tables) %>%
+    select(dataset, N, K, ols, enet, forest, opf, ensemble) %>%
+    rename(ols_plus_forest=opf)
+}
+
+get_budget_table <- function(reaches) {
+  tables <- lapply(reaches, budget_change)
+  combine_tables(tables)
+}
+
+combine_tables <- function(tables) {
+  table_stats(tables) %>%
+    bind_rows() %>%
+    merge(ds_stats, by='dataset') %>%
+      select(dataset, N, K, ols, everything()) %>%
+      arrange(N)
+}
+
+difference_table <- function(reaches) {
+  reach_table <- get_reach_table(reaches)
+  reach_differences <- reach_table %>%
+    mutate(reach_improvement=ensemble-ols) %>%
+    mutate(relative_reach_improvement=(ensemble-ols)/ols) %>%
+    select(N, K, dataset, reach_improvement, relative_reach_improvement)
+  budget_table <- get_budget_table(reaches) %>%
+    mutate(budget_reduction=-1 * ensemble) %>%
+    select(dataset, budget_reduction)
+  merge(reach_differences, budget_table, by='dataset') %>%
+    arrange(N)
+}
+
+plot_reach_vs_pct_targeted <- function(dsname, threshold=DEFAULT_THRESHOLDS, target=NULL) {
+  zoomtheme <- theme(legend.position="none", axis.line=element_blank(),axis.text.x=element_blank(),
+                   axis.text.y=element_blank(),axis.ticks=element_blank(),
+                   axis.title.x=element_blank(),axis.title.y=element_blank(),
+                   panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                   panel.background = element_rect(color='gray', fill="white"),
+                   plot.margin = unit(c(-6,0,-6,-6),"mm"),
+                   strip.background=element_blank(),
+                   strip.text=element_blank())
+  
+  output <- load_validation_models(dsname)
+  country_reach <- reach_by_pct_targeted(output, threshold=threshold)
+  to_plot <- filter(country_reach, method %in% c('ols', 'ensemble'))
+  p <- ggplot(to_plot, aes(x=pct_targeted, y=value, color=method)) +
+    geom_line() +
+    facet_wrap(~ threshold) +
+    scale_color_brewer(type='qual', palette=2) +
+    ylab('true poor reached (as pct of popuation)') +
+    xlab('pct targeted')
+  if (length(threshold)==1) {
+    ols_reach <- filter(ungroup(to_plot), method=='ols')
+    ols_value <- value_at_pct(ols_reach)[[1]]
+    ensemble_reach <- filter(ungroup(to_plot), method=='ensemble')
+    ensemble_value <- value_at_pct(ensemble_reach)[[1]]
+    budget <- filter(budget_change(to_plot), method=='ensemble')[, 2]
+    ensemble_pct_targeted <- threshold + budget * threshold
+    xmin <- threshold + .005
+    xmax <- .9
+    width <- xmax - xmin
+    ymin <- .1
+    ymax <- ols_value + .005
+    height <- ymax - ymin
+    mag <- 35
+    p.zoom <- p + 
+      coord_cartesian(xlim = c(threshold-width/mag, threshold+width/mag), ylim=c(ols_value-height/mag, ols_value+height/mag)) +
+      geom_segment(x=threshold, xend=threshold, y=ensemble_value, yend=ols_value, color='black') +
+      geom_segment(y=ols_value, yend=ols_value, x=threshold, xend=ensemble_pct_targeted, color='black') +
+      annotate("text", label='Delta~budget', x=threshold-(threshold-ensemble_pct_targeted)/2, y=ols_value-.0005, parse=TRUE) +
+      annotate("text", label='Delta~reach', x=threshold-.001, y=ensemble_value-(ensemble_value-ols_value)/2, parse=TRUE, angle=90) +
+      zoomtheme
+    g <- ggplotGrob(p.zoom)
+    p <- p + annotation_custom(g, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+  }
+  p
+}
+
+reaches <- get_reaches(all_names)
+reacht <- get_reach_table(reaches)
+difft  <- difference_table(reaches)
+```
+
+Machine learning is being used to improve forecasting accuracy across a wide range of human activity
+===============
+* Who will get sick?
+* Who will like this movie?
+* Who will click this ad?
+
+
+Poverty Targeting
+===============
+* Poverty targeting is the quintessential forecasting problem in development economics
+* Most antipoverty programs are targeted. If we can improve targeting accuracy we can have a big impact.
+* Identifying the poor is difficult in developing countries
+* Material well-being is assessed through a tedious and time-consuming consumption survey. The consumption measurements are thought to be noisy.
+
+
+PMT Procedure
+===============
+* The PMT procedure consists of two surveys: a training survey and a targeting survey.
+* In the training survey, measure consumption + other household attributes (education, housing materials, region, number of children, etc.)
+* Regress consumption on household attributes
+* For the targeting survey, measure attributes, forecast consumption with regression formula
+
+
+OLS is not typically thought to be an optimal forecasting method
+===============
+* Bias variance tradeoff
+* OLS provides an unbiased estimate of the coefficients in a linear model, but the estimates often have high variance.
+* Regularized methods reduce variance by adding an extra penalty based on the magnitude of the coefficients.
+
+
+* Nonlinear functional forms
+* Random forests, decision trees, etc.
+
+
+
+Methods
+==============
+* OLS
+* Elastic net (regularized least squares)
+* Random forests
+* OLS with random forests on residuals
+* Ensemble of OLS, random forests, OLS + RF
+* Other methods not shown: stepwise OLS, boosted trees, regression trees, PCA + k nearest neighbors, classification trees, logistic lasso, splines
+
+
+Metrics
+===============
+* We think of poverty targeting as a classification problem
+* Our main concept of success is the number of poor people successfully targeted when targeting a given percent of the population
+* There are two numbers we need to fix, the poverty threshold and the percent of the population we want to target
+
+***
+```{r metrics1, echo=FALSE}
+plot_reach_vs_pct_targeted('ghana_pe')
+```
+
+
+Metrics
+===============
+We focus primarily on two metrics of success:
+
+  + *Reach*: Number of true poor successfully targeted
+  + *Budget*: Necessary number of people targeted in order to reach a certain percent of the true poor
+  
+***  
+```{r metrics2, echo=FALSE}
+plot_reach_vs_pct_targeted('ghana_pe', threshold=.4) 
+```
+
+Poverty Thresholds
+===============
+TODO[Jack]: Realistic poverty thresholds
+  
+
+Datasets
+===============
+We use household survey data from `r length(countries)` countries: `r paste(countries, collapse=', ')`
+```{r datasets, echo=FALSE}
+to_print <- ds_stats %>%
+  filter(!grepl('pmt', dataset)) %>%
+  arrange(N)
+print.data.frame(ds_stats)
+```
+
+
+Results
+================
+```{r results, echo=FALSE}
+df <- melt(reacht, id=c('dataset', 'N', 'K'))
+df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
+ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
+  geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
+  scale_fill_brewer(type='qual', palette=2) +
+  ylab('reach')
+```
+
+
+
+
+Benefit from regularization decreases as N / K increases
+===============
+```{r reg, echo=FALSE}
+ggplot(reacht, aes(y=enet-ols, x=N / K, color=dataset)) + 
+  geom_point(size=4) +
+  scale_color_brewer(type='qual', palette=3)
+```
+
+Random forests are well-approximated by OLS
+==============
+```{r forest, echo=FALSE}
+forests <- lapply(all_names, function(name) {
+  df <- load_dataset(name)
+  df <- df[order(df[, TARGET_VARIABLE]), ]
+  df$X <- NULL
+  output <- load_validation_models(name) %>%
+    filter(method=='forest') %>%
+    arrange(true)
+  tol <- .0001
+  merged <- df
+  if (nrow(merged) == nrow(output)) {
+    if (all(abs(merged[, TARGET_VARIABLE] - output$true) < tol)) {
+      merged[, TARGET_VARIABLE] <- output$predicted
+    }
+  } else {
+    merged[, TARGET_VARIABLE] <- output$predicted[match(df[, TARGET_VARIABLE], output$true)]
+  }
+  model <- fit_ols(merged)
+  rsq <- summary(model)$r.squared
+  data.frame(dataset=clean_name(name), N=nrow(df), K=ncol(df), rsq=rsq)
+})
+forests <- rbind_all(forests)
+forests$dataset <- factor(forests$dataset, levels=ds_stats$dataset)
+ggplot(forests, aes(y=rsq, x=dataset, fill=dataset)) + 
+  geom_bar(stat='identity') +
+  scale_fill_brewer(type='qual', palette=3) +
+  guides(fill=FALSE) +
+  ylim(0, 1)
+```
+
+Ensembles outperform OLS
+==============
+```{r ensemble, echo=FALSE}
+df <- rename(difft, reach=relative_reach_improvement, budget=budget_reduction)
+df <- melt(df, id=c('dataset', 'N', 'K'))
+df <- filter(df, variable != 'reach_improvement')
+df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
+ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
+  geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
+  scale_fill_brewer(type='qual', palette=1) +
+  ylab(expression(frac(ensemble - ols, ols)))
+```
+
+
+Improvements are meaningful
+==============
+TODO[Jack]
+
+```{r comments, echo=FALSE}
+# Notes:
+# Be clearer on wording of definitions of reach and budget slide with pictoral explanation also faceted
+# One slide on realistic poverty thresholds
+# Rename ghana, niger
+# Combine slides 3 and 4, use Paul's line, programs are already targeted, improving targeting can have a large impact
+# Explain data better, also data sizes
+# Training survey, targeting survey
+# Slide 6 explain that OLS is unbiased
+# List all methods
+# Slide with summaries of datasets
+# Results slide: label y axis, move ensemble to the end, width of the bars is too wide, order datasets by N
+# Then show relative improvement and budget
+# For forests and enet have a bullet point explaining why the graph is interesing
+# Switch forest graph to bar
+# N vs K
+```
