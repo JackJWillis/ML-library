@@ -5,7 +5,6 @@
 *.xlsx
 *.csv
 *.html
-*.md
 */Figs/*
 *.pdf
 *.png

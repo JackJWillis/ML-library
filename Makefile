@@ -1,85 +1,57 @@
-all: tanzania ghana niger mexico table
+all: preval val
 
-clean:
-	rm results/*
+val: south_africa iraq
 
-table: reach mse l1
-
-results: 
-	mkdir -p results
-
-reach: $(wildcard results/*_reach.csv)
-	Rscript analyses/join.R $^
-
-reach_unnormalized: $(wildcard results/*_reach_unnormalized.csv)
-	Rscript analyses/join.R $^
-
-mse: $(wildcard results/*_mse.csv)
-	Rscript analyses/join.R $^
-
-l1: $(wildcard results/*_l1.csv)
-	Rscript analyses/join.R $^
+preval: tanzania ghana niger mexico 
 
 ### Ghana ###
-ghana: results/ghana.html results/ghana_pe.html
+ghana: data/ghana_pe_validation_cv_out.csv data/ghana_validation_cv_out.csv
 
-results/ghana_pe.html: data/ghana_pe_cv_out.csv data/ghana.csv R/plot.R
-	Rscript analyses/report.R ghana_pe
-
-results/ghana.html: data/ghana_cv_out.csv data/ghana.csv R/plot.R
-	Rscript analyses/report.R ghana
-
-data/ghana_pe_cv_out.csv: analyses/ghana2.R R/model.R
+data/ghana_pe_validation_cv_out.csv: analyses/ghana2.R R/validation.R
 	Rscript analyses/ghana2.R
 
-data/ghana_cv_out.csv: analyses/ghana2.R R/model.R
+data/ghana_validation_cv_out.csv: analyses/ghana2.R R/validation.R
 	Rscript analyses/ghana2.R
 
 ### Mexico ###
-mexico: results/mexico.html
+mexico: data/mexico_validation_cv_out.csv
 
-results/mexico.html: data/mexico_cv_out.csv data/mexico.csv R/plot.R
-	Rscript analyses/report.R mexico
-
-data/mexico_cv_out.csv: analyses/mexico.R R/model.R
+data/mexico_validation_cv_out.csv: analyses/mexico.R R/validation.R
 	Rscript analyses/mexico.R
 
 ### Niger ###
-niger: results/niger_agricultural.html results/niger_pastoral.html
+niger: data/niger_pastoral_validation_cv_out.csv data/niger_agricultural_validation_cv_out.csv
 
-results/niger_pastoral.html: data/niger_pastoral_cv_out.csv R/plot.R
-	Rscript analyses/report.R niger_pastoral
-
-results/niger_agricultural.html: data/niger_agricultural_cv_out.csv R/plot.R
-	Rscript analyses/report.R niger_agricultural
-
-data/niger_pastoral_cv_out.csv: analyses/niger.R R/model.R
+data/niger_pastoral_validation_cv_out.csv: analyses/niger.R R/validation.R
 	Rscript analyses/niger.R
 
-data/niger_agricultural_cv_out.csv: analyses/niger.R R/model.R
+data/niger_agricultural_validation_cv_out.csv: analyses/niger.R R/validation.R
 	Rscript analyses/niger.R
 
 ### Tanzania ###
-tanzania: results/tanzania.html
+tanzania: data/tanzania_validation_cv_out.csv
 
-results/tanzania.html: data/tanzania_cv_out.csv data/tanzania.csv R/plot.R
-	Rscript analyses/report.R tanzania
-
-data/tanzania_cv_out.csv: analyses/tanzania.R R/model.R
+data/tanzania_validation_cv_out.csv: analyses/tanzania.R R/validation.R
 	Rscript analyses/tanzania.R
 
 
-### TANZANIA PANEL ###
-tanzania_panel: results/tanzania_panel.html results/tanzania_panel_split.html
+### South Africa ###
+south_africa: data/south_africa_validation_cv_out.csv
 
-results/tanzania_panel.html: data/tanzania_panel_cv_out.csv data/tanzania_panel.csv R/plot.R
-	Rscript analyses/report.R tanzania_panel
+data/south_africa_validation_cv_out.csv: analyses/south_africa.R R/validation.R
+	Rscript analyses/south_africa.R
 
-data/tanzania_panel_cv_out.csv: analyses/tanzania_panel.R R/model.R
-	Rscript analyses/tanzania_panel.R
+### Iraq ###
 
-results/tanzania_panel_split.html: data/tanzania_panel_split_cv_out.csv data/tanzania_panel_split.csv R/plot.R
-	Rscript analyses/report.R tanzania_panel_split
+iraq: data/iraq_validation_cv_out.csv
 
-data/tanzania_panel_split_cv_out.csv: analyses/tanzania_panel.R R/model.R
-	Rscript analyses/tanzania_panel.R
+data/iraq_validation_cv_out.csv: analyses/iraq.R R/validation.R
+	Rscript analyses/iraq.R
+
+### Brazil  ###
+
+brazil: data/brazil_validation_cv_out.csv
+
+data/brazil_validation_cv_out.csv: analyses/brazil.R R/validation.R
+	Rscript analyses/brazil.R
+

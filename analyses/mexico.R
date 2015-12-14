@@ -84,13 +84,13 @@ create_dataset <- function(remove_missing=TRUE) {
     mutate(tam_loc=iconv(tam_loc, to="ascii", sub=""))
     
   
-  # If these are factors, MCA does not work...
-  df$state <- sapply(mexico$ubica_geo, function(s) substr(s, 1, 2))
-  df$muni <- sapply(mexico$ubica_geo, function(s) substr(s, 3, 5))
+  df$state <- factor(sapply(mexico$ubica_geo, function(s) substr(s, 1, 2)))
+  # df$muni <- factor(sapply(mexico$ubica_geo, function(s) substr(s, 3, 5)))
+  df$tam_loc <- factor(df$tam_loc)
   year_df <- select(df, ends_with("_a"))
   year_df <- lapply(year_df, transform_years)
   df[, names(year_df)] <- year_df
-  df$lconsPC <- log(mexico[, consumption_variable] / mexico[, hhsize_variable])
+  df[, TARGET_VARIABLE] <- log(mexico[, consumption_variable] / mexico[, hhsize_variable])
   if (remove_missing) df <- remove_missing_data(df)
   df
 }
@@ -99,17 +99,11 @@ create_dataset <- function(remove_missing=TRUE) {
 
 mx <- create_dataset(remove_missing=FALSE)
 mx <- na_indicator(mx)
-mx <- standardize_predictors(mx, "lconsPC")
+mx <- standardize_predictors(mx, TARGET_VARIABLE)
 i <- sapply(mx, is.factor)
 mx[i] <- lapply(mx[i], as.character)
 mx[mx == ''] <- MISSINGNESS_INDICATOR
 mx[i] <- lapply(mx[i], as.factor)
 save_dataset(NAME, mx)
-x <- model.matrix(lconsPC ~ .,  mx)
-x_nmm <- select(mx, -one_of("lconsPC"))
-y <- mx[rownames(x), "lconsPC"]
-
-cv_splits <- cv_split(y, x_nmm, k=5, inner_k=3, seed=1)
-# run_all_heldout(NAME, mx, "lconsPC", cv_splits, 'muni')
-# run_fs_heldout(paste(NAME, '25', sep='_'), mx, "lconsPC", cv_splits, 'muni')
-run_weighted_heldout(paste(NAME, 'weighted', sep='_'), mx, "lconsPC", cv_splits, 'muni')
+output <- test_all(mx)
+save_validation_models_(NAME, output)

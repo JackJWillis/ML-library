@@ -33,21 +33,21 @@ add_covariates <- function(output_df, ghana, var_table_path) {
   covariates <- c(covariates_categorical, covariates_cardinal, covariates_yesno)
   
   # Add features to output
-  output_df[, c(covariates_categorical)] <- ghana[, c(covariates_categorical)]
-  output_df[, c(covariates_cardinal)] <- ghana[, c(covariates_cardinal)]
-  output_df[, c(covariates_yesno)] <- ghana[, c(covariates_yesno)]
+  output_df[, covariates_categorical] <- ghana[, covariates_categorical]
+  output_df[, covariates_cardinal] <- ghana[, covariates_cardinal]
+  output_df[, covariates_yesno] <- ghana[, covariates_yesno]
   
   # Make sure features are cast correctly
-  output_df[, c(covariates_categorical)] <- lapply(output_df[, c(covariates_categorical)], as.factor)
-  output_df[, c(covariates_cardinal)] <- lapply(output_df[, c(covariates_cardinal)], as.numeric)
+  output_df[, covariates_categorical] <- lapply(output_df[, covariates_categorical], as.factor)
+  output_df[, covariates_cardinal] <- lapply(output_df[, covariates_cardinal], as.numeric)
   # Note, may wish to recode some of the categoricals as ordered and the yes/no as categorical.
-  output_df[, c(covariates_yesno)] <- lapply(output_df[, c(covariates_yesno)], as.factor)
+  output_df[, covariates_yesno] <- lapply(output_df[, covariates_yesno], as.factor)
   
   output_df
 }
 
 add_target <- function(output_df, panel_df) {
-  output_df$lnwelfare <- log(panel_df$lnwelfare) 
+  output_df[, TARGET_VARIABLE] <- log(panel_df$lnwelfare)
   output_df
 }
 
@@ -59,7 +59,7 @@ create_dataset <- function(data_path, var_table_path, remove_missing=TRUE) {
   ghana <- load_data(data_path)
   df <-
     matrix(nrow=nrow(ghana), ncol=0) %>%
-    data.frame() %>%
+    as.data.frame() %>%
     add_covariates(ghana, var_table_path) %>%
     add_target(ghana) 
   if (remove_missing) df <- remove_missing_data(df)
@@ -79,27 +79,19 @@ variable_table_path <- paste(TARGETING_DATA_IN, VARIABLE_TABLE_FNAME, sep="/")
 pe_data_path <- paste(TARGETING_DATA_IN, PE_DATA_FNAME, sep="/")
 pe_variable_table_path <- paste(TARGETING_DATA_IN, PE_VARIABLE_TABLE_FNAME, sep="/")
 
-gh <- create_dataset(data_path, variable_table_path)
-gh <- standardize_predictors(gh, "lnwelfare")
+gh <- create_dataset(data_path, variable_table_path, remove_missing=FALSE)
+gh <- standardize_predictors(gh, TARGET_VARIABLE)
+gh <- na_indicator(gh)
 save_dataset(NAME, gh)
-x <- model.matrix(lnwelfare ~ .,  gh)
-x_nmm <- select(gh,-one_of("lnwelfare"))
-y <- gh[rownames(x), "lnwelfare"]
+output <- test_all(gh)
+save_validation_models_(NAME, output)
 
-cv_splits <- cv_split(y, x_nmm, k=5, inner_k=3, seed=1)
 
-run_all_heldout(NAME, gh, "lnwelfare", cv_splits, 'rural')
-run_weighted_heldout(paste(NAME, 'weighted', sep='_'), gh, "lnwelfare", cv_splits, 'rural')
 
-gh <- create_dataset(pe_data_path, pe_variable_table_path)
-gh <- standardize_predictors(gh, "lnwelfare")
+gh <- create_dataset(pe_data_path, pe_variable_table_path, remove_missing=FALSE)
+gh <- filter(gh, s7dq11 != 'generator') # only one observation, causes issues in cross validation
+gh <- na_indicator(gh)
+gh <- standardize_predictors(gh, TARGET_VARIABLE)
 save_dataset(paste(NAME, 'pe', sep='_'), gh)
-x <- model.matrix(lnwelfare ~ .,  gh)
-x_nmm <- select(gh,-one_of("lnwelfare"))
-y <- gh[rownames(x), "lnwelfare"]
-
-cv_splits <- cv_split(y, x_nmm, k=5, inner_k=3, seed=1)
-
-run_all_heldout(paste(NAME, "pe", sep="_"), gh, "lnwelfare", cv_splits, 'rural')
-run_fs_heldout(paste(NAME, "pe", '25', sep="_"), gh, "lnwelfare", cv_splits, 'rural')
-run_weighted_heldout(paste(NAME, "pe", 'weighted', sep="_"), gh, "lnwelfare", cv_splits, 'rural')
+output <- test_all(gh)
+save_validation_models_(paste(NAME, 'pe', sep='_'), output)

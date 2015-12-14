@@ -1,0 +1,151 @@
+---
+title: "Targeting Outline"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir="../")
+options(width = 250)
+```
+
+```{r helpers, echo=FALSE}
+myround <- function(x, digits=1) {
+  if(digits < 1) stop("This is intended for the case digits >= 1.")
+  if(length(digits) > 1) {
+    digits <- digits[1]
+    warning("Using only digits[1]")
+  }
+  tmp <- sprintf(paste("%.", digits, "f", sep=""), x)
+  # deal with "-0.00" case
+  zero <- paste0("0.", paste(rep("0", digits), collapse=""))
+  tmp[tmp == paste0("-", zero)] <- zero
+  tmp
+}
+
+cap <- function(x) {
+  s <- strsplit(x, " ")[[1]]
+  paste(toupper(substring(s, 1,1)), substring(s, 2),
+      sep="", collapse=" ")
+}
+```
+
+```{r preamble, echo=FALSE}
+library(MLlibrary)
+library(dplyr)
+library(purrr)
+
+THRESHOLD <- 0.4
+all_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania_2008', 'tanzania_2010', 'tanzania_2012', 'ghana_pe', 'mexico', 'south_africa_w1', 'south_africa_w2', 'south_africa_w3', 'iraq', 'brazil')
+countries <- strsplit(all_names, '_') %>% 
+  map(first) %>%
+  unique() %>%
+  map(cap)
+
+pmt_names <- c('niger_pastoral_pmt', 'niger_agricultural_pmt', 'ghana')
+```
+
+
+
+```{r util, echo=FALSE}
+table_stats <- function(tables) {
+  lapply(names(tables), function(name) {
+    df <- tables[[name]]
+    value_name <- colnames(df)[[2]]
+    df$dataset <- name
+    reshape::cast(df, dataset ~ method, value=value_name)
+  })
+}
+```
+
+```{r daataset_stats, echo=FALSE}
+ds_stats <- lapply(c(all_names, pmt_names), function(name) {
+  df <- load_dataset(name)
+  row_count <- nrow(df)
+  col_count <- ncol(df)
+  data.frame(dataset=name, N=row_count, K=col_count)
+})
+ds_stats <- bind_rows(ds_stats)
+```
+
+```{r table, echo=FALSE}
+get_reaches <- function(ds_names) {
+  reaches <- lapply(ds_names, function(name) {
+    output <- load_validation_models(name)
+    reach_by_pct_targeted(output, threshold=THRESHOLD)
+  })
+  names(reaches) <- ds_names
+  reaches
+}
+
+get_reach_table <- function(reaches) {
+  tables <- lapply(reaches, table_stat)
+  combine_tables(tables) %>%
+    select(dataset, N, K, ols, enet, ensemble, forest, opf) %>%
+    rename(ols_plus_forest=opf)
+}
+
+get_budget_table <- function(reaches) {
+  tables <- lapply(reaches, budget_change)
+  combine_tables(tables)
+}
+
+combine_tables <- function(tables) {
+  table_stats(tables) %>%
+    bind_rows() %>%
+    merge(ds_stats, by='dataset') %>%
+    select(dataset, N, K, ols, everything()) %>%
+    arrange(N)
+}
+
+difference_table <- function(reaches) {
+  reach_table <- get_reach_table(reaches)
+  reach_differences <- reach_table %>%
+    mutate(reach_improvement=ensemble-ols) %>%
+    mutate(relative_reach_improvement=(ensemble-ols)/ols) %>%
+    select(N, K, dataset, reach_improvement, relative_reach_improvement)
+  budget_table <- get_budget_table(reaches) %>%
+    mutate(budget_reduction=-1 * ensemble) %>%
+    select(dataset, budget_reduction)
+  merge(reach_differences, budget_table, by='dataset') %>%
+    arrange(N)
+}
+
+reaches <- get_reaches(all_names)
+reacht <- get_reach_table(reaches)
+difft  <- difference_table(reaches)
+```
+
+
+* As quantity of data explodes, machine learning is being used to improve forecasting accuracy across a wide range of human activity [cite examples]
+* In development economics, the quintessential forecasting problem is poverty targeting. Historically this has been led by TA teams from the WB using data from surveys constructed specifically for monitoring poverty (ie LSMS) and methods such as OLS, potentially with variable selection techniques.  This raises the question of whether we can do better using machine learning methods. New formulas have no running costs and gains for the poor could be large.
+* In this paper we compare the targeting performance of techniques currently used for PMTs to those achievable using machine learning methods. We use household survey data from `r length(countries)` countries: `r paste(countries, collapse=', ')`.
+* We focus primarily on two metrics of success. First, percent of true poor successfully targeted for a certain percent of total population targeted (reach). Second, the necessary total number of people targeted in order to reach a certain percent of the true poor (budget).
+* OLS is one of our top performing methods. Defining the true poor to be anyone in the bottom `r 100 * THRESHOLD`% of consumption, when targeting `r 100 * THRESHOLD`% of the total population, the median difference between OLS and our top-performing method is `median(reacht$ensemble - reacht$ols)` percentage points [Table 1](#reachtable).
+OLS outperforms random forests, our top-performing nonlinear method, with a median difference of `median(reacht$ensemble - reacht$ols)` percentage points.
+* This is a somewhat surprising finding. OLS provides an unbiased estimate of the coefficients in a linear model, but the estimates often have high variance. Regularized methods often outperform OLS by reducing variance at the cost of a small amount of added bias. We do not find meaningful differences in performance from regularization.
+* We do find meaningful gains, however, from ensemble methods that are increasingly popular in the literature.  The median gain from ensemble relative to status quo across all datasets is `r myround(100 * median(difft$relative_reach_improvement), 1)`% increase in reach. This allows for a `r myround(100 * median(difft$budget_reduction), 1)`% budget saving for an equivalent reach. [Table 2](#difftable) 
+* Predictive accuracy is not the only concern when constructing a targeting rule. Other concerns include how costly the rule is to implement, how easy it is to game, and whether the rule is perceived as fair. In the comparisons above we incorporate a large number of variables available from household surveys. A more realistic comparison is to use only the subset of variables selected by the World Bank for targeting rules. Using data from two actual PMT's we find that ensemble methods continue to outperform OLS [Table 3](#pmttable). 
+* Another realistic proxy for rule cost is the number of variables it uses. In another test we select 25 variables from each household survey and compare the targeting performance of OLS and machine learning methods. To select the 25 variables, we use a procedure which finds (approximately) the 25 variables which produce the best targeting performance using OLS. This is essentially how the world bank constructs its PMTs, with a few other considerations. Although the variables are chosen to maximize the performance of OLS, we still find meaningful gains from machine learning TODO: validate [same table as above, on reduced variable set] 
+* We benchmark these gains in targeting accuracy in two ways. First, the cost of adapting such a targeting formula is very small, leading to a high cost benefit ratio. Second, in comparison, alternative methods to improve targeting achieve the following increases in accuracy [FILL with community based targeting, potentially increases in n and k, etc.]. 
+
+## Figures
+
+### <a name="reachtable">Table 1</a>
+
+```{r reachtable, echo=FALSE}
+print(reacht, digits=4)
+```
+
+### <a name="difftable">Table 2</a>
+```{r difftable, echo=FALSE}
+print(difft, digits=4)
+```
+
+### <a name="pmttable">Table 2</a>
+```{r pmttable, echo=FALSE}
+pmt_reaches <- get_reaches(pmt_names)
+pmt_table <- difference_table(pmt_reaches)
+print(pmt_table, digits=4)
+```

@@ -61,7 +61,7 @@ add_covariates <- function(output_df, input_df) {
 
 
 add_target <- function(output_df, panel_df) {
-  output_df$y_real <- panel_df$Y 
+  output_df[, TARGET_VARIABLE] <- panel_df$Y 
   output_df
 }
 
@@ -111,42 +111,42 @@ temp <- load_data(DATA_PATH)
 
 #Just keeping Pastorale:
 pastoral <- temp[temp$milieu == "Pastorale",]
-niger_p <- create_dataset(pastoral)
+niger_p <- create_dataset(pastoral, remove_missing=FALSE)
+niger_p <- na_indicator(niger_p)
+niger_p <- select(niger_p, Iregion=starts_with('_Iregion'), everything())
 niger_p_weight <- niger_p$hhweight
 niger_p$hhweight <- NULL
 niger_p_id <- data.frame(grappe=niger_p$grappe,menage=niger_p$menage)
 niger_p$grappe <- NULL
 niger_p$menage <- NULL
-niger_p <- standardize_predictors(niger_p, "y_real")
+niger_p <- standardize_predictors(niger_p, TARGET_VARIABLE)
+niger_p[, WEIGHT_VARIABLE] <- niger_p_weight
 
-x_p <- model.matrix(y_real ~ .,  niger_p)
-y_p <- niger_p[rownames(x_p), "y_real"]
-x_p_nmm <- select(niger_p, -one_of('y_real'))
+# x_p <- model.matrix(y_real ~ .,  niger_p)
+# y_p <- niger_p[rownames(x_p), "y_real"]
+# x_p_nmm <- select(niger_p, -one_of('y_real'))
 
 temp <- load_data(DATA_PATH)
 #Just keeping Pastorale:
 agricultural <- temp[temp$milieu %in% c("Agricole","Agropastorale"),]
-niger_a <- create_dataset(agricultural)
+niger_a <- create_dataset(agricultural, remove_missing=FALSE)
+niger_a <- na_indicator(niger_a)
+niger_a <- select(niger_a, Iregion=starts_with('_Iregion'), everything())
 niger_a_weight <- niger_a$hhweight
 niger_a$hhweight <- NULL
 niger_a_id <- data.frame(grappe=niger_a$grappe,menage=niger_a$menage)
 niger_a$grappe <- NULL
 niger_a$menage <- NULL
-niger_a <- standardize_predictors(niger_a, "y_real")
+niger_a <- standardize_predictors(niger_a, TARGET_VARIABLE)
+niger_a[, WEIGHT_VARIABLE] <- niger_a_weight
 
-x_a <- model.matrix(y_real ~ .,  niger_a)
-x_a_nmm <- select(niger_a, -one_of('y_real'))
-y_a <- niger_a[rownames(x_a), "y_real"]
+save_dataset('niger_agricultural', niger_a)
+output <- test_all(niger_a)
+save_validation_models_('niger_agricultural', output)
 
-
-cv_splits_a <- cv_split(y_a, x_a_nmm, k=5, inner_k=4, seed=1, weight=niger_a_weight)
-run_all_heldout('niger_agricultural', niger_a, 'y_real', cv_splits_a)
-run_fs_heldout('niger_agricultural_25', niger_a, 'y_real', cv_splits_a)
-run_weighted_heldout('niger_agricultural_weighted', niger_a, 'y_real', cv_splits_a)
-
-cv_splits_p <- cv_split(y_p, x_p_nmm, k=5, inner_k=4, seed=1, weight=niger_p_weight)
-run_all_heldout('niger_pastoral', niger_p, 'y_real', cv_splits_p)
-run_weighted_heldout('niger_pastoral_weighted', niger_p, 'y_real', cv_splits_p)
+save_dataset('niger_pastoral', niger_p)
+output <- test_all(niger_p)
+save_validation_models_('niger_pastoral', output)
 
 
 feature_info <- read.xlsx(VARIABLE_TABLE_PATH, sheetName="Sheet1")
@@ -156,16 +156,10 @@ feature_info[, "var_name"] <- as.character(feature_info[, "var_name"])
 agricultural_pmt <- select(niger_a, -one_of(feature_info$var_name[!is.na(feature_info$Agro.and.Agro.Pastoral.zone)]))
 pastoral_pmt <- select(niger_p, -one_of(feature_info$var_name[!is.na(feature_info$Pastoral.zone)]))
 
-x_a <- model.matrix(y_real ~ .,  agricultural_pmt)
-x_a_nmm <- select(agricultural_pmt, -one_of('y_real'))
-y_a <- niger_a[rownames(x_a), "y_real"]
-cv_splits_a <- cv_split(y_a, x_a_nmm, k=5, inner_k=3, seed=1, weight=niger_a_weight)
-run_all_heldout('niger_agricultural_pmt', niger_a, 'y_real', cv_splits_a)
-run_weighted_heldout('niger_agricultural_pmt_weighted', niger_a, 'y_real', cv_splits_a)
+save_dataset('niger_agricultural_pmt', agricultural_pmt)
+output <- test_all(agricultural_pmt)
+save_validation_models_('niger_agricultural_pmt', output)
 
-x_p <- model.matrix(y_real ~ .,  pastoral_pmt)
-x_p_nmm <- select(pastoral_pmt, -one_of('y_real'))
-y_p <- niger_p[rownames(x_p), "y_real"]
-cv_splits_p <- cv_split(y_p, x_p_nmm, k=5, inner_k=3, seed=1, weight=niger_p_weight)
-run_all_heldout('niger_pastoral_pmt', niger_p, 'y_real', cv_splits_p)
-run_weighted_heldout('niger_pastoral_pmt_weighted', niger_p, 'y_real', cv_splits_p)
+save_dataset('niger_pastoral_pmt', pastoral_pmt)
+output <- test_all(pastoral_pmt)
+save_validation_models_('niger_pastoral_pmt', output)
