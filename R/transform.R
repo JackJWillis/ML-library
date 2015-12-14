@@ -1,10 +1,10 @@
 #' @export
 
-standardize_predictors  <-  function(df, target) {
+standardize_predictors  <-  function(df, target=TARGET_VARIABLE, weight=WEIGHT_VARIABLE) {
   constant_or_empty <- function(values) {
     all(is.na(values)) || all(values[1] == values)
   }
-  standard <- dplyr::select(df, -matches(target))
+  standard <- dplyr::select(df, -one_of(target, weight))
 
   numeric_features <- sapply(standard, is.numeric)
   standard[, numeric_features] <- scale(standard[, numeric_features], center=TRUE, scale=TRUE)
@@ -13,6 +13,9 @@ standardize_predictors  <-  function(df, target) {
   standard <- standard[, !degenerate]
 
   standard[, target] <- df[, target]
+  if (weight %in% colnames(df)) {
+    standard[, weight] <- df[, weight]
+  }
   standard
 }
 
