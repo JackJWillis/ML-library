@@ -22,8 +22,10 @@ EXCLUDE_ADMIN <- c(
   'h_intrvend',
   'h_ownrnt',
   'h_refage',
-  'h_mrkvoth')
+  'h_mrkvoth',
+  'h_intnon')
 EXCLUDE_SUFFIX <- c(
+  '_outcome',
   'op',
   'ss',
   'wd',
@@ -56,7 +58,8 @@ EXCLUDE_SUFFIX <- c(
   'amt',
   'kg',
   'sl',
-  'sf'
+  'sf',
+  '_o'
 )
 
 EXCLUDE_REGEX <- list(
@@ -66,7 +69,8 @@ EXCLUDE_REGEX <- list(
   EXCLUDE_INTERVIEW='intres',
   EXCLUDE_MORTALITY_REGEX='mrt.*\\d$',
   EXCLUDE_OWN_REGEX='own.*\\d$',
-  EXCLUDE_POS_REGEX='pos.*v$'
+  EXCLUDE_POS_REGEX='pos.*v$',
+  EXLUDE_REFUSE='_ref.*$'
 )
 
 
@@ -122,6 +126,7 @@ run_wave <- function(wave_number) {
   df <- set_aside_holdout(wave_name, df)
   df <- na_indicator(df)
   df <- standardize_predictors(df, TARGET_VARIABLE)
+  save_dataset(wave_name, df)
   output <- test_all(df)
   save_validation_models_(wave_name, output)
 }

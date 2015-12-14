@@ -140,9 +140,11 @@ niger_a$menage <- NULL
 niger_a <- standardize_predictors(niger_a, TARGET_VARIABLE)
 niger_a[, WEIGHT_VARIABLE] <- niger_a_weight
 
+save_dataset('niger_agricultural', niger_a)
 output <- test_all(niger_a)
 save_validation_models_('niger_agricultural', output)
 
+save_dataset('niger_pastoral', niger_p)
 output <- test_all(niger_p)
 save_validation_models_('niger_pastoral', output)
 
@@ -154,8 +156,10 @@ feature_info[, "var_name"] <- as.character(feature_info[, "var_name"])
 agricultural_pmt <- select(niger_a, -one_of(feature_info$var_name[!is.na(feature_info$Agro.and.Agro.Pastoral.zone)]))
 pastoral_pmt <- select(niger_p, -one_of(feature_info$var_name[!is.na(feature_info$Pastoral.zone)]))
 
+save_dataset('niger_agricultural_pmt', agricultural_pmt)
 output <- test_all(agricultural_pmt)
-save_validation_models_('niger_agricultual_pmt', output)
+save_validation_models_('niger_agricultural_pmt', output)
 
+save_dataset('niger_pastoral_pmt', pastoral_pmt)
 output <- test_all(pastoral_pmt)
 save_validation_models_('niger_pastoral_pmt', output)

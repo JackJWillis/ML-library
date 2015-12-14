@@ -1,6 +1,6 @@
 all: preval val
 
-val: south_africa
+val: south_africa iraq
 
 preval: tanzania ghana niger mexico 
 
@@ -40,3 +40,18 @@ south_africa: data/south_africa_validation_cv_out.csv
 
 data/south_africa_validation_cv_out.csv: analyses/south_africa.R R/validation.R
 	Rscript analyses/south_africa.R
+
+### Iraq ###
+
+iraq: data/iraq_validation_cv_out.csv
+
+data/iraq_validation_cv_out.csv: analyses/iraq.R R/validation.R
+	Rscript analyses/iraq.R
+
+### Brazil  ###
+
+brazil: data/brazil_validation_cv_out.csv
+
+data/brazil_validation_cv_out.csv: analyses/brazil.R R/validation.R
+	Rscript analyses/brazil.R
+
