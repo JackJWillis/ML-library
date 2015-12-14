@@ -264,20 +264,39 @@ elastic_net <- function(fold) {
   cv.model <- glmnet::cv.glmnet(x, y, weights=train$weight_vector, alpha=0.5)
   model <- glmnet::glmnet(x, y, alpha=0.5)
   
-  test <- get_weights(fold$test)
+  test <- knockout_new_categories(fold$test, fold$train)
+  test <- impute_all(test)
+  test <- get_weights(test)
   test_x <- model.matrix(as.formula(FMLA_STR), test$data)
+  as.numeric(predict(model, test_x, s=cv.model$lambda.min))
+}
+
+elastic_net_ix <- function(fold) {
+  train <- get_weights(fold$train)
+  fmla_ix <- paste(FMLA_STR, '.*.', sep='+')
+  x <- model.matrix(as.formula(fmla_ix), train$data)
+  y <- train$data[, TARGET_VARIABLE]
+  cv.model <- glmnet::cv.glmnet(x, y, weights=train$weight_vector, alpha=0.5)
+  model <- glmnet::glmnet(x, y, alpha=0.5)
+  
+  test <- knockout_new_categories(fold$test, fold$train)
+  test <- impute_all(test)
+  test <- get_weights(test)
+  test_x <- model.matrix(as.formula(fmla_ix), test$data)
   as.numeric(predict(model, test_x, s=cv.model$lambda.min))
 }
 
 
 METHOD_LIST <- list(
   ols=ols,
+  enet=elastic_net,
   forest=forest,
   opf=ols_plus_forest,
 #   opt=ols_plus_tree,
 #   tpo=tree_plus_ols,
-  ensemble=ols_forest_ensemble,
-  enet=elastic_net)
+  ensemble=ols_forest_ensemble
+  # enet_ix=elastic_net_ix,
+)
 
 SCALE_METHODS <- list(
   ols=ols,
