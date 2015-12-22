@@ -196,34 +196,33 @@ difft  <- difference_table(reaches)
 Targeting
 ===============
 * Machine learning is being used to improve the accuracy of targeting across a wide range of fields.
-    + For example, search engines are paid whenever a user clicks an ad. Google and Microsoft use machine learning systems to decide which ads to display to each user.
-    + In healthcare, the 'HeRO' monitor uses data from existing bedside monitors to create a predictive score for sepsis. In a clinical trial, use of the 'HeRO' score reduced mortality in low birth weight infants in the ICU.
-* Poverty targeting is the quintessential forecasting problem in development economics.
+* Search engines are paid whenever a user clicks an ad. Google and Microsoft use machine learning systems to decide which ads to display to each user.
+* Poverty targeting is the quintessential prediction problem in development economics.
 * Can we use machine learning to better identify the poor?
 
 
 Proxy Means Testing
 ===============
-* Identifying the poor is difficult in developing countries. Household welfare is assessed through a tedious and time-consuming consumption survey. It is infeasible to directly calculate consumption for an entire population.
-* A popular method for targeting the poor is proxy means testing (PMT) where easily observable household characteristics are used as statistical proxies for consumption.
+* Identifying the poor is difficult in developing countries. Household welfare is assessed through a time-consuming consumption survey. We cannot directly calculate consumption for an entire population.
+* Proxy means testing (PMT) is a popular method for targeting the poor. Easy to observable household characteristics are used as statistical proxies for consumption.
 * Proxy means is not the only targeting method.
     + Community targeting: Communities or local leaders select beneficiaries.
-    + Self targeting: Use requirements that are more costly to the rich than to the poor to dissuade the rich from participating.
+    + Self targeting: Use requirements which differentially encourage the poor to participate.
 
 
 Forecasting
 ===============
 * The statistical method behind existing PMTs is OLS
 * In many situations, OLS is not the optimal predictive method.
-* Regularized linear methods like ridge and LASSO can provide better predictions by reducing overfitting.
-* Nonlinear methods like decision trees allow for more flexible functional forms which may be able to capture more exotic relationships.
+* Regularized linear methods like ridge and LASSO reduce overfitting.
+* Nonlinear methods like decision trees can capture more complex relationships.
 
 Research Design
 ==============
 * We compared the targeting performance of OLS to selected machine learning methods using cross-validation on household survey data from `r length(countries)` countries.
 * Our research was divided into an exploratory phase and a validation phase.
     + In the exploratory phase we tested a wide range of methods on data from 4 countries: Niger, Tanzania, Ghana and Mexico. Methods included OLS, stepwise OLS, boosted trees, regression trees, PCA + k nearest neighbors, classification trees, logistic lasso, splines, random forests and ensembles.
-    + In order to avoid over-fitting, we selected a small number of well-performing or representative methods and tested them on 3 holdout countries: South Africa, Iraq and Brazil.
+    + To avoid over-fitting, we selected a small number of well-performing or representative methods and tested them on 3 holdout countries: South Africa, Iraq and Brazil.
   
 Datasets
 ===============
@@ -251,10 +250,10 @@ Methods
 
 Metrics
 ===============
-We think of poverty targeting as a classification problem and focus primarily on two metrics of success:
+We think of poverty targeting as a classification problem and focus on two metrics of success:
 
   + *Reach*: Number of true poor successfully targeted
-  + *Budget*: Necessary number of people targeted in order to reach a certain percent of the true poor
+  + *Budget*: Necessary number of people targeted in order to achieve a certain reach
   
 ```{r metrics2, echo=FALSE, fig.height=6}
 plot_reach_vs_pct_targeted('ghana_pe', threshold=.4) 
