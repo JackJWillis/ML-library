@@ -256,6 +256,34 @@ ols_forest_ensemble <- function(fold) {
   predict(ensemble, test_predictions_df)
 }
 
+fit_stepwise <- function(df) {
+  wdf <- get_weights(df)
+  df <- droplevels(wdf$data)
+  df <- purrr::keep(df, ~length(na.omit(unique(.))) > 1)
+  weight_vector <- wdf$weight_vector
+  fmla <- as.formula(FMLA_STR)
+  leaps::regsubsets(fmla, data=df, weights=weight_vector, method="forward", nvmax=1000)
+}
+  
+ols_25 <- function(fold) {
+  df <- fold$train
+  m <- fit_stepwise(fold$train)
+  cut_df <- df[, summary(m)$which[25, ]]
+  cut_df[, TARGET_VARIABLE] <- df[, TARGET_VARIABLE]
+  model <- fit_ols(cut_df)
+  test <- knockout_new_categories(fold$test, fold$train)
+  test <- impute_all(test)
+  predict(model, test)
+}
+
+ensemble_25 <- function(fold) {
+  df <- fold$train
+  m <- fit_stepwise(fold$train)
+  df <- df[, summary(m)$which[25, ]]
+  new_fold <- list(train=fold$train, test=fold$test)
+  ols_forest_ensemble(new_fold)
+}
+
 
 elastic_net <- function(fold) {
   train <- get_weights(fold$train)
