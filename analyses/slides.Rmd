@@ -1,7 +1,8 @@
 ---
-title: 'Targeting Poverty by Predicting Poverty: Using Machine Learning in Targeted
-  Transfer Programs'
+title: "Poverty Targeting as Prediction"
 output: beamer_presentation
+tables: yes
+header-includes: \usepackage{longtable}
 ---
 
 ```{r global_options, include=FALSE}
@@ -35,25 +36,30 @@ cap <- function(x) {
 ```{r preamble, echo=FALSE}
 library(MLlibrary)
 library(dplyr)
-library(purrr)
+# library(purrr)
 library(reshape2)
 library(ggplot2)
 library(grid) # for unit
 library(scales) # for brewer_pal
+library(knitr)
+library(xlsx)
+library(xtable)
+library(zoo)
 
 THRESHOLD <- 0.4
 all_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania_2008', 'tanzania_2010', 'tanzania_2012', 'ghana_pe', 'mexico', 'south_africa_w1', 'south_africa_w2', 'south_africa_w3', 'iraq', 'brazil')
 # all_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania_2008')
 countries <- strsplit(all_names, '_') %>% 
-  map(first) %>%
+  purrr::map(first) %>%
   unique() %>%
-  map(cap)
+  purrr::map(cap)
 
-# pmt_names <- c('niger_pastoral_pmt', 'niger_agricultural_pmt', 'ghana')
-pmt_names <- c()
+pmt_names <- c('niger_pastoral_pmt', 'niger_agricultural_pmt', 'ghana')
 renames <- list(
   niger_pastoral='niger_1',
+  niger_pastoral_pmt='niger_1_pmt',
   niger_agricultural='niger_2',
+  niger_agricultural_pmt='niger_2_pmt',
   ghana_pe='ghana',
   ghana='ghana_pmt',
   south_africa_w1='sa_08',
@@ -184,6 +190,7 @@ plot_reach_vs_pct_targeted <- function(dsname, threshold=DEFAULT_THRESHOLDS, tar
     g <- ggplotGrob(p.zoom)
     p <- p + annotation_custom(g, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
   }
+  p <- p + geom_vline(xintercept=.4, linetype='longdash', color='black')
   p
 }
 
@@ -192,116 +199,233 @@ reacht <- get_reach_table(reaches)
 difft  <- difference_table(reaches)
 ```
 
-Machine learning is being used to improve forecasting accuracy across a wide range of human activity
+Targeting
 ===============
-* Who will get sick?
-* Who will like this movie?
-* Who will click this ad?
+* The performance of many systems hinges on prediction: given X, how accurately can we predict Y?
+* A set of techniques collectively referred to as "machine learning" is increasingly being used to improve predictive accuracy across a range of applications, sometimes dramatically.
+* For example, spam filters have improved tremendously over the past decade with the introduction of machine learning methods.
+* In development economics, poverty targeting has traditionally been seen as the quintessential prediction problem.  Given a set of proxies X, who do we classify as poor?
+* -> can we use ML techniques to better identify the poor?
 
 
-Poverty Targeting
+Current Practice
 ===============
-* Poverty targeting is the quintessential forecasting problem in development economics
-* Most antipoverty programs are targeted. If we can improve targeting accuracy we can have a big impact.
-* Identifying the poor is difficult in developing countries
-* Material well-being is assessed through a tedious and time-consuming consumption survey. The consumption measurements are thought to be noisy.
+* Identifying the poor in developing countries is difficult because we don't have direct income/consumption data for the whole population.
+    + Many targeted programs are large. Bolsa Familia in Brazil has an annual budget over $10 billion---1% of GDP.
+* Targeting methods include community targeting where communities or local leaders select beneficiaries, self targeting which use requirements to differentially encourage the poor to participate, and proxy means (our focus) which uses statistical proxies for consumption.
+* Proxy means targeting consists of the following procedure:
+    + Collect survey data on representative sample (typically, LSMS)
+    + Use OLS, maybe with model selection, to create a targeting formula relating household expenditure to household characteristics (mainy assets and demographics)
+    + Collect relevant household characteristics in the population and use the targeting formula to predict expenditure. Define as eligible those with low predicted expenditure.
+    
 
+Research Design
+==============
+* We compared the targeting performance of OLS to selected methods using cross-validation on household survey data.
+* In an exploratory phase we tested a wide range of methods including OLS, stepwise OLS, boosted trees, regression trees, PCA + k nearest neighbors, classification trees, logistic lasso, splines, random forests and ensembles.
+* To avoid over-fitting, we selected a small number of well-performing or representative methods and tested them on holdout countries.
+* An important problem we faced is that governments typically include or exclude certain features for reasons that are opaque to us (e.g. political, ease of collection). We present results using all features, features from actual PMTs (when we have them), and features specifically selected to give the best OLS performance.
 
-PMT Procedure
-===============
-* The PMT procedure consists of two surveys: a training survey and a targeting survey.
-* In the training survey, measure consumption + other household attributes (education, housing materials, region, number of children, etc.)
-* Regress consumption on household attributes
-* For the targeting survey, measure attributes, forecast consumption with regression formula
+Datasets
+==============
+    
+```{r map, echo=FALSE, fig.height=5}
+country_codes <- c(
+  'Niger',
+  'Tanzania',
+  'South Africa',
+  'Ghana',
+  'Iraq',
+  'Mexico',
+  'Brazil'
+)
+country_info <- setNames(
+  c(
+    'explore',
+    'explore',
+    'holdout',
+    'explore',
+    'holdout',
+    'explore',
+    'holdout'
+  ),
+  country_codes
+)
+map_dat <- map_data('world')
+country_dat <- filter(map_dat, region %in% country_codes) %>% mutate(type=country_info[region])
+ggplot() +
+  geom_polygon(aes(long,lat, group=group), fill="grey65", data=map_dat) +
+  theme_bw() +
+  theme(axis.text = element_blank(), axis.title=element_blank()) +
+  geom_polygon(data=country_dat, aes(long, lat, group=group, fill=type))
+```
 
+---------------
 
-OLS is not typically thought to be an optimal forecasting method
-===============
-* Bias variance tradeoff
-* OLS provides an unbiased estimate of the coefficients in a linear model, but the estimates often have high variance.
-* Regularized methods reduce variance by adding an extra penalty based on the magnitude of the coefficients.
+```{r datasets, echo=FALSE, results='asis'}
+ds_info <- read.xlsx('analyses/datasets_used_20151220.xlsx', 1, stringsAsFactors=FALSE) %>%
+  arrange(N)
+to_print <- data.frame(
+  Country=ds_info$Country,
+  Year=ds_info$Year,
+  Survey=ds_info$Survey,
+  '< $1.90'=ds_info$Poverty.Ratio.at..1.90.PPP,
+  '< $3.10'=ds_info$Poverty.Ratio.at..3.10.PPP,
+  '< NPL'=ds_info$Poverty.Ratio.at.National.Poverty.Line,
+  N=as.integer(ds_info$N),
+  K=as.integer(ds_info$K),
+  check.names=FALSE,
+  stringsAsFactors=FALSE
+)
+to_print[1, 3] <- 'LSMS'
+to_print[2, 3] <- 'LSMS'
+to_print <- to_print[1:(nrow(to_print) - 1), ]
+to_print[is.na(to_print)] <- ''
+print(xtable(to_print),
+      comment=F,
+      include.rownames=FALSE,
+      scalebox=.85)
+```
 
+Key:
 
-* Nonlinear functional forms
-* Random forests, decision trees, etc.
-
-
++ _< $x_ - Percent of population living on less than $x per day (purchasing power parity).
++ _<NPL_ - Percent of population below the national poverty line.
++ _N_ - Number of people in the dataset.
++ _K_ - Number of columns in the dataset.
+  
 
 Methods
 ==============
-* OLS
-* Elastic net (regularized least squares)
-* Random forests
-* OLS with random forests on residuals
-* Ensemble of OLS, random forests, OLS + RF
-* Other methods not shown: stepwise OLS, boosted trees, regression trees, PCA + k nearest neighbors, classification trees, logistic lasso, splines
+After an exploratory phase, we chose to focus on a small number of methods.
 
-
-Metrics
-===============
-* We think of poverty targeting as a classification problem
-* Our main concept of success is the number of poor people successfully targeted when targeting a given percent of the population
-* There are two numbers we need to fix, the poverty threshold and the percent of the population we want to target
-
-***
-```{r metrics1, echo=FALSE}
-plot_reach_vs_pct_targeted('ghana_pe')
+```{r method_table, echo=FALSE, results='asis'}
+method_df <- data.frame(
+  key=c('OLS', 'enet', 'forest', 'OLS + RF', 'ensemble'),
+  method=c('OLS', 'elastic net', 'random forest', 'OLS with random forest on residuals', 'ensemble'),
+  notes=c(
+    'Baseline',
+    'Popular linear method for predictions.',
+    'Popular nonlinear method. Performed well in exploratory phase.',
+    'Simple way to combine OLS and forests. Performed well in exploratory phase.',
+    'Most popular way to optimize predictions.'
+  ))
+print(xtable(method_df, align = c('l', 'l', 'p{3cm}', 'p{5cm}')),
+      comment=F,
+      include.rownames=FALSE)
 ```
 
-
 Metrics
 ===============
-We focus primarily on two metrics of success:
+We think of poverty targeting as a classification problem and focus on two metrics of success:
 
   + *Reach*: Number of true poor successfully targeted
-  + *Budget*: Necessary number of people targeted in order to reach a certain percent of the true poor
+  + *Budget*: Necessary number of people targeted in order to achieve a certain reach
   
-***  
-```{r metrics2, echo=FALSE}
+```{r metrics2, echo=FALSE, fig.height=6}
 plot_reach_vs_pct_targeted('ghana_pe', threshold=.4) 
-```
-
-Poverty Thresholds
-===============
-TODO[Jack]: Realistic poverty thresholds
-  
-
-Datasets
-===============
-We use household survey data from `r length(countries)` countries: `r paste(countries, collapse=', ')`
-```{r datasets, echo=FALSE}
-to_print <- ds_stats %>%
-  filter(!grepl('pmt', dataset)) %>%
-  arrange(N)
-print.data.frame(ds_stats)
 ```
 
 
 Results
 ================
 ```{r results, echo=FALSE}
+
 df <- melt(reacht, id=c('dataset', 'N', 'K'))
+df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
+ggplot(df, aes(ymax=value, y=value, upper=value, middle=value, x=dataset, fill=variable)) + 
+  geom_boxplot(position=position_dodge(width=.72), width=.7, lwd=.1, fatten=10, lower=0) + 
+  scale_fill_manual(values=c('#9ecae1', '#a1d99b','#74c476','#41ab5d','#238b45','#005a32')) +
+  ylab('reach') +
+  coord_cartesian(ylim=c(.16, .4)) +
+  theme_bw() + 
+  theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
+```
+
+Ensembles outperform OLS
+==============
+```{r ensemble, echo=FALSE}
+df <- rename(difft, reach=relative_reach_improvement, budget=budget_reduction)
+df <- melt(df, id=c('dataset', 'N', 'K'))
+df <- filter(df, variable != 'reach_improvement')
 df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
 ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
   geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
-  scale_fill_brewer(type='qual', palette=2) +
-  ylab('reach')
+  scale_fill_manual(values=c('#33a02c', '#fcbba1')) +
+  ylab(expression(frac(ensemble - ols, ols))) +
+  theme_bw() + 
+  theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
 ```
 
+Results are similar on 25 feature subsets
+=============
+* Real PMTs use a small number of features.
+* We selected 25 features for each dataset.
+* We used a greedy subset selection algorithm to find the 25 features which maximized predictive performance for OLS.
 
+```{r results_25, echo=FALSE}
+# reaches_pmt <- get_reaches(pmt_names)
+# reacht_pmt <- get_reach_table(reaches_pmt)
+# difft_pmt <- difference_table(reaches_pmt)
+# 
+# df <- rename(difft_pmt, reach=relative_reach_improvement)
+# df <- melt(df, id=c('dataset', 'N', 'K'))
+# df <- filter(df, !(variable %in% c('reach_improvement', 'budget_reduction')))
+# df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
+# ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
+#   geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
+#   scale_fill_manual(values=c('#33a02c', '#fcbba1')) +
+#   ylab(expression(frac(ensemble - ols, ols))) +
+#   theme_bw() + 
+#   theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
+```
 
+Ensemble performs better on real PMTs
+=============
+```{r results_pmt, echo=FALSE}
+reaches_pmt <- get_reaches(pmt_names)
+reacht_pmt <- get_reach_table(reaches_pmt)
+difft_pmt <- difference_table(reaches_pmt)
 
-Benefit from regularization decreases as N / K increases
+#FIXME use dataset mapping to get correct sort order
+baseline_df <- difft[purrr::map_int(difft$dataset, ~which(grepl(., difft_pmt$dataset))), ] %>%
+  arrange(N)
+df <- select(difft_pmt, dataset, N, K, pmt=relative_reach_improvement)
+df$baseline <- baseline_df$relative_reach_improvement
+df <- melt(df, id=c('dataset', 'N', 'K'))
+df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
+ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
+  geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
+  scale_fill_manual(values=c('#33a02c', '#a1d99b')) +
+  ylab(expression(frac(ensemble - ols, ols))) +
+  theme_bw() + 
+  theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
+```
+
+Benefit from regularizing OLS decreases as N / K increases
 ===============
 ```{r reg, echo=FALSE}
-ggplot(reacht, aes(y=enet-ols, x=N / K, color=dataset)) + 
+country_list <- ds_info$Country[1:(length(ds_info$Country)-1)]
+country_list <- na.locf(country_list)
+if (length(country_list) == nrow(reacht)) {
+  reacht$country <- country_list
+} else {
+  reacht$country <- reacht$dataset
+}
+ggplot(reacht, aes(y=enet-ols, x=N / K, label=country)) + 
   geom_point(size=4) +
-  scale_color_brewer(type='qual', palette=3)
+  scale_x_log10() +
+  xlab('log(N/k)') +
+  geom_text(nudge_x = .02, nudge_y=.0005, check_overlap=TRUE) +
+  theme_bw()
 ```
 
 Random forests are well-approximated by OLS
 ==============
-```{r forest, echo=FALSE}
+* From the ensemble results we know that random forests find signal that OLS does not find but on their own RFs give similar or worse performance.
+* To characterize the RF results we take the predictions $\hat{y}$ made by our random forest models along with the predictors $X$. We fit a new linear model $\hat{y} = X\beta + \epsilon$.
+
+```{r forest, echo=FALSE, fig.height=6}
 forests <- lapply(all_names, function(name) {
   df <- load_dataset(name)
   df <- df[order(df[, TARGET_VARIABLE]), ]
@@ -324,45 +448,23 @@ forests <- lapply(all_names, function(name) {
 })
 forests <- rbind_all(forests)
 forests$dataset <- factor(forests$dataset, levels=ds_stats$dataset)
-ggplot(forests, aes(y=rsq, x=dataset, fill=dataset)) + 
+ggplot(forests, aes(y=rsq, x=dataset)) + 
   geom_bar(stat='identity') +
-  scale_fill_brewer(type='qual', palette=3) +
   guides(fill=FALSE) +
-  ylim(0, 1)
+  ylab(expression(r^2)) +
+  coord_cartesian(ylim=c(0, 1)) +
+  ylim(0, 1) + 
+  theme_bw() + 
+  theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
 ```
 
-Ensembles outperform OLS
-==============
-```{r ensemble, echo=FALSE}
-df <- rename(difft, reach=relative_reach_improvement, budget=budget_reduction)
-df <- melt(df, id=c('dataset', 'N', 'K'))
-df <- filter(df, variable != 'reach_improvement')
-df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
-ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
-  geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
-  scale_fill_brewer(type='qual', palette=1) +
-  ylab(expression(frac(ensemble - ols, ols)))
-```
+--------
+
+* We find that a linear model can very-well approximate the random forest predictions, as measured by $r^2$.
+* To us this suggests that RFs find an approximation of the OLS formula + a small nonlinear relationship. Combining RFs and OLS lets us combine the superior OLS linear formula with the nonlinear relationship found by the RF.
+
 
 
 Improvements are meaningful
 ==============
 TODO[Jack]
-
-```{r comments, echo=FALSE}
-# Notes:
-# Be clearer on wording of definitions of reach and budget slide with pictoral explanation also faceted
-# One slide on realistic poverty thresholds
-# Rename ghana, niger
-# Combine slides 3 and 4, use Paul's line, programs are already targeted, improving targeting can have a large impact
-# Explain data better, also data sizes
-# Training survey, targeting survey
-# Slide 6 explain that OLS is unbiased
-# List all methods
-# Slide with summaries of datasets
-# Results slide: label y axis, move ensemble to the end, width of the bars is too wide, order datasets by N
-# Then show relative improvement and budget
-# For forests and enet have a bullet point explaining why the graph is interesing
-# Switch forest graph to bar
-# N vs K
-```
