@@ -114,15 +114,24 @@ get_reaches <- function(ds_names) {
   reaches 
 }
 
-get_reach_table <- function(reaches) {
+get_reach_table <- function(reaches, subset_models=FALSE) {
   tables <- lapply(reaches, table_stat)
-  combine_tables(tables) %>%
-    select(dataset, N, K, ols, enet, forest, opf, ensemble) %>%
-    rename(ols_plus_forest=opf)
+  combined <- combine_tables(tables)
+  if (!subset_models) {
+    combined %>%
+      # select(dataset, N, K, ols, enet, forest, opf, ensemble) %>%
+      select(dataset, N, K, ols, enet, forest, opf) %>%
+      rename(ols_plus_forest=opf)
+  } else {
+    combined %>%
+      select(dataset, N, K, ols_25, ensemble_25)
+  }
 }
 
-get_budget_table <- function(reaches) {
-  tables <- lapply(reaches, budget_change)
+
+get_budget_table <- function(reaches, subset_models=FALSE) {
+  if (subset_models) base <- 'ols_25' else base <- 'ols'
+  tables <- lapply(reaches, budget_change, base=base)
   combine_tables(tables)
 }
 
@@ -134,15 +143,25 @@ combine_tables <- function(tables) {
       arrange(N)
 }
 
-difference_table <- function(reaches) {
-  reach_table <- get_reach_table(reaches)
-  reach_differences <- reach_table %>%
-    mutate(reach_improvement=ensemble-ols) %>%
-    mutate(relative_reach_improvement=(ensemble-ols)/ols) %>%
-    select(N, K, dataset, reach_improvement, relative_reach_improvement)
-  budget_table <- get_budget_table(reaches) %>%
-    mutate(budget_reduction=-1 * ensemble) %>%
-    select(dataset, budget_reduction)
+difference_table <- function(reaches, subset_models=FALSE) {
+  reach_table <- get_reach_table(reaches, subset_models)
+  if (!subset_models) {
+    reach_differences <- reach_table %>%
+      mutate(reach_improvement=ensemble-ols) %>%
+      mutate(relative_reach_improvement=(ensemble-ols)/ols) %>%
+      select(N, K, dataset, reach_improvement, relative_reach_improvement)
+    budget_table <- get_budget_table(reaches) %>%
+      mutate(budget_reduction=-1 * ensemble) %>%
+      select(dataset, budget_reduction)
+  } else {
+    reach_differences <- reach_table %>%
+      mutate(reach_improvement=ensemble_25-ols_25) %>%
+      mutate(relative_reach_improvement=(ensemble_25-ols_25)/ols_25) %>%
+      select(N, K, dataset, reach_improvement, relative_reach_improvement)
+    budget_table <- get_budget_table(reaches, subset_models) %>%
+      mutate(budget_reduction=-1 * ensemble_25) %>%
+      select(dataset, budget_reduction)
+  }
   merge(reach_differences, budget_table, by='dataset') %>%
     arrange(N)
 }
@@ -352,7 +371,7 @@ df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
 ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
   geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
   scale_fill_manual(values=c('#33a02c', '#fcbba1')) +
-  ylab(expression(frac(ensemble - ols, ols))) +
+  ylab(expression(frac(ensemble_25 - ols_25, ols_25))) +
   theme_bw() + 
   theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
 ```
@@ -364,20 +383,21 @@ Results are similar on 25 feature subsets
 * We used a greedy subset selection algorithm to find the 25 features which maximized predictive performance for OLS.
 
 ```{r results_25, echo=FALSE}
-# reaches_pmt <- get_reaches(pmt_names)
-# reacht_pmt <- get_reach_table(reaches_pmt)
-# difft_pmt <- difference_table(reaches_pmt)
-# 
-# df <- rename(difft_pmt, reach=relative_reach_improvement)
-# df <- melt(df, id=c('dataset', 'N', 'K'))
-# df <- filter(df, !(variable %in% c('reach_improvement', 'budget_reduction')))
-# df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
-# ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
-#   geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
-#   scale_fill_manual(values=c('#33a02c', '#fcbba1')) +
-#   ylab(expression(frac(ensemble - ols, ols))) +
-#   theme_bw() + 
-#   theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
+reacht_25 <- get_reach_table(reaches, TRUE)
+difft_25 <- difference_table(reaches, TRUE)
+
+difft2 <- merge(difft, difft_25, by='dataset')
+
+df <- rename(difft_25, reach=relative_reach_improvement, budget=budget_reduction)
+df <- melt(df, id=c('dataset', 'N', 'K'))
+df <- filter(df, !(variable %in% c('reach_improvement', 'budget_reduction')))
+df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
+ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
+  geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
+  scale_fill_manual(values=c('#33a02c', '#fcbba1')) +
+  ylab(expression(frac(ensemble - ols, ols))) +
+  theme_bw() + 
+  theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
 ```
 
 Ensemble performs better on real PMTs
