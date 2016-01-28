@@ -62,13 +62,19 @@ test_method_on_splits <- function(method, folds) {
 }
 
 
-test_all <- function(survey_df, method_list=METHOD_LIST, k=K, seed=1) {
+test_all <- function(survey_df, method_list=NULL, k=K, seed=1) {
+  if (is.null(method_list)) {
+    method_list <- METHOD_LIST
+    if (ncol(survey_df) > 26) {
+      method_list <- c(method_list, METHOD_25_LIST)
+    }
+  }
   set.seed(seed)
   folds <- split_test_train(survey_df, k)
   method_results <- purrr::flatmap(names(method_list), function(method_name) {
     print(method_name)
     method <- method_list[method_name]
-    predictions <- test_method_on_splits(method, folds)
+    test_method_on_splits(method, folds)
   })
   bind_rows(method_results)
 }
@@ -256,20 +262,38 @@ ols_forest_ensemble <- function(fold) {
   predict(ensemble, test_predictions_df)
 }
 
-fit_stepwise <- function(df) {
-  wdf <- get_weights(df)
-  df <- droplevels(wdf$data)
-  df <- purrr::keep(df, ~length(na.omit(unique(.))) > 1)
-  weight_vector <- wdf$weight_vector
-  fmla <- as.formula(FMLA_STR)
-  leaps::regsubsets(fmla, data=df, weights=weight_vector, method="forward", nvmax=1000)
+fit_lasso <- function(train) {
+  x <- model.matrix(as.formula(FMLA_STR), train$data)
+  y <- train$data[, TARGET_VARIABLE]
+  model <- glmnet::glmnet(x, y, alpha=1)
 }
-  
+
+get_original_columns <- function(mm_columns, original_columns) {
+  idx <- sapply(original_columns, function(original_column) {
+    any(grepl(original_column, mm_columns))
+  })
+  original_columns[idx]
+}
+
+get_25_original_columns <- function(lasso_model, original_columns) {
+  i <- 1
+  flist <- NULL
+  mm_columns <- rownames(lasso_model$beta)[nonzeroCoef(lasso_model$beta)]
+  while (length(flist) < 25) {
+    flist <- get_original_columns(mm_columns[1:i], original_columns)
+    i <- i + 1
+  }
+  flist
+}
+
 ols_25 <- function(fold) {
-  df <- fold$train
-  m <- fit_stepwise(fold$train)
-  cut_df <- df[, summary(m)$which[25, ]]
+  train <- get_weights(fold$train)
+  m <- fit_lasso(train)
+  df <- train$data
+  cols <- get_25_original_columns(m, colnames(df))
+  cut_df <- df[, cols]
   cut_df[, TARGET_VARIABLE] <- df[, TARGET_VARIABLE]
+  cut_df[, WEIGHT_VARIABLE] <- train$weight_vector
   model <- fit_ols(cut_df)
   test <- knockout_new_categories(fold$test, fold$train)
   test <- impute_all(test)
@@ -277,10 +301,14 @@ ols_25 <- function(fold) {
 }
 
 ensemble_25 <- function(fold) {
-  df <- fold$train
-  m <- fit_stepwise(fold$train)
-  df <- df[, summary(m)$which[25, ]]
-  new_fold <- list(train=fold$train, test=fold$test)
+  train <- get_weights(fold$train)
+  m <- fit_lasso(train)
+  df <- train$data
+  cols <- get_25_original_columns(m, colnames(df))
+  train <- df[, cols]
+  train[, TARGET_VARIABLE] <- df[, TARGET_VARIABLE]
+  train[, WEIGHT_VARIABLE] <- train$weight_vector
+  new_fold <- list(train=train, test=fold$test)
   ols_forest_ensemble(new_fold)
 }
 
@@ -314,6 +342,11 @@ elastic_net_ix <- function(fold) {
   as.numeric(predict(model, test_x, s=cv.model$lambda.min))
 }
 
+
+METHOD_25_LIST <- list(
+  ols_25=ols_25,
+  ensemble_25=ensemble_25
+)
 
 METHOD_LIST <- list(
   ols=ols,
