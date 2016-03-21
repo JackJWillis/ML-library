@@ -78,7 +78,7 @@ EXCLUDE_REGEX <- list(
 get_data <- function(prefix, base_name) {
   fname <- paste(prefix, base_name, sep='_')
   fpath <- paste(TARGETING_DATA_IN, 'south_africa', fname, sep='/')
-  read.dta(fpath)
+  read_dta(fpath)
 }
 
 p_wave_column <- function(wave_number, colname) {
@@ -121,13 +121,14 @@ create_dataset <- function(wave_number) {
 }
 
 run_wave <- function(wave_number) {
-  wave_name <- paste('south_africa_', 'w', wave_number, sep='')
+  wave_name <- paste('south_africa_', 'w', wave_number, '_tuned', sep='')
   df <- create_dataset(wave_number)
   df <- set_aside_holdout(wave_name, df)
   df <- na_indicator(df)
   df <- standardize_predictors(df, TARGET_VARIABLE)
   save_dataset(wave_name, df)
-  output <- test_all(df)
+  clear_config(wave_name)
+  output <- test_all_named(wave_name, df, test_fraction=0.2)
   save_validation_models_(wave_name, output)
 }
 

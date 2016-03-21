@@ -18,14 +18,21 @@ construct_fold <- function(survey_df, is_test) {
   list(test=test, train=train)
 }
 
-split_test_train <- function(survey_df, k=K) {
-  assignments <- get_assignments(survey_df, k)
-  folds <- lapply(1:k, function(i) {
-    is_test <- assignments == i
+split_test_train <- function(survey_df, k=K, test_fraction=NULL) {
+  if (is.null(test_fraction)) {
+    assignments <- get_assignments(survey_df, k)
+    folds <- lapply(1:k, function(i) {
+      is_test <- assignments == i
+      fold <- construct_fold(survey_df, is_test)
+      fold$fold_number <- i
+      fold
+    })
+  } else {
+    is_test <- as.logical(rbinom(nrow(survey_df), 1, test_fraction))
     fold <- construct_fold(survey_df, is_test)
-    fold$fold_number <- i
-    fold
-  })
+    fold$fold_number <- 1
+    folds <- list(fold)
+  }
   folds
 }
 
@@ -48,21 +55,19 @@ test_one <- function(method, fold) {
 
 test_method_on_splits <- function(method, folds) {
   method_name <- names(method)
-  parallel <- (method_name != 'tpo') # RWeka does not work with multicore
-  if (parallel) {
-    mclapply(
-      folds,
-      function(fold) test_one(method, fold),
-      mc.cores=detectCores())
-  } else {
-    lapply(
-      folds,
-      function(fold) test_one(method, fold))
-  }
+  lapply(
+    folds,
+    function(fold) test_one(method, fold))
 }
 
 
-test_all <- function(survey_df, method_list=NULL, k=K, seed=1) {
+test_all_named <- function(name, survey_df, method_list=METHOD_LIST, k=K, test_fraction=NULL, seed=1) {
+  named_method_list <- lapply(method_list, function(method) named_method(name, method))
+  test_all(survey_df, named_method_list, k, test_fraction, seed)
+}
+
+
+test_all <- function(survey_df, method_list=NULL, k=K, test_fraction=NULL, seed=1) {
   if (is.null(method_list)) {
     method_list <- METHOD_LIST
     if (ncol(survey_df) > 26) {
@@ -70,13 +75,16 @@ test_all <- function(survey_df, method_list=NULL, k=K, seed=1) {
     }
   }
   set.seed(seed)
-  folds <- split_test_train(survey_df, k)
-  method_results <- purrr::flatmap(names(method_list), function(method_name) {
-    print(method_name)
-    method <- method_list[method_name]
-    test_method_on_splits(method, folds)
-  })
-  bind_rows(method_results)
+  folds <- split_test_train(survey_df, k, test_fraction)
+  method_results <- lapply(
+    names(method_list), 
+    function(method_name) {
+      print(method_name)
+      method <- method_list[method_name]
+      test_method_on_splits(method, folds)
+    }
+  )
+  bind_rows(flatten(method_results))
 }
 
 
@@ -179,11 +187,39 @@ fit_ols <- function(df) {
 }
 
 
-ols <- function(fold) {
+ols <- function(fold, ...) {
   model <- fit_ols(fold$train)
   test <- knockout_new_categories(fold$test, fold$train)
   test <- impute_all(test)
   predict(model, test)
+}
+
+
+forest_h2o <- function(fold, mtries=-1, ntrees=1000, min_nodesize=35, max_depth=1000, ...) {
+  h2o::h2o.init(nthreads=-1, max_mem_size='5g')
+  train.hex <- h2o::as.h2o(fold$train, destination_frame="train.hex")
+  y <- which(colnames(fold$train) == TARGET_VARIABLE)
+  x <- (1:ncol(fold$train))[-y]
+  if (!(mtries == -1)) {
+    mtries <- ceiling(ncol(fold$train) * mtries)
+  }
+  if (abs(min_nodesize) < 1) {
+    min_nodesize <- ceiling(nrow(fold$train) * min_nodesize)
+  }
+  model <- h2o::h2o.randomForest(
+      y=y,
+      x=x,
+      training_frame=train.hex,
+      mtries=mtries,
+      min_rows=min_nodesize,
+      max_depth=max_depth,
+      ntrees=ntrees)
+  test.hex <- h2o::as.h2o(fold$test, destination_frame="test.hex")
+  predictions <- as.vector(h2o::h2o.predict(model, test.hex))
+  h2o::h2o.rm(train.hex)
+  h2o::h2o.rm(test.hex)
+  h2o::h2o.rm(model)
+  predictions
 }
 
 
@@ -196,27 +232,97 @@ fit_forest <- function(df, ntree=NULL, nodesize=NULL) {
 }
 
 
-forest <- function(fold) {
+
+forest <- function(fold, ...) {
   model <- fit_forest(fold$train)
-  predict(model, fold$test)
+  if (is.factor(fold$test[, TARGET_VARIABLE])) {
+    type <- 'prob'
+    predict(model, fold$test, type=type)[, 1]
+  } else { 
+    type <- 'response'
+    predict(model, fold$test, type=type)
+  }
 }
 
 
-ols_plus_forest <- function(fold) {
+binary_forest_maker <- function(threshold) {
+  function(fold) {
+    train_y <- fold$train[, TARGET_VARIABLE]
+    threshold_cons <- quantile(train_y, threshold)
+    fold$train[, TARGET_VARIABLE] <- as.factor(train_y < threshold_cons)
+    fold$test[, TARGET_VARIABLE] <- as.factor(fold$test[, TARGET_VARIABLE] < threshold_cons)
+    forest(fold)
+  }
+}
+
+named_method <- function(name, method) {
+  function(fold) method(fold, name=name)
+}
+
+tuned_forest <- function(fold, name=NULL) {
+  config <- if (!is.null(name)) read_config(name) else list()
+  best_parameters <- config$tuned_forest
+  if (is.null(best_parameters)) {
+    df <- fold$train
+    new_folds <- split_test_train(df, test_fraction=0.2)
+    nodesizes <- c(.0005, .001, .0025, .005, .0075, .01) 
+    mtries <- c(1/6, 2/6, 3/6, 4/6, -1)
+    parameters <- expand.grid(ns=nodesizes, mt=mtries)
+    print(parameters)
+    forest_predictions <- mapply(
+      function(nodesize, mtry) {
+        print(paste(nodesize, mtry))
+        flatten_dbl(lapply(new_folds, function(new_fold) {
+          forest_h2o(new_fold, mtries=mtry, ntrees=250, min_nodesize=nodesize)
+        }))
+      },
+      parameters$ns,
+      parameters$mt, 
+      SIMPLIFY=FALSE
+    )
+    true <- flatten_dbl(map(new_folds, ~.$test[, TARGET_VARIABLE]))
+    losses <- sapply(
+      forest_predictions,
+      function(predicted) {
+        mean((predicted - true) ^ 2)
+      }
+    )
+    best_parameters <- parameters[which.min(losses), ]
+    print(best_parameters)
+    config$tuned_forest <- best_parameters
+    save_config(name, config)
+  }
+  forest_h2o(fold, mtries=best_parameters$mt, ntrees=2500, min_nodesize=best_parameters$ns)
+}
+
+ols_plus_forest <- function(fold, tuned=FALSE, name=NULL) {
   linear <- fit_ols(fold$train)
   res_df <- fold$train
   res_df[, TARGET_VARIABLE] <- residuals(linear)
-  nonlinear <- fit_forest(res_df)
+  
+  res_fold <- list(train=res_df, test=fold$test)
+  if (tuned) {
+    nonlinear_predictions <- tuned_forest(res_fold, name)
+  } else {
+    nonlinear_predictions <- forest(res_fold)
+  }
   
   test <- knockout_new_categories(fold$test, fold$train)
   test <- impute_all(test)
-  predict(linear, test) + predict(nonlinear, fold$test)
+  predict(linear, test) + nonlinear_predictions
+}
+
+ols_plus_tuned_forest <- function(fold, name=NULL) {
+  ols_plus_forest(fold, tuned=TRUE, name=name)
 }
 
 
 tree <- function(fold) {
-  model <- rpart::rpart(as.formula(FMLA_STR), fold$train)
-  predict(model, fold$test)
+  wdf <- get_weights(fold$train)
+  model <- rpart::rpart(as.formula(FMLA_STR), wdf$data, weights=wdf$weight_vector, cp=.0001)
+  cp <- model$cptable[which.min(model$cptable[, "xerror"]), "CP"]
+  pruned <- rpart::prune(model, cp=cp)
+  predict(pruned, newdata=fold$test)
 }
 
 
@@ -230,35 +336,81 @@ ols_plus_tree <- function(fold) {
 }
 
 
-tree_plus_ols <- function(fold) {
+tree_plus_ols <- function(fold, ...) {
   model <- RWeka::M5P(as.formula(FMLA_STR), fold$train)
   predict(model, fold$test)
 }
 
 
-ols_forest_ensemble <- function(fold) {
-  train <- fold$train
-  ensemble_folds <- split_test_train(train, k=4)
+boosted_tree <- function(fold) {
+  wdf <- get_weights(fold$train)
+  fmla <- as.formula(FMLA_STR)
+  model <- gbm::gbm(fmla, data=wdf$data, weights=wdf$weight_vector, interaction.depth=4)
+  predict(model, newdata=fold$test)
+}
+
+tuned_boosted_tree <- function(fold) {
+  df2 <- fold$train
+  new_fold <- split_test_train(df2, test_fraction=.2)[[1]]
+  wdf <- get_weights(new_fold$train)
+  fmla <- as.formula(FMLA_STR)
   
-  ols_predictions <- flatmap(ensemble_folds, ols)
-  forest_predictions <- flatmap(ensemble_folds, forest)
-  opf_predictions <- flatmap(ensemble_folds, ols_plus_forest)
-  true <- flatmap(ensemble_folds, ~.$test[, TARGET_VARIABLE])
+  shrinkage <- c(1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6)
+  interaction_depths <- seq(2, 20, by=4)
+  n_minobsinnode <- seq(2, 20, by=4)
+  parameters <- expand.grid(depths=interaction_depths, nobs=n_minobsinnode, shrink=shrinkage)
+  models <- mcmapply(
+    function(depth, nob, shrink) {
+      gbm::gbm(
+        fmla,
+        data=wdf$data,
+        weights=wdf$weight_vector,
+        interaction.depth=depth,
+        n.minobsinnode=nob,
+        shrinkage=shrink)
+    },
+    parameters$depths,
+    parameters$nobs,
+    parameters$shrink,
+    SIMPLIFY=FALSE,
+    mc.cores=4
+  )
+  test_test <- new_fold$test
+  losses <- purrr::map_dbl(models, ~mean((predict(.x, test_test, n.trees=100)-test_test[, TARGET_VARIABLE])^2))
+  best_parameters <- parameters[which.min(losses), ]
+  
+  wdf <- get_weights(fold$train)
+  model <- gbm::gbm(fmla, data=wdf$data, weights=wdf$weight_vector, interaction.depth=best_parameters$depths, n.minobsinnode=best_parameters$nobs, shrinkage=best_parameters$shrink)
+  predict(model, newdata=fold$test, n.trees=100)
+}
+
+ols_forest_ensemble <- function(fold, name=NULL) {
+  train <- fold$train
+  ensemble_folds <- split_test_train(train, k=5)
+  
+  ols_predictions <- flatten_dbl(map(ensemble_folds, ols))
+  forest_predictions <- flatten_dbl(map(ensemble_folds, ~tuned_forest(., name=name)))
+  opf_predictions <- flatten_dbl(map(ensemble_folds, ~ols_plus_tuned_forest(., name=name)))
+  tpo_predictions <- flatten_dbl(map(ensemble_folds, ~tree_plus_ols(.)))
+  true <- flatten_dbl(map(ensemble_folds, ~.$test[, TARGET_VARIABLE]))
   
   ensemble_df <- data.frame(
     true=true,
     ols=ols_predictions,
     forest=forest_predictions,
-    opf=opf_predictions)
+    opf=opf_predictions,
+    tpo=tpo_predictions)
   ensemble <- lm(true ~ ., data=ensemble_df)
   
   ols_test_predictions <- ols(fold)
-  forest_test_predictions <- forest(fold)
-  opf_test_predictions <- ols_plus_forest(fold)
+  forest_test_predictions <- tuned_forest(fold, name=name)
+  opf_test_predictions <- ols_plus_tuned_forest(fold, name=name)
+  tpo_test_predictions <- tree_plus_ols(fold)
   test_predictions_df <- data.frame(
     ols=ols_test_predictions, 
     forest=forest_test_predictions,
-    opf=opf_test_predictions)
+    opf=opf_test_predictions,
+    tpo=tpo_test_predictions)
   predict(ensemble, test_predictions_df)
 }
 
@@ -313,12 +465,24 @@ ensemble_25 <- function(fold) {
 }
 
 
-elastic_net <- function(fold) {
+elastic_net <- function(fold, ...) {
+  penalized_regression(fold, alpha=0.5)
+}
+
+lasso <- function(fold) {
+  penalized_regression(fold, alpha=1)
+}
+
+ridge <- function(fold) {
+  penalized_regression(fold, alpha=0)
+}
+
+penalized_regression <- function(fold, alpha) {
   train <- get_weights(fold$train)
   x <- model.matrix(as.formula(FMLA_STR), train$data)
   y <- train$data[, TARGET_VARIABLE]
-  cv.model <- glmnet::cv.glmnet(x, y, weights=train$weight_vector, alpha=0.5)
-  model <- glmnet::glmnet(x, y, alpha=0.5)
+  cv.model <- glmnet::cv.glmnet(x, y, weights=train$weight_vector, alpha=alpha)
+  model <- glmnet::glmnet(x, y, alpha=alpha)
   
   test <- knockout_new_categories(fold$test, fold$train)
   test <- impute_all(test)
@@ -342,6 +506,50 @@ elastic_net_ix <- function(fold) {
   as.numeric(predict(model, test_x, s=cv.model$lambda.min))
 }
 
+lasso_ix <- function(fold) {
+  train <- get_weights(fold$train)
+  fmla_ix <- paste(FMLA_STR, ' .*.', sep='+')
+  x <- model.matrix(as.formula(fmla_ix), train$data)
+  y <- train$data[, TARGET_VARIABLE]
+  cv.model <- glmnet::cv.glmnet(x, y, weights=train$weight_vector, alpha=0.5)
+  model <- glmnet::glmnet(x, y, alpha=0.5)
+  
+  test <- knockout_new_categories(fold$test, fold$train)
+  test <- impute_all(test)
+  test <- get_weights(test)
+  test_x <- model.matrix(as.formula(fmla_ix), test$data)
+  as.numeric(predict(model, test_x, s=cv.model$lambda.min))
+}
+
+
+knn <- function(fold) {
+  wdf <- get_weights(fold$train)
+  fmla <- as.formula(FMLA_STR)
+  model <- train.kknn(fmla, wdf$data)
+  predict(model, newdata=fold$test)
+}
+
+svm <- function(fold) {
+  wdf <- get_weights(fold$train)
+  fmla <- as.formula(FMLA_STR)
+  model <- e1071::best.tune('svm', fmla, data=wdf$data)
+  predict(model, fold$test)
+}
+
+gaussian_process <- function(fold) {
+  wdf <- get_weights(fold$train)
+  fmla <- as.formula(FMLA_STR)
+  model <- kernlab::gausspr(fmla, wdf$data)
+  as.vector(kernlab::predict(model, fold$test))
+}
+
+kernel_quantile <- function(fold) {
+  wdf <- get_weights(fold$train)
+  fmla <- as.formula(FMLA_STR)
+  model <- kernlab::kqr(fmla, wdf$data)
+  as.vector(kernlab::predict(model, fold$test))
+  
+}
 
 METHOD_25_LIST <- list(
   ols_25=ols_25,
@@ -352,11 +560,33 @@ METHOD_LIST <- list(
   ols=ols,
   enet=elastic_net,
   forest=forest,
-  opf=ols_plus_forest,
-#   opt=ols_plus_tree,
-#   tpo=tree_plus_ols,
+  tuned_forest=tuned_forest,
+  forest_h2o=forest_h2o,
+  opf=ols_plus_tuned_forest,
+  # opt=ols_plus_tree
+  tpo=tree_plus_ols,
   ensemble=ols_forest_ensemble
   # enet_ix=elastic_net_ix,
+)
+
+  
+
+SENDHIL_METHODS <- list(
+  ols=ols,
+  lasso=lasso,
+  ridge=ridge,
+  enet=elastic_net,
+  tree=tree,
+  # knn=knn,
+  # svm=svm,
+  # gp=gaussian_process,
+  regression_tree=tree_plus_ols,
+  tuned_forest=tuned_forest,
+  forest=forest,
+  boosted_tree=tuned_boosted_tree,
+  ols_plus_forest=ols_plus_tuned_forest
+  # ensemble=ols_forest_ensemble
+# #   ensemble=ensemble_sendhil
 )
 
 SCALE_METHODS <- list(

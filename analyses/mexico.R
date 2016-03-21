@@ -20,7 +20,7 @@ HOUSEHOLDS_PATH <- paste(TARGETING_DATA_IN, HOUSEHOLDS, sep="/")
 VARIABLE_TABLE <- "varlist_Hogares.xlsx"
 VARIABLE_TABLE_PATH <- paste(TARGETING_DATA_IN, VARIABLE_TABLE, sep="/")
 
-NAME <- "mexico"
+NAME <- "mexico_tuned"
 
 # Load data ---------------------------
 
@@ -105,5 +105,6 @@ mx[i] <- lapply(mx[i], as.character)
 mx[mx == ''] <- MISSINGNESS_INDICATOR
 mx[i] <- lapply(mx[i], as.factor)
 save_dataset(NAME, mx)
-output <- test_all(mx)
+clear_config(NAME)
+output <- test_all_named(NAME, mx, test_fraction=0.2)
 save_validation_models_(NAME, output)

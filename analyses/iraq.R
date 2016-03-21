@@ -2,7 +2,7 @@ library(dplyr)
 library(foreign)
 library(MLlibrary)
 
-NAME <- 'iraq'
+NAME <- 'iraq_tuned'
 
 fpath <- paste(TARGETING_DATA_IN, 'iraq_for_prediction_20151118.dta', sep='/')
 iraq <- read.dta(fpath)
@@ -32,5 +32,6 @@ df <- set_aside_holdout(NAME, df)
 df <- na_indicator(df)
 df <- standardize_predictors(df)
 save_dataset(NAME, df)
-output <- test_all(df)
+clear_config(NAME)
+output <- test_all_named(NAME, df, test_fraction=0.2)
 save_validation_models_(NAME, output)

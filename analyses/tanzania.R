@@ -100,15 +100,16 @@ run_year <- function(year ) {
   tz <- create_dataset(year, remove_missing=FALSE)
   tz <- na_indicator(tz)
   tz <- standardize_predictors(tz, TARGET_VARIABLE)
+  tz <- tz[tz[TARGET_VARIABLE] > 0, ]
   save_dataset(year_name, tz)
   output <- test_all(tz)
   save_validation_models_(year_name, output)
 }
 
-print(2008)
-run_year(2008)
-print(2010)
-run_year(2010)
-print(2012)
-run_year(2012)
+# print(2008)
+# run_year(2008)
+# print(2010)
+# run_year(2010)
+# print(2012)
+# run_year(2012)
 
