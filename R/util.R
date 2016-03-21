@@ -80,3 +80,24 @@ set_aside_holdout <- function(NAME, df) {
   use
 }
 
+config_path <- function(NAME) {
+  fname <- paste(NAME, 'config.json', sep='_')
+  paste(TARGETING_DATA_OUT, fname, sep='/')
+}
+
+save_config <- function(NAME, config) {
+  fpath <- config_path(NAME)
+  as_json <- jsonlite::toJSON(config)
+  write(as_json, fpath)
+}
+
+read_config <- function(NAME) {
+  fpath <- config_path(NAME)
+  if (file.exists(fpath)) jsonlite::fromJSON(fpath) else list()
+}
+
+clear_config <- function(NAME) {
+  fpath <- config_path(NAME)
+  file.remove(fpath)
+}
+

@@ -140,13 +140,17 @@ niger_a$menage <- NULL
 niger_a <- standardize_predictors(niger_a, TARGET_VARIABLE)
 niger_a[, WEIGHT_VARIABLE] <- niger_a_weight
 
-save_dataset('niger_agricultural', niger_a)
-output <- test_all(niger_a)
-save_validation_models_('niger_agricultural', output)
+name_a <- 'niger_agricultural_tuned'
+save_dataset(name_a, niger_a)
+clear_config(name_a)
+output <- test_all_named(name_a, niger_a, test_fraction=0.2)
+save_validation_models_(name_a, output)
 
-save_dataset('niger_pastoral', niger_p)
-output <- test_all(niger_p)
-save_validation_models_('niger_pastoral', output)
+name_p <- 'niger_pastoral_tuned'
+save_dataset(name_p, niger_p)
+clear_config(name_p)
+output <- test_all_named(name_p, niger_p, test_fraction=0.2)
+save_validation_models_(name_p, output)
 
 
 feature_info <- read.xlsx(VARIABLE_TABLE_PATH, sheetName="Sheet1")
@@ -156,10 +160,14 @@ feature_info[, "var_name"] <- as.character(feature_info[, "var_name"])
 agricultural_pmt <- select(niger_a, -one_of(feature_info$var_name[!is.na(feature_info$Agro.and.Agro.Pastoral.zone)]))
 pastoral_pmt <- select(niger_p, -one_of(feature_info$var_name[!is.na(feature_info$Pastoral.zone)]))
 
-save_dataset('niger_agricultural_pmt', agricultural_pmt)
-output <- test_all(agricultural_pmt)
-save_validation_models_('niger_agricultural_pmt', output)
+name_a_pmt <- 'niger_agricultural_pmt_tuned'
+save_dataset(name_a_pmt, agricultural_pmt)
+clear_config(name_a_pmt)
+output <- test_all_named(name_a_pmt, agricultural_pmt, test_fraction=0.2)
+save_validation_models_(name_a_pmt, output)
 
-save_dataset('niger_pastoral_pmt', pastoral_pmt)
-output <- test_all(pastoral_pmt)
-save_validation_models_('niger_pastoral_pmt', output)
+name_p_pmt <- 'niger_pastoral_pmt_tuned'
+save_dataset(name_p_pmt, pastoral_pmt)
+clear_config(name_p_pmt)
+output <- test_all_named(name_p_pmt, pastoral_pmt, test_fraction=0.2)
+save_validation_models_(name_p_pmt, output)

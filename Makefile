@@ -1,6 +1,6 @@
 all: preval val
 
-val: south_africa iraq
+val: south_africa iraq brazil
 
 preval: tanzania ghana niger mexico 
 

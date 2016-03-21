@@ -2,7 +2,7 @@ library(MLlibrary)
 library(dplyr)
 library(readstata13)
 
-NAME <- 'brazil'
+NAME <- 'brazil_tuned'
 
 exclude <- c(
   'tipo_reg',
@@ -13,6 +13,7 @@ exclude <- c(
   'perd_cod_p_visit_realm_em',
   'renda_bruta_monetaria',
   'renda_bruta_nao_monetaria',
+  'renda_total',
   'id_dom',
   'vvp',
   'urbano',
@@ -39,10 +40,21 @@ expenditures <- select(df, matches(expenditure_regex))
 expenditure <- log(rowSums(expenditures, na.rm=TRUE))
 df[, TARGET_VARIABLE] <- expenditure
 df <- select(df, -matches(expenditure_regex))
+cnames <- colnames(df)
+categoricals <- cnames[!grepl('qtd', cnames) & !grepl('num', cnames) & TARGET_VARIABLE != cnames]
+df[, categoricals] <- lapply(df[, categoricals], factor)
 
 df <- set_aside_holdout(NAME, df)
 df <- na_indicator(df)
 df <- standardize_predictors(df)
+
 save_dataset(NAME, df)
-output <- test_all(df)
+clear_config(NAME)
+output <- test_all_named(NAME, df, test_fraction=0.2)
 save_validation_models_(NAME, output)
+
+NAME <- 'brazil_sendhil_all'
+# TEST_FRACTION <- 0.2
+# # save_dataset(NAME, df)
+# output2 <- test_all(df, method_list=SENDHIL_METHODS, test_fraction=TEST_FRACTION, seed=100)
+# save_validation_models_(NAME, output)
