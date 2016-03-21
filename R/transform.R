@@ -50,7 +50,7 @@ impute_all <- function(df) {
 }
 
 knockout_new_categories <- function(test, train) {
-  for (name in colnames(test)) {
+  for (name in intersect(colnames(test), colnames(train))) {
     vals <- test[, name]
     if (is.character(vals) | is.factor(vals)) {
       test[!(vals %in% unique(train[, name])), name] <- NA

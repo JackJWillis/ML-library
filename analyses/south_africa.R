@@ -131,8 +131,8 @@ run_wave <- function(wave_number) {
   save_validation_models_(wave_name, output)
 }
 
-# print(1)
-# run_wave(1)
+print(1)
+run_wave(1)
 print(2)
 run_wave(2)
 print(3)
