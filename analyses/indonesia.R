@@ -126,42 +126,43 @@ make_pmt_df <- function(year='10') {
   merged <- inner_join(merged, hh_mem_df, by=JOIN_COLUMNS)
   merged <- inner_join(merged, expenditure_df, by=JOIN_COLUMNS)
   
-#   podes <- read_dta('inst/extdata/indonesia/olken/coding_podes08.dta')
-#   podes$hhea <- as.integer(podes$hhea)
-#   merged <- inner_join(merged, podes, by=c('b1r4'='hhea'))
-  
   merged <-mutate(
     merged,
     hhsize2 = hhsize ^2,
     pcfloor = floorsize / hhsize)
-  podes_variables <- c('bidan_pds',
-    'credit_pds',
-    'doctor_pds',
-    'polindes_pds',
-    'popdensity_pds',
-    'posyandu_pds',
-    'puskesmas_pds',
-    'road_pds',
-    'sd_pds',
-    'smp_pds',
-    'market_pds')
+  
+#   podes <- read_dta('inst/extdata/indonesia/olken/coding_podes08.dta')
+#   podes$hhea <- as.integer(podes$hhea)
+#   merged <- inner_join(merged, podes, by=c('b1r4'='hhea'))
+  
+#   podes_variables <- c('bidan_pds',
+#     'credit_pds',
+#     'doctor_pds',
+#     'polindes_pds',
+#     'popdensity_pds',
+#     'posyandu_pds',
+#     'puskesmas_pds',
+#     'road_pds',
+#     'sd_pds',
+#     'smp_pds',
+#     'market_pds')
   
   merged2 <- select(
     merged,
     urban,
     depratio_ssn = depratio,
-    bidan_pds,
-    credit_pds,
+#     bidan_pds,
+#     credit_pds,
     # distance_pds,
-    doctor_pds,
-    polindes_pds,
-    popdensity_pds,
-    posyandu_pds,
-    puskesmas_pds,
-    road_pds,
-    sd_pds,
-    smp_pds,
-    market_pds,
+#     doctor_pds,
+#     polindes_pds,
+#     popdensity_pds,
+#     posyandu_pds,
+#     puskesmas_pds,
+#     road_pds,
+#     sd_pds,
+#     smp_pds,
+#     market_pds,
     dwater_ssn = dwater,
     hhage2_ssn = hhage2,
     hhage_ssn = hhage,
@@ -215,19 +216,25 @@ get_pmt_train_test <- function(year='10') {
   test[, logicals] <- map(test[, logicals], as.numeric)
   test$yyyyy <- test$logconsumption
   test <- filter(test, !is.na(logconsumption))
-  list(train=train, test=test, fold_number=1)
+  df <- rbind(train, test[, colnames(train)]) %>% standardize_df()
+  train <- df[1:nrow(train), ]
+  test2 <- df[-(1:nrow(train)), ]
+  test2$povertyline1 <- test$povertyline1
+  test2$selftargeting <- test$selftargeting
+  list(train=train, test=test2, fold_number=1)
 }
 
 get_pmt_score <- function(fold) {
   fold$test$PMTSCORE
 }
 
-test_on_fold <- function(fold, method_list) {
+test_on_fold <- function(name, fold, method_list) {
+  named_method_list <- lapply(method_list, function(method) named_method(name, method))
   method_results <- lapply(
-    names(method_list), 
+    names(named_method_list), 
     function(method_name) {
       print(method_name)
-      method <- method_list[method_name]
+      method <- named_method_list[method_name]
       res_df <- test_method_on_splits(method, list(fold))[[1]]
       res_df$pline <- 0.8 * fold$test$povertyline1
       res_df$selftargeting <- fold$test$selftargeting
@@ -275,4 +282,9 @@ process_char_ind <- function(year, ind_df) {
   hhead_df
 }
 
-# ind_08 <- make_df('08')
+name <- 'indonesia'
+clear_config(name)
+fold <- get_pmt_train_test('10')
+save_dataset(name, fold$train)
+output <- test_on_fold(name, fold, METHOD_LIST)
+save_validation_models_(name, output)

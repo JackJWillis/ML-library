@@ -487,7 +487,7 @@ penalized_regression <- function(fold, alpha) {
   test <- knockout_new_categories(fold$test, fold$train)
   test <- impute_all(test)
   test <- get_weights(test)
-  test_x <- model.matrix(as.formula(FMLA_STR), test$data)
+  test_x <- model.matrix(as.formula(FMLA_STR), test$data)[, 1:ncol(x)]
   as.numeric(predict(model, test_x, s=cv.model$lambda.min))
 }
 
