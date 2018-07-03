@@ -42,7 +42,9 @@ library(ggplot2)
 library(grid) # for unit
 library(scales) # for brewer_pal
 library(knitr)
-library(xlsx)
+# library(xlsx)
+library(readxl)
+library(tidyr)
 library(xtable)
 library(zoo)
 
@@ -199,8 +201,8 @@ plot_reach_vs_pct_targeted <- function(dsname, threshold=DEFAULT_THRESHOLDS, tar
     ols_value <- value_at_pct(ols_reach)[[1]]
     ensemble_reach <- filter(ungroup(to_plot), method=='ensemble')
     ensemble_value <- value_at_pct(ensemble_reach)[[1]]
-    budget <- filter(budget_change(to_plot), method=='ensemble')[, 2]
-    ensemble_pct_targeted <- threshold + budget * threshold
+    budget <- filter(budget_change(to_plot), method=='ensemble')[, 3]
+    ensemble_pct_targeted <- (threshold + budget * threshold)[[1]]
     xmin <- threshold + .005
     xmax <- .9
     width <- xmax - xmin
@@ -211,7 +213,7 @@ plot_reach_vs_pct_targeted <- function(dsname, threshold=DEFAULT_THRESHOLDS, tar
     p.zoom <- p + 
       coord_cartesian(xlim = c(threshold-width/mag, threshold+width/mag), ylim=c(ols_value-height/mag, ols_value+height/mag)) +
       geom_segment(x=threshold, xend=threshold, y=ensemble_value, yend=ols_value, color='black') +
-      geom_segment(y=ols_value, yend=ols_value, x=threshold, xend=ensemble_pct_targeted, color='black') +
+      geom_segment(y=ols_value, yend=ols_value, xend=threshold, x=ensemble_pct_targeted, color='black') +
       annotate("text", label='Delta~budget', x=threshold-(threshold-ensemble_pct_targeted)/2, y=ols_value-.0005, parse=TRUE) +
       annotate("text", label='Delta~reach', x=threshold-.001, y=ensemble_value-(ensemble_value-ols_value)/2, parse=TRUE, angle=90) +
       zoomtheme
@@ -219,7 +221,7 @@ plot_reach_vs_pct_targeted <- function(dsname, threshold=DEFAULT_THRESHOLDS, tar
     p <- p + annotation_custom(g, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
   }
   p <- p + geom_vline(xintercept=.4, linetype='longdash', color='black')
-  p
+  p + theme_bw()
 }
 
 reaches <- get_reaches(all_names)
@@ -351,7 +353,7 @@ We think of poverty targeting as a classification problem and focus on two metri
   + *Budget*: Necessary number of people targeted in order to achieve a certain reach
   
 ```{r metrics2, echo=FALSE, fig.height=6}
-plot_reach_vs_pct_targeted('ghana_pe', threshold=.4) 
+plot_reach_vs_pct_targeted('ghana_tuned', threshold=.4) 
 ```
 
 

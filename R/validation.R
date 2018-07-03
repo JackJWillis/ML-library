@@ -145,8 +145,9 @@ budget_change <- function(stat_by_pct, base='ols') {
     select(method, threshold, value)
   # reshape so that each row is keyed by method
   # with results for each threshold as columns
-  bc %>%
-    reshape::cast(method ~ threshold)
+  # bc %>%
+  #   reshape::cast(method ~ threshold)
+  bc
 }
 
 
@@ -159,7 +160,8 @@ plot_stat <- function(stat_by_pct) {
 
 table_stat <- function(stat_by_pct) {
   stat_df <- value_at_pct(stat_by_pct)
-  reshape::cast(stat_df, method ~ threshold)
+  # reshape::cast(stat_df, method ~ threshold)
+  stat_df
 }
 
 
