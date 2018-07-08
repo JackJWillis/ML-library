@@ -100,7 +100,8 @@ table_stats <- function(tables) {
     df <- tables[[name]]
     value_name <- colnames(df)[[2]]
     df$dataset <- name
-    reshape::cast(df, dataset ~ method, value=value_name)
+    # reshape::cast(df, dataset ~ method, value=value_name)
+    tidyr::spread(df, method, value)
   })
 }
 ```
