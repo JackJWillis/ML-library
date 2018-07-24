@@ -283,7 +283,7 @@ process_char_ind <- function(year, ind_df) {
 }
 
 name <- 'indonesia'
-clear_config(name)
+#clear_config(name)
 fold <- get_pmt_train_test('10')
 save_dataset(name, fold$train)
 output <- test_on_fold(name, fold, METHOD_LIST)

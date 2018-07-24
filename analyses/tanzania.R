@@ -10,6 +10,7 @@ library(foreign)
 library(xlsx)
 library(dplyr)
 library(MLlibrary)
+library(h2o)
 
 
 
@@ -106,8 +107,8 @@ run_year <- function(year ) {
   save_validation_models_(year_name, output)
 }
 
-# print(2008)
-# run_year(2008)
+print(2008)
+run_year(2008)
 # print(2010)
 # run_year(2010)
 # print(2012)
