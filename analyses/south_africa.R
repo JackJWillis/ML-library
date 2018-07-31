@@ -2,6 +2,7 @@ library(MLlibrary)
 library(dplyr)
 library(foreign)
 library(purrr)
+library(haven)
 
 BASE_NAMES <- c('W1_Anon_V5.3.dta', 'W2_Anon_V2.3.dta', 'W3_Anon_V1.3.dta')
 # Integer codes: -9: Don't know, -8: Refuse
