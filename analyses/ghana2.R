@@ -89,12 +89,12 @@ save_validation_models_(NAME, output)
 
 
 
-# gh <- create_dataset(pe_data_path, pe_variable_table_path, remove_missing=FALSE)
-# gh <- filter(gh, s7dq11 != 'generator') # only one observation, causes issues in cross validation
-# gh <- na_indicator(gh)
-# gh <- standardize_predictors(gh, TARGET_VARIABLE)
-# pe_name <- paste(NAME, 'pe', sep='_')
-# save_dataset(pe_name, gh)
-# clear_config(pe_name)
-# output <- test_all_named(pe_name, gh, test_fraction=0.2)
-# save_validation_models_(pe_name, output)
+gh <- create_dataset(pe_data_path, pe_variable_table_path, remove_missing=FALSE)
+gh <- filter(gh, s7dq11 != 'generator') # only one observation, causes issues in cross validation
+gh <- na_indicator(gh)
+gh <- standardize_predictors(gh, TARGET_VARIABLE)
+pe_name <- paste(NAME, 'pe', sep='_')
+save_dataset(pe_name, gh)
+clear_config(pe_name)
+output <- test_all_named(pe_name, gh, test_fraction=0.2)
+save_validation_models_(pe_name, output)
