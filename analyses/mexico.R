@@ -4,8 +4,8 @@ library(xlsx)
 library(dplyr)
 library(MLlibrary)
 
-library(doMC)
-registerDoMC(cores=3)
+#library(doMC)
+#registerDoMC(cores=3)
 
 
 CONSUMPTION <- "Concen.dta"
