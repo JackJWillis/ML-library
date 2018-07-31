@@ -18,7 +18,7 @@ Alternatively, open the project in RStudio and run the above.
 
 The code is organized into two sections.
 * The folder `R/` contains an in an installable R package implementing prediction methods and analysis utilities.
-* The folder `analsyes/` contains a set of scripts which use functions from the library to train and test machine learning methods for proxy means tests on a variety of consumption datasets from various countries.
+* The folder `analyses/` contains a set of scripts which use functions from the library to train and test machine learning methods for proxy means tests on a variety of consumption datasets from various countries.
 
 ## Country Analyses
 
@@ -34,7 +34,7 @@ This saves 20% of the data as a final holdout.
 We set the random seed such that the same rows are held out if the function is rerun.
 The code for this function is in `util.R` in the package.
 We then call two data processing fuctions: `standardize_predictors`, which centers and scales the predictors by the variance, and `na_indicator` which adds indicators for missing values (we assume the missingness contains information).
-The definitions for these functions can be found in `scale.R`.
+The definitions for these functions can be found in `transform.R`.
 
 After preparing the datasets, we test the prediction functions using `test_all_named`.
 This function tests a standard set of methods using cross validation.
@@ -50,7 +50,7 @@ This function takes two arguments:
 ## Analyzing the results
 
 The best place to see our analysis of the results to date is in `slides.Rmd`.
-Note that these slides rely on some standard assessment functions we have implemented in `validtion.R`.
+Note that these slides rely on some standard assessment functions we have implemented in `validation.R`.
 
 
 
