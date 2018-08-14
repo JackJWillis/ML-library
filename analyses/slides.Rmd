@@ -57,7 +57,9 @@ countries <- strsplit(all_names, '_') %>%
   unique() %>%
   purrr::map(cap)
 
-pmt_names <- c('niger_pastoral_pmt', 'niger_agricultural_pmt', 'ghana')
+# pmt_names <- c('niger_pastoral_pmt', 'niger_agricultural_pmt', 'ghana')
+# pmt_names <- c('niger_pastoral_pmt_tuned', 'niger_agricultural_pmt_tuned', 'ghana_tuned')
+pmt_names <- c('niger_pastoral_pmt_tuned', 'niger_agricultural_pmt_tuned', 'ghana_tuned')
 renames <- list(
   niger_pastoral='niger_1',
   niger_pastoral_pmt='niger_1_pmt',
@@ -408,34 +410,34 @@ Results are similar on 25 feature subsets
 # df <- melt(df, id=c('dataset', 'N', 'K'))
 # df <- filter(df, variable %in% c('original', 'subset_25'))
 # df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
-# ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
-#   geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
+# ggplot(df, aes(y=value, x=dataset, fill=variable)) +
+#   geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') +
 #   scale_fill_manual(values=c('#33a02c', '#fcbba1')) +
 #   ylab(expression(frac(ensemble_25 - ols_25, ols_25))) +
-#   theme_bw() + 
+#   theme_bw() +
 #   theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
 ```
 
 Ensemble performs better on real PMTs
 =============
 ```{r results_pmt, echo=FALSE}
-# reaches_pmt <- get_reaches(pmt_names)
-# reacht_pmt <- get_reach_table(reaches_pmt)
-# difft_pmt <- difference_table(reaches_pmt)
-# 
-# #FIXME use dataset mapping to get correct sort order
-# baseline_df <- difft[purrr::map_int(difft$dataset, ~which(grepl(., difft_pmt$dataset))), ] %>%
-#   arrange(N)
-# df <- select(difft_pmt, dataset, N, K, pmt=relative_reach_improvement)
-# df$baseline <- baseline_df$relative_reach_improvement
-# df <- melt(df, id=c('dataset', 'N', 'K'))
-# df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
-# ggplot(df, aes(y=value, x=dataset, fill=variable)) + 
-#   geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') + 
-#   scale_fill_manual(values=c('#33a02c', '#a1d99b')) +
-#   ylab(expression(frac(ensemble - ols, ols))) +
-#   theme_bw() + 
-#   theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
+reaches_pmt <- get_reaches(pmt_names)
+reacht_pmt <- get_reach_table(reaches_pmt)
+difft_pmt <- difference_table(reaches_pmt)
+
+#FIXME use dataset mapping to get correct sort order
+baseline_df <- difft[purrr::flatten(purrr::map_int(difft$dataset, ~which(grepl(., difft_pmt$dataset)))), ] %>%
+  arrange(N)
+df <- select(difft_pmt, dataset, N, K, pmt=relative_reach_improvement)
+df$baseline <- baseline_df$relative_reach_improvement
+df <- melt(df, id=c('dataset', 'N', 'K'))
+df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
+ggplot(df, aes(y=value, x=dataset, fill=variable)) +
+  geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') +
+  scale_fill_manual(values=c('#33a02c', '#a1d99b')) +
+  ylab(expression(frac(ensemble - ols, ols))) +
+  theme_bw() +
+  theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
 ```
 
 Benefit from regularizing OLS decreases as N / K increases
