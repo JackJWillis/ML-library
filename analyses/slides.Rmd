@@ -42,7 +42,7 @@ library(ggplot2)
 library(grid) # for unit
 library(scales) # for brewer_pal
 library(knitr)
-# library(xlsx)
+library(xlsx)
 library(readxl)
 library(tidyr)
 library(xtable)
@@ -400,10 +400,10 @@ Results are similar on 25 feature subsets
 ```{r results_25, echo=FALSE}
 # reacht_25 <- get_reach_table(reaches, TRUE)
 # difft_25 <- difference_table(reaches, TRUE)
-# 
+ 
 # orig_diff <- select(difft, dataset=dataset, orig=relative_reach_improvement)
 # difft2 <- merge(orig_diff, difft_25, by='dataset')
-# 
+ 
 # df <- rename(difft2, original=orig, subset_25=relative_reach_improvement)
 # df <- melt(df, id=c('dataset', 'N', 'K'))
 # df <- filter(df, variable %in% c('original', 'subset_25'))
