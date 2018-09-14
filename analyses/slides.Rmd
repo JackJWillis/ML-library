@@ -1,7 +1,7 @@
 ---
 title: "Poverty Targeting as Prediction"
 output: beamer_presentation
-tables: yes
+tables: yes1
 header-includes: \usepackage{longtable}
 ---
 
@@ -400,22 +400,22 @@ Results are similar on 25 feature subsets
 * We used a greedy subset selection algorithm to find the 25 features which maximized predictive performance for OLS.
 
 ```{r results_25, echo=FALSE}
-# reacht_25 <- get_reach_table(reaches, TRUE)
-# difft_25 <- difference_table(reaches, TRUE)
+ reacht_25 <- get_reach_table(reaches, TRUE)
+ difft_25 <- difference_table(reaches, TRUE)
  
-# orig_diff <- select(difft, dataset=dataset, orig=relative_reach_improvement)
-# difft2 <- merge(orig_diff, difft_25, by='dataset')
+ orig_diff <- select(difft, dataset=dataset, orig=relative_reach_improvement)
+ difft2 <- merge(orig_diff, difft_25, by='dataset')
  
-# df <- rename(difft2, original=orig, subset_25=relative_reach_improvement)
-# df <- melt(df, id=c('dataset', 'N', 'K'))
-# df <- filter(df, variable %in% c('original', 'subset_25'))
-# df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
-# ggplot(df, aes(y=value, x=dataset, fill=variable)) +
-#   geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') +
-#   scale_fill_manual(values=c('#33a02c', '#fcbba1')) +
-#   ylab(expression(frac(ensemble_25 - ols_25, ols_25))) +
-#   theme_bw() +
-#   theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
+ df <- rename(difft2, original=orig, subset_25=relative_reach_improvement)
+ df <- melt(df, id=c('dataset', 'N', 'K'))
+ df <- filter(df, variable %in% c('original', 'subset_25'))
+ df$dataset <- factor(df$dataset, levels=ds_stats$dataset)
+ ggplot(df, aes(y=value, x=dataset, fill=variable)) +
+   geom_bar(position=position_dodge(width=0.5), width=.4, stat='identity') +
+   scale_fill_manual(values=c('#33a02c', '#fcbba1')) +
+   ylab(expression(frac(ensemble_25 - ols_25, ols_25))) +
+   theme_bw() +
+   theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
 ```
 
 Ensemble performs better on real PMTs
@@ -443,19 +443,19 @@ ggplot(df, aes(y=value, x=dataset, fill=variable)) +
 Benefit from regularizing OLS decreases as N / K increases
 ===============
 ```{r reg, echo=FALSE}
-# country_list <- ds_info$Country[1:(length(ds_info$Country)-1)]
-# country_list <- na.locf(country_list)
-# if (length(country_list) == nrow(reacht)) {
-#   reacht$country <- country_list
-# } else {
-#   reacht$country <- reacht$dataset
-# }
-# ggplot(reacht, aes(y=enet-ols, x=N / K, label=country)) + 
-#   geom_point(size=4) +
-#   scale_x_log10() +
-#   xlab('log(N/k)') +
-#   geom_text(nudge_x = .02, nudge_y=.0005, check_overlap=TRUE) +
-#   theme_bw()
+ country_list <- ds_info$Country[1:(length(ds_info$Country)-1)]
+ country_list <- na.locf(country_list)
+ if (length(country_list) == nrow(reacht)) {
+   reacht$country <- country_list
+ } else {
+   reacht$country <- reacht$dataset
+ }
+ ggplot(reacht, aes(y=enet-ols, x=N / K, label=country)) + 
+   geom_point(size=4) +
+   scale_x_log10() +
+   xlab('log(N/k)') +
+   geom_text(nudge_x = .02, nudge_y=.0005, check_overlap=TRUE) +
+   theme_bw()
 ```
 
 Random forests are well-approximated by OLS
@@ -464,36 +464,36 @@ Random forests are well-approximated by OLS
 * To characterize the RF results we take the predictions $\hat{y}$ made by our random forest models along with the predictors $X$. We fit a new linear model $\hat{y} = X\beta + \epsilon$.
 
 ```{r forest, echo=FALSE, fig.height=6}
-# forests <- lapply(all_names, function(name) {
-#   df <- load_dataset(name)
-#   df <- df[order(df[, TARGET_VARIABLE]), ]
-#   df$X <- NULL
-#   output <- load_validation_models(name) %>%
-#     filter(method=='forest') %>%
-#     arrange(true)
-#   tol <- .0001
-#   merged <- df
-#   if (nrow(merged) == nrow(output)) {
-#     if (all(abs(merged[, TARGET_VARIABLE] - output$true) < tol)) {
-#       merged[, TARGET_VARIABLE] <- output$predicted
-#     }
-#   } else {
-#     merged[, TARGET_VARIABLE] <- output$predicted[match(df[, TARGET_VARIABLE], output$true)]
-#   }
-#   model <- fit_ols(merged)
-#   rsq <- summary(model)$r.squared
-#   data.frame(dataset=clean_name(name), N=nrow(df), K=ncol(df), rsq=rsq)
-# })
-# forests <- rbind_all(forests)
-# forests$dataset <- factor(forests$dataset, levels=ds_stats$dataset)
-# ggplot(forests, aes(y=rsq, x=dataset)) + 
-#   geom_bar(stat='identity') +
-#   guides(fill=FALSE) +
-#   ylab(expression(r^2)) +
-#   coord_cartesian(ylim=c(0, 1)) +
-#   ylim(0, 1) + 
-#   theme_bw() + 
-#   theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
+ forests <- lapply(all_names, function(name) {
+   df <- load_dataset(name)
+   df <- df[order(df[, TARGET_VARIABLE]), ]
+   df$X <- NULL
+   output <- load_validation_models(name) %>%
+     filter(method=='forest') %>%
+     arrange(true)
+   tol <- .0001
+   merged <- df
+   if (nrow(merged) == nrow(output)) {
+     if (all(abs(merged[, TARGET_VARIABLE] - output$true) < tol)) {
+       merged[, TARGET_VARIABLE] <- output$predicted
+     }
+   } else {
+     merged[, TARGET_VARIABLE] <- output$predicted[match(df[, TARGET_VARIABLE], output$true)]
+   }
+   model <- fit_ols(merged)
+   rsq <- summary(model)$r.squared
+   data.frame(dataset=clean_name(name), N=nrow(df), K=ncol(df), rsq=rsq)
+ })
+ forests <- rbind_all(forests)
+ forests$dataset <- factor(forests$dataset, levels=ds_stats$dataset)
+ ggplot(forests, aes(y=rsq, x=dataset)) + 
+   geom_bar(stat='identity') +
+   guides(fill=FALSE) +
+   ylab(expression(r^2)) +
+   coord_cartesian(ylim=c(0, 1)) +
+   ylim(0, 1) + 
+   theme_bw() + 
+   theme(panel.grid.major.x=element_blank(), panel.grid.minor.x=element_blank())
 ```
 
 --------
