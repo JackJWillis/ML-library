@@ -106,5 +106,5 @@ mx[mx == ''] <- MISSINGNESS_INDICATOR
 mx[i] <- lapply(mx[i], as.factor)
 save_dataset(NAME, mx)
 clear_config(NAME)
-output <- test_all_named(NAME, mx, test_fraction=0.2)
+output <- test_all(mx, test_fraction=0.2)
 save_validation_models_(NAME, output)

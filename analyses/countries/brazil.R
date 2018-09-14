@@ -50,7 +50,7 @@ df <- standardize_predictors(df)
 
 save_dataset(NAME, df)
 clear_config(NAME)
-output <- test_all_named(NAME, df, test_fraction=0.2)
+output <- test_all(df, test_fraction=0.2)
 save_validation_models_(NAME, output)
 
 NAME <- 'brazil_sendhil_all'

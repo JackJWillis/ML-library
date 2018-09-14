@@ -129,7 +129,7 @@ run_wave <- function(wave_number) {
   df <- standardize_predictors(df, TARGET_VARIABLE)
   save_dataset(wave_name, df)
   clear_config(wave_name)
-  output <- test_all_named(wave_name, df, test_fraction=0.2)
+  output <- test_all(df, test_fraction=0.2)
   save_validation_models_(wave_name, output)
 }
 

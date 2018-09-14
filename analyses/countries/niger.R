@@ -163,11 +163,11 @@ pastoral_pmt <- select(niger_p, -one_of(feature_info$var_name[!is.na(feature_inf
 name_a_pmt <- 'niger_agricultural_pmt_tuned'
 save_dataset(name_a_pmt, agricultural_pmt)
 clear_config(name_a_pmt)
-output <- test_all_named(name_a_pmt, agricultural_pmt, test_fraction=0.2)
+output <- test_all(agricultural_pmt, test_fraction=0.2)
 save_validation_models_(name_a_pmt, output)
 
 name_p_pmt <- 'niger_pastoral_pmt_tuned'
 save_dataset(name_p_pmt, pastoral_pmt)
 clear_config(name_p_pmt)
-output <- test_all_named(name_p_pmt, pastoral_pmt, test_fraction=0.2)
+output <- test_all(pastoral_pmt, test_fraction=0.2)
 save_validation_models_(name_p_pmt, output)
