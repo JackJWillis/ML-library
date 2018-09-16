@@ -426,7 +426,10 @@ reacht_pmt <- get_reach_table(reaches_pmt)
 difft_pmt <- difference_table(reaches_pmt)
 
 #FIXME use dataset mapping to get correct sort order
-baseline_df <- difft[purrr::flatten(purrr::map_int(difft$dataset, ~which(grepl(., difft_pmt$dataset)))), ] %>%
+idx <- purrr::map(difft$dataset, ~which(grepl(., difft_pmt$dataset))) %>%
+  purrr::flatten() %>%
+  as.integer()
+baseline_df <- difft[idx, ] %>%
   arrange(N)
 df <- select(difft_pmt, dataset, N, K, pmt=relative_reach_improvement)
 df$baseline <- baseline_df$relative_reach_improvement
