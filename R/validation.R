@@ -7,17 +7,19 @@ K <- 5
 
 #### Training/Testing ######
 
+#Produces a vector of the same length as survey_df with random assignment to k groups
 get_assignments <- function(survey_df, k) {
   sample(rep(1:k, length.out=nrow(survey_df)))
 }
 
-
+#Constructs one "fold", i.e. one train / test split, of survey_df
 construct_fold <- function(survey_df, is_test) {
   test <- survey_df[is_test, ]
   train <- survey_df[!is_test, ]
   list(test=test, train=train)
 }
 
+#Constructs a list of "folds", given the original survey_df. I.e. k sets of the df, each of which has a different train / test split
 split_test_train <- function(survey_df, k=K, test_fraction=NULL) {
   if (is.null(test_fraction)) {
     assignments <- get_assignments(survey_df, k)
@@ -36,7 +38,8 @@ split_test_train <- function(survey_df, k=K, test_fraction=NULL) {
   folds
 }
 
-
+#Tests one method on one fold. Outputs new df, with one row per row of the test subset of the fold, with true and predicted values of target variable, as well as fold number. 
+#Note, given a fold, methods are programmed to simply output a vector of predictions for the test subset in that fold, based upon the method.
 test_one <- function(method, fold) {
   stopifnot(length(method) == 1)
   method_name <- names(method)
@@ -52,7 +55,7 @@ test_one <- function(method, fold) {
   df
 }
 
-
+#Test method on set of folds, returns list of DFs, 1 per fold
 test_method_on_splits <- function(method, folds) {
   method_name <- names(method)
   lapply(
@@ -67,6 +70,7 @@ test_all_named <- function(name, survey_df, method_list=METHOD_LIST, k=K, test_f
 }
 
 
+#Tests multiple methods, on multiple folds. Is this returning bundled lists, or somehow flattening?
 test_all <- function(survey_df, method_list=NULL, k=K, test_fraction=NULL, seed=1) {
   if (is.null(method_list)) {
     method_list <- METHOD_LIST
@@ -553,6 +557,7 @@ kernel_quantile <- function(fold) {
   
 }
 
+#Note these methods first use lasso to select 25 covariates, and then fit the models using these 25 covariates
 METHOD_25_LIST <- list(
   ols_25=ols_25,
   ensemble_25=ensemble_25
@@ -570,8 +575,6 @@ METHOD_LIST <- list(
   ensemble=ols_forest_ensemble
   # enet_ix=elastic_net_ix,
 )
-
-  
 
 SENDHIL_METHODS <- list(
   ols=ols,
