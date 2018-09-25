@@ -143,13 +143,13 @@ niger_a[, WEIGHT_VARIABLE] <- niger_a_weight
 name_a <- 'niger_agricultural_tuned'
 save_dataset(name_a, niger_a)
 clear_config(name_a)
-output <- test_all_named(name_a, niger_a, test_fraction=0.2)
+output <- test_all(niger_a, test_fraction=0.2)
 save_validation_models_(name_a, output)
 
 name_p <- 'niger_pastoral_tuned'
 save_dataset(name_p, niger_p)
 clear_config(name_p)
-output <- test_all_named(name_p, niger_p, test_fraction=0.2)
+output <- test_all(niger_p, test_fraction=0.2)
 save_validation_models_(name_p, output)
 
 
