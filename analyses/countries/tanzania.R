@@ -19,7 +19,7 @@ VARIABLE_TABLE_FNAME <- "variable_table_tanzania.xlsx"
 
 DATA_PATH <- paste(TARGETING_DATA_IN, DATA_FNAME, sep="/")
 VARIABLE_TABLE_PATH <- paste(TARGETING_DATA_IN, VARIABLE_TABLE_FNAME, sep="/")
-NAME <- "tanzania"
+NAME <- "tanzania_tuned"
 
 # setwd("C:/Users/Jack/Box Sync/Poverty Targeting/LSMS_ISA/Tanzania/")
 # data_in = "intermediate/data/intermediate_tanzania_for_R_1.dta"
