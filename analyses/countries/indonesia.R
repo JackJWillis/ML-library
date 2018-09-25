@@ -286,5 +286,5 @@ name <- 'indonesia'
 #clear_config(name)
 fold <- get_pmt_train_test('10')
 save_dataset(name, fold$train)
-output <- test_on_fold(name, fold, METHOD_LIST)
+output <- test_on_fold(name, fold, c(METHOD_LIST,METHOD_25_LIST))
 save_validation_models_(name, output)
