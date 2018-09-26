@@ -51,14 +51,13 @@ library(zoo)
 THRESHOLD <- 0.2
 # all_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania_2008', 'tanzania_2010', 'tanzania_2012', 'ghana_pe', 'mexico', 'south_africa_w1', 'south_africa_w2', 'south_africa_w3', 'iraq', 'brazil')
 # all_names <- c('niger_pastoral', 'niger_agricultural', 'tanzania_2008')
-all_names <- c('niger_pastoral_tuned', 'niger_agricultural_tuned', 'brazil_tuned', 'ghana_tuned_pe', 'iraq_tuned', 'mexico_tuned')
+all_names <- c('niger_pastoral_tuned', 'niger_agricultural_tuned', 'brazil_tuned', 'ghana_tuned_pe', 'iraq_tuned', 'mexico_tuned','tanzania_2008_tuned', 'tanzania_2010_tuned', 'tanzania_2012_tuned', 'indonesia')
 countries <- strsplit(all_names, '_') %>% 
   purrr::map(first) %>%
   unique() %>%
   purrr::map(cap)
 
 # pmt_names <- c('niger_pastoral_pmt', 'niger_agricultural_pmt', 'ghana')
-# pmt_names <- c('niger_pastoral_pmt_tuned', 'niger_agricultural_pmt_tuned', 'ghana_tuned')
 pmt_names <- c('niger_pastoral_pmt_tuned', 'niger_agricultural_pmt_tuned', 'ghana_tuned')
 renames <- list(
   niger_pastoral='niger_1',
